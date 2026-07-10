@@ -4328,20 +4328,19 @@ input.encounters-filter-field[type='date']::-webkit-calendar-picker-indicator {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.5rem;
   width: 100%;
 }
 
-.queue-assigned-action__icon {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  color: #6b7280;
+.queue-assigned-action .user-badge {
+  padding: 0.2rem 0.45rem 0.2rem 0.2rem;
+  border-radius: 0.625rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
 }
 
-.dark .queue-assigned-action__icon {
-  color: #a3a3a3;
+.dark .queue-assigned-action .user-badge {
+  background: #171717;
+  border-color: #404040;
 }
 
 .queue-table td .user-badge {
@@ -4349,7 +4348,7 @@ input.encounters-filter-field[type='date']::-webkit-calendar-picker-indicator {
 }
 
 .queue-action-col .queue-assigned-action .user-badge {
-  max-width: 9rem;
+  max-width: 9.5rem;
 }
 
 .queue-empty {
