@@ -14,6 +14,14 @@ import LabResult from '#models/lab_result'
 import CalendarEvent from '#models/calendar_event'
 import RbacService, { USER_MORPH_TYPE } from '#services/auth/rbac_service'
 import { publicStorageUrl } from '#support/public_storage_url'
+import { EncounterStageHelper } from '#enums/encounter_stage'
+import { EncounterStatusHelper } from '#enums/encounter_status'
+import type Patient from '#models/patient'
+
+function patientProfileHref(patient: Pick<Patient, 'patientId'> | null | undefined): string | null {
+  const id = patient?.patientId?.trim()
+  return id ? `/patients/${id}` : null
+}
 
 /**
  * Staff user management + self-service profile.
@@ -179,9 +187,10 @@ export default class UsersController {
     return response.redirect().toPath('/users')
   }
 
-  async show({ params, inertia }: HttpContext) {
+  async show({ auth, params, inertia, request }: HttpContext) {
     const user = await User.findOrFail(params.user)
-    return inertia.render('users/show', await this.buildProfilePayload(user))
+    const authUser = auth.use('web').user!
+    return inertia.render('users/show', await this.buildProfilePayload(user, authUser.id, request))
   }
 
   async edit({ params, inertia }: HttpContext) {
@@ -257,9 +266,9 @@ export default class UsersController {
 
   // ── Self-service profile (current authenticated user) ─────────────────────
 
-  async profile({ auth, inertia }: HttpContext) {
+  async profile({ auth, inertia, request }: HttpContext) {
     const user = auth.use('web').user!
-    return inertia.render('profile/show', await this.buildProfilePayload(user))
+    return inertia.render('profile/show', await this.buildProfilePayload(user, user.id, request))
   }
 
   async editProfile({ auth, inertia }: HttpContext) {
@@ -380,7 +389,11 @@ export default class UsersController {
    * Laravel show() view data; the per-source relations that the Adonis User
    * model does not declare are queried directly against their foreign keys.
    */
-  private async buildProfilePayload(user: User) {
+  private async buildProfilePayload(
+    user: User,
+    viewerId?: number,
+    request?: HttpContext['request']
+  ) {
     const uid = user.id
 
     const count = async (query: any): Promise<number> => {
@@ -407,6 +420,7 @@ export default class UsersController {
     ])
 
     const SOURCE_LIMIT = 100
+    const patientSelect = (q: any) => q.select('id', 'full_name', 'patient_id')
     const timeline: {
       type: string
       label: string
@@ -415,11 +429,13 @@ export default class UsersController {
       date: string | null
       icon: string
       color: string
+      href: string | null
+      patient_href: string | null
     }[] = []
 
     const started = await Encounter.query()
       .where('startedBy', uid)
-      .preload('patient', (q) => q.select('id', 'full_name'))
+      .preload('patient', patientSelect)
       .orderBy('started_at', 'desc')
       .limit(SOURCE_LIMIT)
     for (const e of started) {
@@ -431,12 +447,14 @@ export default class UsersController {
         date: (e.startedAt ?? e.createdAt)?.toISO() ?? null,
         icon: 'door',
         color: 'blue',
+        href: `/encounters/${e.id}`,
+        patient_href: patientProfileHref(e.patient),
       })
     }
 
     const closed = await Encounter.query()
       .where('closedBy', uid)
-      .preload('patient', (q) => q.select('id', 'full_name'))
+      .preload('patient', patientSelect)
       .orderBy('closed_at', 'desc')
       .limit(SOURCE_LIMIT)
     for (const e of closed) {
@@ -448,12 +466,14 @@ export default class UsersController {
         date: (e.closedAt ?? e.updatedAt)?.toISO() ?? null,
         icon: 'check',
         color: 'green',
+        href: `/encounters/${e.id}`,
+        patient_href: patientProfileHref(e.patient),
       })
     }
 
     const scripts = await PharmacyPrescription.query()
       .where('prescribedBy', uid)
-      .preload('patient', (q) => q.select('id', 'full_name'))
+      .preload('patient', patientSelect)
       .orderBy('prescribed_at', 'desc')
       .limit(SOURCE_LIMIT)
     for (const p of scripts) {
@@ -465,12 +485,14 @@ export default class UsersController {
         date: (p.prescribedAt ?? p.createdAt)?.toISO() ?? null,
         icon: 'pill',
         color: 'purple',
+        href: `/pharmacy/${p.encounterId}`,
+        patient_href: patientProfileHref(p.patient),
       })
     }
 
     const disp = await PharmacyDispense.query()
       .where('dispensedBy', uid)
-      .preload('patient', (q) => q.select('id', 'full_name'))
+      .preload('patient', patientSelect)
       .orderBy('created_at', 'desc')
       .limit(SOURCE_LIMIT)
     for (const d of disp) {
@@ -482,12 +504,14 @@ export default class UsersController {
         date: d.createdAt?.toISO() ?? null,
         icon: 'bag',
         color: 'orange',
+        href: `/pharmacy/${d.encounterId}`,
+        patient_href: patientProfileHref(d.patient),
       })
     }
 
     const recorded = await LabResult.query()
       .where('recordedBy', uid)
-      .preload('patient', (q) => q.select('id', 'full_name'))
+      .preload('patient', patientSelect)
       .orderBy('result_recorded_at', 'desc')
       .limit(SOURCE_LIMIT)
     for (const r of recorded) {
@@ -499,12 +523,14 @@ export default class UsersController {
         date: (r.resultRecordedAt ?? r.createdAt)?.toISO() ?? null,
         icon: 'flask',
         color: 'teal',
+        href: `/lab/${r.encounterId}`,
+        patient_href: patientProfileHref(r.patient),
       })
     }
 
     const verified = await LabResult.query()
       .where('verifiedBy', uid)
-      .preload('patient', (q) => q.select('id', 'full_name'))
+      .preload('patient', patientSelect)
       .orderBy('verified_at', 'desc')
       .limit(SOURCE_LIMIT)
     for (const r of verified) {
@@ -516,6 +542,8 @@ export default class UsersController {
         date: (r.verifiedAt ?? r.updatedAt)?.toISO() ?? null,
         icon: 'shield',
         color: 'indigo',
+        href: `/lab/${r.encounterId}`,
+        patient_href: patientProfileHref(r.patient),
       })
     }
 
@@ -532,10 +560,53 @@ export default class UsersController {
         date: ev.createdAt?.toISO() ?? null,
         icon: 'calendar',
         color: 'rose',
+        href: `/calendar/events/${ev.id}`,
+        patient_href: null,
       })
     }
 
     timeline.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
+
+    const TIMELINE_PER_PAGE = 10
+    const timelineTotal = timeline.length
+    const timelineLastPage = Math.max(1, Math.ceil(timelineTotal / TIMELINE_PER_PAGE))
+    const requestedPage = Math.max(1, Number(request?.input('timeline_page', 1)) || 1)
+    const timelineCurrentPage = Math.min(requestedPage, timelineLastPage)
+    const timelineFrom =
+      timelineTotal === 0 ? 0 : (timelineCurrentPage - 1) * TIMELINE_PER_PAGE + 1
+    const timelineTo = Math.min(timelineCurrentPage * TIMELINE_PER_PAGE, timelineTotal)
+    const timelineItems = timeline.slice(
+      (timelineCurrentPage - 1) * TIMELINE_PER_PAGE,
+      timelineCurrentPage * TIMELINE_PER_PAGE
+    )
+
+    const RECENT_LIMIT = 10
+    const [recentEncounters, recentPrescriptions, recentLabResults, recentDispenses] =
+      await Promise.all([
+        Encounter.query()
+          .where('startedBy', uid)
+          .preload('patient', patientSelect)
+          .orderBy('started_at', 'desc')
+          .limit(RECENT_LIMIT),
+        PharmacyPrescription.query()
+          .where('prescribedBy', uid)
+          .preload('patient', patientSelect)
+          .orderBy('prescribed_at', 'desc')
+          .limit(RECENT_LIMIT),
+        LabResult.query()
+          .where('recordedBy', uid)
+          .preload('patient', patientSelect)
+          .orderBy('result_recorded_at', 'desc')
+          .limit(RECENT_LIMIT),
+        PharmacyDispense.query()
+          .where('dispensedBy', uid)
+          .preload('patient', patientSelect)
+          .orderBy('created_at', 'desc')
+          .limit(RECENT_LIMIT),
+      ])
+
+    const fmtDateTime = (dt: DateTime | null | undefined): string | null =>
+      dt?.toFormat('dd LLL yyyy HH:mm') ?? null
 
     return {
       user: {
@@ -549,6 +620,10 @@ export default class UsersController {
         is_portal_bookable: Boolean(user.isPortalBookable),
         profile_photo_url: publicStorageUrl(user.profilePhotoPath),
         roles: await user.getRoleNames(),
+        created_at: user.createdAt?.toFormat('dd LLL yyyy') ?? null,
+        updated_at: user.updatedAt?.toISO() ?? null,
+        email_verified_at: user.emailVerifiedAt?.toFormat('dd LLL yyyy') ?? null,
+        is_self: viewerId !== undefined && user.id === viewerId,
       },
       stats: {
         encountersStarted,
@@ -559,7 +634,55 @@ export default class UsersController {
         labVerified,
         calendarEvents,
       },
-      timeline,
+      timeline: {
+        items: timelineItems,
+        total: timelineTotal,
+        per_page: TIMELINE_PER_PAGE,
+        current_page: timelineCurrentPage,
+        last_page: timelineLastPage,
+        from: timelineFrom,
+        to: timelineTo,
+      },
+      recentEncounters: recentEncounters.map((e) => ({
+        id: e.id,
+        encounter_number: e.encounterNumber ?? `#${e.id}`,
+        patient_name: e.patient?.fullName ?? '—',
+        patient_href: patientProfileHref(e.patient),
+        stage: EncounterStageHelper.label(e.currentStage),
+        status: EncounterStatusHelper.label(e.currentStatus),
+        status_key: String(e.currentStatus).toLowerCase(),
+        started_at: fmtDateTime(e.startedAt ?? e.createdAt),
+        href: `/encounters/${e.id}`,
+      })),
+      recentPrescriptions: recentPrescriptions.map((p) => ({
+        id: p.id,
+        encounter_id: p.encounterId,
+        prescription_number: p.prescriptionNumber ?? `#${p.id}`,
+        patient_name: p.patient?.fullName ?? '—',
+        patient_href: patientProfileHref(p.patient),
+        status: p.status,
+        prescribed_at: fmtDateTime(p.prescribedAt ?? p.createdAt),
+        href: `/pharmacy/${p.encounterId}`,
+      })),
+      recentLabResults: recentLabResults.map((r) => ({
+        id: r.id,
+        encounter_id: r.encounterId,
+        patient_name: r.patient?.fullName ?? '—',
+        patient_href: patientProfileHref(r.patient),
+        interpretation: r.interpretation,
+        result_status: r.resultStatus,
+        recorded_at: fmtDateTime(r.resultRecordedAt ?? r.createdAt),
+        href: `/lab/${r.encounterId}`,
+      })),
+      recentDispenses: recentDispenses.map((d) => ({
+        id: d.id,
+        encounter_id: d.encounterId,
+        patient_name: d.patient?.fullName ?? '—',
+        patient_href: patientProfileHref(d.patient),
+        status: 'completed',
+        date: fmtDateTime(d.dispensedAt ?? d.createdAt),
+        href: `/pharmacy/${d.encounterId}`,
+      })),
     }
   }
 }

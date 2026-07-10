@@ -220,6 +220,46 @@ docker compose -f docker-compose.local.yml down
 
 - Add persistent mounts for `/app/public/storage` and `/app/storage/app`.
 
+### Staff profile photos missing (404 on `/storage/profile-photos/...`)
+
+**Symptom:** Users page shows initials; browser console has 404s for `/storage/profile-photos/*.png`.
+
+**Cause:** The database was imported with `profile_photo_path` values, but image files were never copied to the container volume (uploads are not in the Docker image).
+
+**Fix:**
+
+1. Ensure `/app/public/storage` is a **persistent volume** in Coolify.
+2. Copy photos from your legacy Laravel checkout (e.g. BARCODES `storage/app/public/profile-photos/`) onto the server.
+3. Inside the running container (or locally against production DB), run:
+
+```bash
+# Match existing DB paths (staff-1.jpg, etc.)
+node ace users:sync-profile-photos /path/to/legacy/storage/app/public
+
+# Or copy everything in the source folder
+node ace users:sync-profile-photos /path/to/legacy/storage/app/public --bulk
+
+# When doctor PNGs are missing but staff-{id}.jpg exists, assign fallback photos
+node ace users:sync-profile-photos /path/to/legacy/storage/app/public --fallback-staff
+```
+
+**Local example** (BARCODES checkout on your Mac, app pointed at production DB):
+
+```bash
+node ace users:sync-profile-photos ~/Projects/BARCODES/storage/app/public --fallback-staff
+```
+
+**Note:** BARCODES typically has `staff-{id}.jpg` seeded photos (~30 files). Doctor portraits uploaded via the Laravel admin UI use random filenames (`*.png`) and may only exist on the old production server — copy that folder too, or re-upload from the Users edit screen.
+
+**Rsync to Coolify host** (replace paths/SSH target):
+
+```bash
+rsync -avz ~/Projects/BARCODES/storage/app/public/profile-photos/ \
+  user@13.140.178.28:/path/to/coolify/volume/public/storage/profile-photos/
+```
+
+After files are on disk, redeploy is not required — refresh `/users`.
+
 ### Login fails — `Invalid or expired CSRF token`
 
 **Symptom:** Login page loads but sign-in does nothing; logs show `Invalid or expired CSRF token`.
