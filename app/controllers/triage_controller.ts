@@ -22,6 +22,7 @@ import { buildPatientHeaderEncounter } from '#support/encounter/patient_header_p
 import { loadClinicalSuggestions } from '#support/clinical/load_clinical_suggestions'
 import { triageVitalsValidator, startupMedicationValidator } from '#validators/staff/triage'
 import { errors as vineErrors } from '@vinejs/vine'
+import { queueUserBadge } from '#support/queue/queue_user_badge'
 
 /**
  * Triage workbench. Ported from App\Http\Controllers\TriageController.
@@ -86,6 +87,8 @@ function queueRow(
     updated_at_relative: e.updatedAt?.toRelative() ?? null,
     queued_by_name: transition?.queuedByUser?.name ?? 'Unknown user',
     received_by_name: transition?.receivedByUser?.name ?? null,
+    queued_by: queueUserBadge(transition?.queuedByUser),
+    received_by: queueUserBadge(transition?.receivedByUser),
     has_allergies: Boolean(e.patient?.allergies?.trim()),
     can_manage: canManage,
     temperature: triage?.temperature ?? null,

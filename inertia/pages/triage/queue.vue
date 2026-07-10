@@ -11,7 +11,14 @@ import QueuePagination from '~/components/staff/queue/QueuePagination.vue'
 import TemperatureQueueIndicator from '~/components/staff/queue/TemperatureQueueIndicator.vue'
 import QueueEncounterCell from '~/components/staff/queue/QueueEncounterCell.vue'
 import QueuePatientCell from '~/components/staff/queue/QueuePatientCell.vue'
+import QueueStaffUserCell from '~/components/staff/queue/QueueStaffUserCell.vue'
+import QueueAssignedAction from '~/components/staff/queue/QueueAssignedAction.vue'
 import { useLiveQueueRefresh } from '~/composables/useLiveQueueRefresh'
+
+type QueueUser = {
+  name: string
+  role?: string | null
+}
 
 type Row = {
   id: number
@@ -22,6 +29,8 @@ type Row = {
   updated_at_relative: string | null
   queued_by_name: string | null
   received_by_name: string | null
+  queued_by: QueueUser | null
+  received_by: QueueUser | null
   has_allergies: boolean
   can_manage: boolean
   temperature: number | null
@@ -116,7 +125,9 @@ function receive(id: number) {
                   </span>
                 </div>
               </td>
-              <td><div class="queue-cell-sub font-medium text-neutral-700 dark:text-neutral-300">{{ row.queued_by_name ?? 'Unknown user' }}</div></td>
+              <td>
+                <QueueStaffUserCell :user="row.queued_by" :name="row.queued_by_name ?? 'Unknown user'" />
+              </td>
               <td class="queue-action-col">
                 <span v-if="isRegistrationClerk" class="queue-readonly">Read only</span>
                 <QueueReceiveButton v-else :processing="receivingId === row.id" @click="receive(row.id)" />
@@ -163,11 +174,17 @@ function receive(id: number) {
               <td>
                 <TemperatureQueueIndicator :temperature="row.temperature" />
               </td>
-              <td><div class="queue-cell-sub font-medium">{{ row.received_by_name || 'Unknown user' }}</div></td>
+              <td>
+                <QueueStaffUserCell :user="row.received_by" :name="row.received_by_name ?? 'Unknown user'" />
+              </td>
               <td class="queue-action-col">
                 <span v-if="isRegistrationClerk" class="queue-readonly">Read only</span>
                 <QueueRecordButton v-else-if="row.can_manage" :href="`/triage/${row.id}`" label="Record" />
-                <span v-else class="queue-assigned">Assigned to {{ row.received_by_name || 'another user' }}</span>
+                <QueueAssignedAction
+                  v-else
+                  :user="row.received_by"
+                  :name="row.received_by_name ?? 'another user'"
+                />
               </td>
             </tr>
           </QueueTable>
