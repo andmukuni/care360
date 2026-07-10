@@ -8,7 +8,19 @@ const props = defineProps<{ user: any }>()
 
 <template>
   <StaffLayout>
-    <template #header><h1 class="text-lg font-semibold">Edit User</h1></template>
+    <template #header>
+      <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wide text-sand-11">Staff Management</p>
+          <h1 class="text-lg font-semibold text-slate-900 dark:text-neutral-100">Edit {{ props.user.name }}</h1>
+          <p class="mt-0.5 text-sm text-sand-11">Update profile details, credentials, and patient portal visibility.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <Link href="/users" class="theme-icon-btn rounded px-3 py-1.5 text-sm">All staff</Link>
+          <Link :href="`/users/${props.user.id}`" class="theme-icon-btn rounded px-3 py-1.5 text-sm">View profile</Link>
+        </div>
+      </div>
+    </template>
 
     <EditForm :user="props.user" :action="`/users/${props.user.id}`" :show-portal-toggle="true">
       <template #cancel>

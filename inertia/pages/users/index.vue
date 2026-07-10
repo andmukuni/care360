@@ -438,7 +438,7 @@ function destroy() {
     >
       <template #cell:name="{ row }">
         <div class="flex items-center gap-3">
-          <UserAvatar :name="row.raw_name" :photo-url="row.profile_photo_url" size="sm" />
+          <UserAvatar :name="row.raw_name" :photo-url="row.profile_photo_url" size="md" />
           <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-1.5">
               <Link :href="`/users/${row.id}`" class="font-medium text-slate-900 hover:text-blue-700 hover:underline">
