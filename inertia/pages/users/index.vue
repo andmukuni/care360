@@ -351,8 +351,8 @@ function destroy() {
     </div>
 
     <div class="users-page__filters card mb-3 p-3">
-      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-12">
-        <div class="relative sm:col-span-2 xl:col-span-4">
+      <div class="users-page__filters-row">
+        <div class="users-page__filters-field users-page__filters-field--search relative">
           <svg
             class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400"
             fill="none"
@@ -371,14 +371,14 @@ function destroy() {
           />
         </div>
 
-        <div class="xl:col-span-2">
+        <div class="users-page__filters-field">
           <select v-model="filters.role" :class="fieldClass" aria-label="Filter by role">
             <option value="">All roles</option>
             <option v-for="role in props.roles" :key="role" :value="role">{{ role }}</option>
           </select>
         </div>
 
-        <div class="xl:col-span-2">
+        <div class="users-page__filters-field">
           <select v-model="filters.portal" :class="fieldClass" aria-label="Filter by portal visibility">
             <option v-for="option in portalOptions" :key="option.value" :value="option.value">
               {{ option.label }}
@@ -386,7 +386,7 @@ function destroy() {
           </select>
         </div>
 
-        <div class="xl:col-span-2">
+        <div class="users-page__filters-field">
           <select v-model="filters.photo" :class="fieldClass" aria-label="Filter by profile photo">
             <option v-for="option in photoOptions" :key="option.value" :value="option.value">
               {{ option.label }}
@@ -394,7 +394,7 @@ function destroy() {
           </select>
         </div>
 
-        <div class="xl:col-span-2">
+        <div class="users-page__filters-field">
           <select v-model="filters.roleCoverage" :class="fieldClass" aria-label="Filter by role assignment">
             <option v-for="option in roleCoverageOptions" :key="option.value" :value="option.value">
               {{ option.label }}
