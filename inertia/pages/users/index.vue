@@ -51,6 +51,7 @@ const props = defineProps<{
 const columns = [
   { key: 'name', label: 'Staff Member' },
   { key: 'specialty', label: 'Specialty' },
+  { key: 'is_portal_bookable', label: 'Portal', class: 'w-24 whitespace-nowrap' },
   { key: 'roles', label: 'Roles', sortable: false },
   { key: 'created_at', label: 'Joined' },
 ]
@@ -450,12 +451,6 @@ function destroy() {
               >
                 you
               </span>
-              <span
-                v-if="row.is_portal_bookable"
-                class="rounded bg-teal-50 px-1.5 py-0.5 text-[10px] font-semibold text-teal-700"
-              >
-                Portal
-              </span>
             </div>
             <p class="truncate text-xs text-sand-11">{{ row.email }}</p>
           </div>
@@ -465,6 +460,16 @@ function destroy() {
       <template #cell:specialty="{ row }">
         <span v-if="row.specialty" class="text-slate-700">{{ row.specialty }}</span>
         <span v-else class="text-sand-11">—</span>
+      </template>
+
+      <template #cell:is_portal_bookable="{ row }">
+        <span
+          v-if="row.is_portal_bookable"
+          class="inline-flex rounded bg-teal-50 px-1.5 py-0.5 text-[10px] font-semibold text-teal-700"
+        >
+          Portal
+        </span>
+        <span v-else class="text-xs text-sand-11">—</span>
       </template>
 
       <template #cell:roles="{ row }">
