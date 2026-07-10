@@ -40,10 +40,14 @@ export function useLiveQueueRefresh(options: { stages: string[]; only: string[] 
   }
 
   onMounted(async () => {
-    const subscription = staffTransmit().subscription('staff/queues')
-    subscriptionRef.value = subscription
-    await subscription.create()
-    subscription.onMessage(onQueueMessage)
+    try {
+      const subscription = staffTransmit().subscription('staff/queues')
+      subscriptionRef.value = subscription
+      await subscription.create()
+      subscription.onMessage(onQueueMessage)
+    } catch {
+      /* Live queue updates unavailable — page still works without SSE */
+    }
   })
 
   onUnmounted(async () => {

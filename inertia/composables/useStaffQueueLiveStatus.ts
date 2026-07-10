@@ -25,15 +25,19 @@ function ensureWired() {
 
   wired = true
 
-  const transmit = staffTransmit()
-  const update = (event: Event) => {
-    status.value = mapTransmitEvent(event.type)
-  }
+  try {
+    const transmit = staffTransmit()
+    const update = (event: Event) => {
+      status.value = mapTransmitEvent(event.type)
+    }
 
-  transmit.on('connected', update)
-  transmit.on('disconnected', update)
-  transmit.on('reconnecting', update)
-  transmit.on('initializing', update)
+    transmit.on('connected', update)
+    transmit.on('disconnected', update)
+    transmit.on('reconnecting', update)
+    transmit.on('initializing', update)
+  } catch {
+    status.value = 'offline'
+  }
 }
 
 export function useStaffQueueLiveStatus() {
