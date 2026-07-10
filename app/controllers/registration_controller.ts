@@ -23,26 +23,40 @@ const PRIORITY_LEVELS: Record<string, string> = {
   emergency: 'Emergency',
 }
 
+let villagesCache: { expiresAt: number; names: string[] } | null = null
+const VILLAGES_TTL_MS = 5 * 60_000
+
+async function listVillageNames(): Promise<string[]> {
+  const now = Date.now()
+  if (villagesCache && villagesCache.expiresAt > now) {
+    return villagesCache.names
+  }
+
+  const villages = await db.from('villages').select('name').orderBy('name')
+  const names = villages.map((v) => v.name as string)
+  villagesCache = { expiresAt: now + VILLAGES_TTL_MS, names }
+  return names
+}
+
 /**
  * Registration desk. Ported from App\Http\Controllers\RegistrationController.
  */
 export default class RegistrationController {
   // GET /registration
-  async index({ inertia, auth, request }: HttpContext) {
-    const user = auth.use('web').user ?? null
-    const roleNames = user ? await user.getRoleNames() : []
+  async index({ inertia, request, authRoleNames }: HttpContext) {
+    const roleNames = authRoleNames ?? []
     const isRegistrationClerk = roleNames.includes('registration-clerk')
 
     const page = Math.max(1, Number(request.qs().page ?? 1))
-    const paginator = await Encounter.query()
-      .preload('patient')
-      .preload('registrationRecords')
-      .where('current_stage', EncounterStage.Registration)
-      .whereIn('current_status', [EncounterStatus.Started, EncounterStatus.InProgress])
-      .orderBy('started_at', 'desc')
-      .paginate(page, 15)
-
-    const villages = await db.from('villages').select('name').orderBy('name')
+    const [paginator, villages] = await Promise.all([
+      Encounter.query()
+        .preload('patient')
+        .where('current_stage', EncounterStage.Registration)
+        .whereIn('current_status', [EncounterStatus.Started, EncounterStatus.InProgress])
+        .orderBy('started_at', 'desc')
+        .paginate(page, 15),
+      listVillageNames(),
+    ])
 
     const registrationDeskKpis = {
       patientsToday: 0,
@@ -54,43 +68,36 @@ export default class RegistrationController {
     if (isRegistrationClerk) {
       const today = DateTime.now().toISODate()!
 
-      registrationDeskKpis.patientsToday = Number(
-        (
-          await db
+      const [patientsToday, householdsToday, activeDeskEncounters, queuedToTriageToday] =
+        await Promise.all([
+          db
             .from('patients')
             .whereRaw('DATE(COALESCE(source_created_at, created_at)) = ?', [today])
             .count('* as total')
-        )[0]?.total ?? 0
-      )
-
-      registrationDeskKpis.householdsToday = Number(
-        (
-          await db
+            .then((rows) => Number(rows[0]?.total ?? 0)),
+          db
             .from('households')
             .whereRaw('DATE(COALESCE(source_created_at, created_at)) = ?', [today])
             .count('* as total')
-        )[0]?.total ?? 0
-      )
-
-      registrationDeskKpis.activeDeskEncounters = Number(
-        (
-          await db
+            .then((rows) => Number(rows[0]?.total ?? 0)),
+          db
             .from('encounters')
             .where('current_stage', EncounterStage.Registration)
             .whereIn('current_status', [EncounterStatus.Started, EncounterStatus.InProgress])
             .count('* as total')
-        )[0]?.total ?? 0
-      )
-
-      registrationDeskKpis.queuedToTriageToday = Number(
-        (
-          await db
+            .then((rows) => Number(rows[0]?.total ?? 0)),
+          db
             .from('encounters')
             .where('current_stage', EncounterStage.Triage)
             .whereRaw('DATE(updated_at) = ?', [today])
             .count('* as total')
-        )[0]?.total ?? 0
-      )
+            .then((rows) => Number(rows[0]?.total ?? 0)),
+        ])
+
+      registrationDeskKpis.patientsToday = patientsToday
+      registrationDeskKpis.householdsToday = householdsToday
+      registrationDeskKpis.activeDeskEncounters = activeDeskEncounters
+      registrationDeskKpis.queuedToTriageToday = queuedToTriageToday
     }
 
     const items = paginator.all()
@@ -115,7 +122,7 @@ export default class RegistrationController {
           total: paginator.total,
         },
       },
-      villages: villages.map((v) => v.name),
+      villages,
       visitTypes: VISIT_TYPES,
       priorityLevels: Object.entries(PRIORITY_LEVELS).map(([value, label]) => ({ value, label })),
       selectedHouseholdOption: null,

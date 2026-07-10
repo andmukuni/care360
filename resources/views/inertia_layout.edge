@@ -35,6 +35,10 @@
 </head>
 
 <body class="min-h-screen w-screen font-sans bg-white dark:bg-neutral-950 text-neutral-800 dark:text-neutral-100 antialiased">
+  <div id="app-boot" role="status" aria-live="polite" aria-label="Loading application">
+    <div id="app-boot-spinner" aria-hidden="true"></div>
+    <span>Loading Care360…</span>
+  </div>
   @inertia()
 
   <script>

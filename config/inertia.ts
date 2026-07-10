@@ -41,18 +41,6 @@ const inertiaConfig = defineConfig({
       }
       return StaffSidebarService.navBadges()
     },
-    stageCounts: async (ctx) => {
-      if (!ctx.auth?.user) return {}
-      return (await StaffSidebarService.navBadges()).stageCounts
-    },
-    pendingAppointmentCount: async (ctx) => {
-      if (!ctx.auth?.user) return 0
-      return (await StaffSidebarService.navBadges()).pendingAppointmentCount
-    },
-    pendingKycCount: async (ctx) => {
-      if (!ctx.auth?.user) return 0
-      return (await StaffSidebarService.navBadges()).pendingKycCount
-    },
   },
 
   /**

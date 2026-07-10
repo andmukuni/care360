@@ -61,6 +61,7 @@ export const middleware = router.named({
    *   portal.locale        -> portalLocale
    *   staff.api            -> staffApi
    */
+  resolveStaffRbac: () => import('#middleware/resolve_staff_rbac_middleware'),
   permissionOrLegacy: () => import('#middleware/permission_or_legacy_middleware'),
   portalActive: () => import('#middleware/ensure_patient_portal_active_middleware'),
   portalApiActive: () => import('#middleware/ensure_patient_api_portal_active_middleware'),

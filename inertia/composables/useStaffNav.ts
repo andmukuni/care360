@@ -59,9 +59,17 @@ export function useStaffNav() {
   const page = usePage()
   const roles = computed(() => (page.props.roles as string[]) ?? [])
   const permissions = computed(() => (page.props.permissions as string[]) ?? [])
-  const stageCounts = computed(() => (page.props.stageCounts as Record<string, number>) ?? {})
-  const pendingAppointmentCount = computed(() => Number(page.props.pendingAppointmentCount ?? 0))
-  const pendingKycCount = computed(() => Number(page.props.pendingKycCount ?? 0))
+  const navBadges = computed(
+    () =>
+      (page.props.navBadges as {
+        stageCounts?: Record<string, number>
+        pendingAppointmentCount?: number
+        pendingKycCount?: number
+      }) ?? {}
+  )
+  const stageCounts = computed(() => navBadges.value.stageCounts ?? {})
+  const pendingAppointmentCount = computed(() => Number(navBadges.value.pendingAppointmentCount ?? 0))
+  const pendingKycCount = computed(() => Number(navBadges.value.pendingKycCount ?? 0))
 
   const currentPath = computed(() => page.url.split('?')[0])
 

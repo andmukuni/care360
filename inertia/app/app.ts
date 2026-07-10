@@ -81,5 +81,11 @@ createInertiaApp({
     createApp({ render: () => [h(App, props), h(NavigationSpinner), h(ToastContainer)] })
       .use(plugin)
       .mount(el)
+
+    const boot = document.getElementById('app-boot')
+    if (boot) {
+      boot.classList.add('is-hidden')
+      window.setTimeout(() => boot.remove(), 250)
+    }
   },
 })

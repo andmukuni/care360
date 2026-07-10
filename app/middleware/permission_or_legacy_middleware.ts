@@ -34,11 +34,15 @@ export default class PermissionOrLegacyMiddleware {
       return ctx.response.abort('Forbidden', 403)
     }
 
-    const roleNames = await user.getRoleNames()
-    const permissionNames = await user.getPermissionNames()
+    if (ctx.authRoleNames === undefined || ctx.authPermissionNames === undefined) {
+      const roleNames = await user.getRoleNames()
+      const permissionNames = await user.getPermissionNames()
+      ctx.authRoleNames = roleNames
+      ctx.authPermissionNames = permissionNames
+    }
 
-    ctx.authRoleNames = roleNames
-    ctx.authPermissionNames = permissionNames
+    const roleNames = ctx.authRoleNames!
+    const permissionNames = ctx.authPermissionNames!
 
     const isLegacyUserWithoutRbac = roleNames.length === 0 && permissionNames.length === 0
 

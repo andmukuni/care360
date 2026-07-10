@@ -39,14 +39,26 @@ export function useLiveQueueRefresh(options: { stages: string[]; only: string[] 
     }
   }
 
-  onMounted(async () => {
-    try {
-      const subscription = staffTransmit().subscription('staff/queues')
-      subscriptionRef.value = subscription
-      await subscription.create()
-      subscription.onMessage(onQueueMessage)
-    } catch {
-      /* Live queue updates unavailable — page still works without SSE */
+  onMounted(() => {
+    const connect = async () => {
+      try {
+        const subscription = staffTransmit().subscription('staff/queues')
+        subscriptionRef.value = subscription
+        await subscription.create()
+        subscription.onMessage(onQueueMessage)
+      } catch {
+        /* Live queue updates unavailable — page still works without SSE */
+      }
+    }
+
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(() => {
+        void connect()
+      })
+    } else {
+      window.setTimeout(() => {
+        void connect()
+      }, 0)
     }
   })
 

@@ -528,4 +528,4 @@ router
       })
       .use(perm('settings.manage'))
   })
-  .use(middleware.auth())
+  .use([middleware.auth(), middleware.resolveStaffRbac()])

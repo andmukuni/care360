@@ -1,11 +1,7 @@
 @import '@fontsource/instrument-sans/400.css';
-@import '@fontsource/instrument-sans/400-italic.css';
 @import '@fontsource/instrument-sans/500.css';
-@import '@fontsource/instrument-sans/500-italic.css';
 @import '@fontsource/instrument-sans/600.css';
-@import '@fontsource/instrument-sans/600-italic.css';
 @import '@fontsource/instrument-sans/700.css';
-@import '@fontsource/instrument-sans/700-italic.css';
 
 @tailwind base;
 @tailwind components;
@@ -20,4 +16,49 @@ html,
 body {
   height: 100%;
   width: 100%;
+}
+
+#app-boot {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fafaf9;
+  color: #525252;
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 0.875rem;
+  transition: opacity 0.2s ease;
+}
+
+html.dark #app-boot {
+  background: #0a0a0a;
+  color: #a3a3a3;
+}
+
+#app-boot.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#app-boot-spinner {
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-right: 0.75rem;
+  border: 2px solid #e5e5e5;
+  border-top-color: #171717;
+  border-radius: 9999px;
+  animation: app-boot-spin 0.8s linear infinite;
+}
+
+html.dark #app-boot-spinner {
+  border-color: #404040;
+  border-top-color: #f5f5f5;
+}
+
+@keyframes app-boot-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
