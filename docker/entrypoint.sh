@@ -22,5 +22,7 @@ if [ "${RUN_DICTIONARY_SYNC:-false}" = "true" ]; then
   node ace dictionary:sync
 fi
 
+echo "[entrypoint] Cookie secure flag: ${COOKIE_SECURE:-auto} (SERVICE_URL_APP=${SERVICE_URL_APP:-unset})"
+
 echo "[entrypoint] Starting HTTP server on ${HOST:-0.0.0.0}:${PORT:-3333}..."
 exec node bin/server.js

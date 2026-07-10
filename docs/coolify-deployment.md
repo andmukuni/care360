@@ -71,7 +71,7 @@ Paste into Coolify → **Production Environment Variables** as plain `KEY=value`
 | `APP_KEY` | *(secret — from `node ace generate:key`)* |
 | `LOG_LEVEL` | `info` |
 | `SESSION_DRIVER` | `cookie` |
-| `COOKIE_SECURE` | `false` when using plain `http://` (sslip.io without TLS). Omit or `true` once HTTPS is enabled. |
+| `COOKIE_SECURE` | `false` when using plain `http://` (sslip.io without TLS). Auto-detected from `SERVICE_URL_APP` / `APP_URL` when unset. |
 | `TZ` | `Africa/Lusaka` or `UTC` |
 | `DATABASE_URL` | `postgres://postgres:PASSWORD@13.140.178.27:3815/postgres` |
 | `DB_HOST` | `13.140.178.27` |
