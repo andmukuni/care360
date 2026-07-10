@@ -18,7 +18,7 @@ const form = useForm({
 })
 
 const fieldClass =
-  'theme-field h-12 w-full rounded-lg px-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-[#5A45FF33] dark:placeholder:text-neutral-500 dark:focus:ring-0'
+  'theme-field h-10 w-full rounded-lg px-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-[#5A45FF33] dark:placeholder:text-neutral-500 dark:focus:ring-0'
 
 function submit() {
   form.post('/login')
@@ -27,9 +27,9 @@ function submit() {
 
 <template>
   <AuthLayout :brand-title="clinicName" brand-tagline="Hospital Management System">
-    <div class="space-y-8">
+    <div class="space-y-6">
       <div>
-        <h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-neutral-100">Welcome back</h1>
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-neutral-100">Welcome back</h1>
         <p class="mt-2 text-sm text-slate-500 dark:text-neutral-400">Sign in to your staff account to continue.</p>
       </div>
 
@@ -43,7 +43,7 @@ function submit() {
         Your session expired. Please try signing in again.
       </div>
 
-      <form @submit.prevent="submit" class="space-y-5">
+      <form @submit.prevent="submit" class="space-y-4">
         <div class="space-y-1.5">
           <label for="email" class="block text-sm font-medium text-slate-600 dark:text-neutral-300">Email address</label>
           <input
@@ -132,7 +132,7 @@ function submit() {
           type="submit"
           :disabled="form.processing"
           :aria-busy="form.processing"
-          class="inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-lg bg-primary text-base font-semibold text-white shadow-sm transition hover:bg-primary-800 focus:outline-none focus:ring-4 focus:ring-primary/15 disabled:cursor-wait disabled:opacity-90"
+          class="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary text-sm font-semibold text-white shadow-sm transition hover:bg-primary-800 focus:outline-none focus:ring-4 focus:ring-primary/15 disabled:cursor-wait disabled:opacity-90"
         >
           <svg
             v-if="form.processing"

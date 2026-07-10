@@ -567,6 +567,10 @@ html:has(.staff-shell) {
   font-size: 13px;
 }
 
+html:has(.auth-layout) {
+  font-size: 14px;
+}
+
 .staff-shell {
   --staff-accent: #0284c7;
   --staff-accent-deep: #0369a1;
