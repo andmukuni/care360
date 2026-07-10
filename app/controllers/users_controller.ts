@@ -2,6 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
 import { randomUUID } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
+import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import app from '@adonisjs/core/services/app'
 import User from '#models/user'
@@ -28,6 +29,45 @@ import { publicStorageUrl } from '#support/public_storage_url'
 function portalDisplayName(user: { title: string | null; name: string }): string {
   const title = (user.title ?? '').trim()
   return title !== '' ? `${title} ${user.name}` : user.name
+}
+
+function buildStaffKpis(
+  users: User[]
+): {
+  total: number
+  portalBookable: number
+  withPhoto: number
+  withRoles: number
+  withSpecialty: number
+  portalReady: number
+  joinedThisMonth: number
+} {
+  const monthStart = DateTime.now().startOf('month')
+  const kpis = {
+    total: users.length,
+    portalBookable: 0,
+    withPhoto: 0,
+    withRoles: 0,
+    withSpecialty: 0,
+    portalReady: 0,
+    joinedThisMonth: 0,
+  }
+
+  for (const user of users) {
+    const hasPhoto = Boolean(user.profilePhotoPath?.trim())
+    const hasSpecialty = Boolean(user.specialty?.trim())
+    const hasRoles = user.roles.length > 0
+    const portalBookable = Boolean(user.isPortalBookable)
+
+    if (portalBookable) kpis.portalBookable++
+    if (hasPhoto) kpis.withPhoto++
+    if (hasRoles) kpis.withRoles++
+    if (hasSpecialty) kpis.withSpecialty++
+    if (portalBookable && hasPhoto && hasSpecialty) kpis.portalReady++
+    if (user.createdAt && user.createdAt >= monthStart) kpis.joinedThisMonth++
+  }
+
+  return kpis
 }
 
 async function syncUserRoles(user: User, roleNames: string[]): Promise<void> {
@@ -93,6 +133,7 @@ export default class UsersController {
       .orderBy('name')
 
     return inertia.render('users/index', {
+      kpis: buildStaffKpis(users),
       users: users.map((u) => ({
         id: u.id,
         name: portalDisplayName(u),

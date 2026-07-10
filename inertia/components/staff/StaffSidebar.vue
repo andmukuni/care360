@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { Link, usePage } from '@inertiajs/vue3'
+import { usePage } from '@inertiajs/vue3'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import AppLogo from '~/components/AppLogo.vue'
-import Spinner from '~/components/ui/Spinner.vue'
 import StaffNavGroup from '~/components/staff/StaffNavGroup.vue'
 import StaffSidebarSection from '~/components/staff/StaffSidebarSection.vue'
 import {
@@ -12,7 +11,6 @@ import {
   type CycleNavItem,
   type NavItem,
 } from '~/composables/useStaffNav'
-import { useNavigationLoading } from '~/composables/useNavigationLoading'
 
 defineProps<{
   open: boolean
@@ -28,11 +26,9 @@ const clinicName = computed(
 )
 
 const {
-  canSee,
   isActive,
   stageBadge,
   stageBadgeColors,
-  isRegistrationClerk,
   navSections,
   settingsNavItem,
   currentPath,
@@ -46,7 +42,6 @@ const {
 const navEl = ref<HTMLElement | null>(null)
 const expandedSections = ref<Set<string>>(loadExpandedSections())
 const mobileMode = ref(false)
-const { isNavigatingTo, markPending } = useNavigationLoading()
 
 function isCycleItem(item: NavItem): item is CycleNavItem {
   return 'stage' in item
@@ -200,41 +195,6 @@ watch(
         :active="sectionIsActive(section)"
         @toggle="toggleSection(section.id)"
       >
-        <div
-          v-if="
-            section.id === 'encounter-cycle' &&
-            isRegistrationClerk &&
-            (canSee(['patients.read', 'patients.write']) ||
-              canSee(['households.read', 'households.write', 'registration.manage-households']))
-          "
-          class="mb-2 grid grid-cols-2 gap-2"
-        >
-          <Link
-            v-if="canSee(['patients.read', 'patients.write'])"
-            href="/patients/create"
-            class="cta-add-patient flex items-center justify-center gap-2 rounded px-2 py-2.5 font-semibold whitespace-nowrap border border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-700"
-            @click="markPending('/patients/create')"
-          >
-            <Spinner v-if="isNavigatingTo('/patients/create')" size="sm" class="text-neutral-600" aria-hidden="true" />
-            <svg v-else class="default-icon w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-            </svg>
-            <span class="default-text">Add Patient</span>
-          </Link>
-          <Link
-            v-if="canSee(['households.read', 'households.write', 'registration.manage-households'])"
-            href="/households/create"
-            class="cta-add-patient flex items-center justify-center gap-2 rounded px-2 py-2.5 font-semibold whitespace-nowrap border border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-700"
-            @click="markPending('/households/create')"
-          >
-            <Spinner v-if="isNavigatingTo('/households/create')" size="sm" class="text-neutral-600" aria-hidden="true" />
-            <svg v-else class="default-icon w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M3 12h18M3 17h18M7 7v10m5-10v10m5-10v10" />
-            </svg>
-            <span class="default-text">Add Household</span>
-          </Link>
-        </div>
-
         <StaffNavGroup
           v-for="item in section.items"
           :key="itemKey(item)"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { Link, router, useForm } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import DataTable from '~/components/staff/DataTable.vue'
@@ -20,8 +20,29 @@ interface UserRow {
   is_self: boolean
 }
 
+interface StaffKpis {
+  total: number
+  portalBookable: number
+  withPhoto: number
+  withRoles: number
+  withSpecialty: number
+  portalReady: number
+  joinedThisMonth: number
+}
+
+interface KpiCard {
+  key: string
+  label: string
+  value: number
+  meta: string
+  percent: number
+  tone: 'slate' | 'teal' | 'violet' | 'amber'
+  icon: 'users' | 'portal' | 'roles' | 'ready'
+}
+
 const props = defineProps<{
   users: UserRow[]
+  kpis: StaffKpis
   roles: string[]
   canManageRoles: boolean
   canManagePortal: boolean
@@ -34,9 +55,185 @@ const columns = [
   { key: 'created_at', label: 'Joined' },
 ]
 
-const totalUsers = computed(() => props.users.length)
-const portalVisibleCount = computed(() => props.users.filter((u) => u.is_portal_bookable).length)
-const withPhotoCount = computed(() => props.users.filter((u) => u.profile_photo_url).length)
+const fieldClass =
+  'theme-field users-page__filter-field w-full rounded px-2.5 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 dark:text-neutral-100 dark:placeholder:text-neutral-500'
+
+const filters = reactive({
+  search: '',
+  role: '',
+  portal: '' as '' | 'visible' | 'hidden',
+  photo: '' as '' | 'with' | 'missing',
+  roleCoverage: '' as '' | 'assigned' | 'unassigned',
+})
+
+const portalOptions = [
+  { value: '', label: 'All portal states' },
+  { value: 'visible', label: 'On patient portal' },
+  { value: 'hidden', label: 'Hidden from portal' },
+] as const
+
+const photoOptions = [
+  { value: '', label: 'All photo states' },
+  { value: 'with', label: 'With profile photo' },
+  { value: 'missing', label: 'Missing profile photo' },
+] as const
+
+const roleCoverageOptions = [
+  { value: '', label: 'All role states' },
+  { value: 'assigned', label: 'Has roles' },
+  { value: 'unassigned', label: 'No role assigned' },
+] as const
+
+const hasFilters = computed(() =>
+  Boolean(
+    filters.search.trim() ||
+      filters.role ||
+      filters.portal ||
+      filters.photo ||
+      filters.roleCoverage
+  )
+)
+
+const filteredUsers = computed(() => {
+  const term = filters.search.trim().toLowerCase()
+  return props.users.filter((user) => {
+    if (term) {
+      const haystack = [
+        user.name,
+        user.raw_name,
+        user.email,
+        user.specialty ?? '',
+        ...user.roles,
+      ]
+        .join(' ')
+        .toLowerCase()
+
+      if (!haystack.includes(term)) return false
+    }
+
+    if (filters.role && !user.roles.includes(filters.role)) return false
+    if (filters.portal === 'visible' && !user.is_portal_bookable) return false
+    if (filters.portal === 'hidden' && user.is_portal_bookable) return false
+    if (filters.photo === 'with' && !user.profile_photo_url) return false
+    if (filters.photo === 'missing' && user.profile_photo_url) return false
+    if (filters.roleCoverage === 'assigned' && user.roles.length === 0) return false
+    if (filters.roleCoverage === 'unassigned' && user.roles.length > 0) return false
+
+    return true
+  })
+})
+
+const activeFilterChips = computed(() => {
+  const chips: { key: keyof typeof filters; label: string }[] = []
+
+  if (filters.search.trim()) {
+    chips.push({ key: 'search', label: `Search: “${filters.search.trim()}”` })
+  }
+  if (filters.role) {
+    chips.push({ key: 'role', label: `Role: ${filters.role}` })
+  }
+  if (filters.portal) {
+    chips.push({
+      key: 'portal',
+      label: portalOptions.find((option) => option.value === filters.portal)?.label ?? filters.portal,
+    })
+  }
+  if (filters.photo) {
+    chips.push({
+      key: 'photo',
+      label: photoOptions.find((option) => option.value === filters.photo)?.label ?? filters.photo,
+    })
+  }
+  if (filters.roleCoverage) {
+    chips.push({
+      key: 'roleCoverage',
+      label:
+        roleCoverageOptions.find((option) => option.value === filters.roleCoverage)?.label ??
+        filters.roleCoverage,
+    })
+  }
+
+  return chips
+})
+
+function clearFilters() {
+  filters.search = ''
+  filters.role = ''
+  filters.portal = ''
+  filters.photo = ''
+  filters.roleCoverage = ''
+}
+
+function removeFilter(key: keyof typeof filters) {
+  filters[key] = '' as never
+}
+
+function pct(part: number, total: number): number {
+  if (total <= 0) return 0
+  return Math.round((part / total) * 100)
+}
+
+const kpiCards = computed((): KpiCard[] => {
+  const total = props.kpis.total
+  const hiddenFromPortal = total - props.kpis.portalBookable
+  const withoutRoles = total - props.kpis.withRoles
+  const missingPhotos = total - props.kpis.withPhoto
+  const portalReadyGap = props.kpis.portalBookable - props.kpis.portalReady
+
+  return [
+    {
+      key: 'total',
+      label: 'Total staff',
+      value: total,
+      meta:
+        props.kpis.joinedThisMonth > 0
+          ? `${props.kpis.joinedThisMonth} joined this month`
+          : 'All active staff accounts',
+      percent: 100,
+      tone: 'slate',
+      icon: 'users',
+    },
+    {
+      key: 'portal',
+      label: 'Patient portal',
+      value: props.kpis.portalBookable,
+      meta:
+        hiddenFromPortal > 0
+          ? `${pct(props.kpis.portalBookable, total)}% visible · ${hiddenFromPortal} hidden`
+          : `${pct(props.kpis.portalBookable, total)}% visible on portal`,
+      percent: pct(props.kpis.portalBookable, total),
+      tone: 'teal',
+      icon: 'portal',
+    },
+    {
+      key: 'roles',
+      label: 'Roles assigned',
+      value: props.kpis.withRoles,
+      meta:
+        withoutRoles > 0
+          ? `${pct(props.kpis.withRoles, total)}% coverage · ${withoutRoles} unassigned`
+          : `${pct(props.kpis.withRoles, total)}% have at least one role`,
+      percent: pct(props.kpis.withRoles, total),
+      tone: 'violet',
+      icon: 'roles',
+    },
+    {
+      key: 'ready',
+      label: 'Portal ready',
+      value: props.kpis.portalReady,
+      meta:
+        portalReadyGap > 0
+          ? `${pct(props.kpis.portalReady, props.kpis.portalBookable || total)}% of portal staff · ${portalReadyGap} need photo or specialty`
+          : 'Portal doctors with photo and specialty',
+      percent:
+        props.kpis.portalBookable > 0
+          ? pct(props.kpis.portalReady, props.kpis.portalBookable)
+          : 0,
+      tone: 'amber',
+      icon: 'ready',
+    },
+  ]
+})
 
 const showCreate = ref(false)
 const createForm = useForm({ name: '', email: '', password: '', password_confirmation: '' })
@@ -120,30 +317,128 @@ function destroy() {
       </div>
     </template>
 
-    <div class="mb-5 grid gap-3 sm:grid-cols-3">
-      <div class="users-page__stat theme-stat-card">
-        <p class="users-page__stat-label theme-stat-label">Total staff</p>
-        <p class="users-page__stat-value theme-stat-value">{{ totalUsers }}</p>
+    <div class="users-page__kpi-grid mb-5">
+      <div
+        v-for="card in kpiCards"
+        :key="card.key"
+        class="users-page__kpi-card"
+        :class="`users-page__kpi-card--${card.tone}`"
+      >
+        <div class="users-page__kpi-head">
+          <div class="users-page__kpi-icon" aria-hidden="true">
+            <svg v-if="card.icon === 'users'" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <svg v-else-if="card.icon === 'portal'" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            <svg v-else-if="card.icon === 'roles'" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            <svg v-else class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5.121 17.804A13.937 13.937 0 0112 15c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <p class="users-page__kpi-label">{{ card.label }}</p>
+        </div>
+        <p class="users-page__kpi-value">{{ card.value }}</p>
+        <p class="users-page__kpi-meta">{{ card.meta }}</p>
+        <div v-if="card.key !== 'total'" class="users-page__kpi-bar" role="presentation">
+          <span class="users-page__kpi-bar-fill" :style="{ width: `${card.percent}%` }" />
+        </div>
       </div>
-      <div class="users-page__stat theme-stat-card">
-        <p class="users-page__stat-label theme-stat-label">On patient portal</p>
-        <p class="users-page__stat-value theme-stat-value text-teal-700 dark:text-teal-400">{{ portalVisibleCount }}</p>
+    </div>
+
+    <div class="users-page__filters card mb-3 p-3">
+      <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-12">
+        <div class="relative sm:col-span-2 xl:col-span-4">
+          <svg
+            class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            v-model="filters.search"
+            type="search"
+            placeholder="Search name, email, specialty, role…"
+            :class="[fieldClass, 'pl-8']"
+            aria-label="Search staff"
+          />
+        </div>
+
+        <div class="xl:col-span-2">
+          <select v-model="filters.role" :class="fieldClass" aria-label="Filter by role">
+            <option value="">All roles</option>
+            <option v-for="role in props.roles" :key="role" :value="role">{{ role }}</option>
+          </select>
+        </div>
+
+        <div class="xl:col-span-2">
+          <select v-model="filters.portal" :class="fieldClass" aria-label="Filter by portal visibility">
+            <option v-for="option in portalOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </div>
+
+        <div class="xl:col-span-2">
+          <select v-model="filters.photo" :class="fieldClass" aria-label="Filter by profile photo">
+            <option v-for="option in photoOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </div>
+
+        <div class="xl:col-span-2">
+          <select v-model="filters.roleCoverage" :class="fieldClass" aria-label="Filter by role assignment">
+            <option v-for="option in roleCoverageOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </div>
       </div>
-      <div class="users-page__stat theme-stat-card">
-        <p class="users-page__stat-label theme-stat-label">With profile photo</p>
-        <p class="users-page__stat-value theme-stat-value text-sky-700 dark:text-sky-400">{{ withPhotoCount }}</p>
+
+      <div class="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-neutral-100 pt-2 dark:border-neutral-800">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="users-page__filter-count">
+            Showing {{ filteredUsers.length }} of {{ props.users.length }} staff
+          </span>
+          <button
+            v-for="chip in activeFilterChips"
+            :key="chip.key"
+            type="button"
+            class="users-page__filter-chip"
+            @click="removeFilter(chip.key)"
+          >
+            {{ chip.label }}
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+        <button
+          v-if="hasFilters"
+          type="button"
+          class="users-page__filter-clear"
+          @click="clearFilters"
+        >
+          Clear filters
+        </button>
       </div>
     </div>
 
     <DataTable
       :columns="columns"
-      :rows="props.users"
-      :search-keys="['name', 'raw_name', 'email', 'specialty', 'roles']"
-      empty-text="No staff members found."
+      :rows="filteredUsers"
+      :searchable="false"
+      empty-text="No staff members match the current filters."
     >
       <template #cell:name="{ row }">
         <div class="flex items-center gap-3">
-          <UserAvatar :name="row.raw_name" :photo-url="row.profile_photo_url" size="md" />
+          <UserAvatar :name="row.raw_name" :photo-url="row.profile_photo_url" size="sm" />
           <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-1.5">
               <Link :href="`/users/${row.id}`" class="font-medium text-slate-900 hover:text-blue-700 hover:underline">

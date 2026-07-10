@@ -25,10 +25,6 @@ const resolvedPhotoUrl = computed(() => {
 const initials = computed(() => {
   const value = props.name.trim()
   if (!value) return 'U'
-  const parts = value.split(/\s+/).filter(Boolean)
-  if (parts.length >= 2) {
-    return `${parts[0].charAt(0)}${parts[parts.length - 1].charAt(0)}`.toUpperCase()
-  }
   return value.slice(0, 2).toUpperCase()
 })
 
@@ -39,8 +35,8 @@ function onImageError() {
 
 <template>
   <div
-    class="user-avatar"
-    :class="`user-avatar--${size}`"
+    class="staff-navbar__avatar user-avatar-badge"
+    :class="`user-avatar-badge--${size}`"
     :title="name"
     role="img"
     :aria-label="`${name} avatar`"
@@ -49,9 +45,10 @@ function onImageError() {
       v-if="resolvedPhotoUrl"
       :src="resolvedPhotoUrl"
       :alt="name"
-      class="user-avatar__img"
+      class="user-avatar-badge__img"
       @error="onImageError"
     />
-    <span v-else class="user-avatar__initials">{{ initials }}</span>
+    <template v-else>{{ initials }}</template>
+    <span class="staff-navbar__avatar-ring" aria-hidden="true" />
   </div>
 </template>
