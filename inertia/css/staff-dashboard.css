@@ -3895,6 +3895,7 @@ input.encounters-filter-field[type='date']::-webkit-calendar-picker-indicator {
 
 .queue-table .queue-action-col {
   width: 1%;
+  min-width: 7.5rem;
   text-align: right;
   white-space: nowrap;
 }
@@ -4348,7 +4349,13 @@ input.encounters-filter-field[type='date']::-webkit-calendar-picker-indicator {
 }
 
 .queue-action-col .queue-assigned-action .user-badge {
-  max-width: 9.5rem;
+  max-width: 10.5rem;
+}
+
+.queue-action-col .queue-assigned-action .staff-navbar__user-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .queue-empty {

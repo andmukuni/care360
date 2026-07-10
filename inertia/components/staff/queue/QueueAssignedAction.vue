@@ -24,6 +24,6 @@ const displayName = computed(() => {
     :title="`Assigned to ${displayName}`"
     :aria-label="`Assigned to ${displayName}`"
   >
-    <UserBadge :user="props.user" :name="props.name" size="sm" />
+    <UserBadge :user="props.user" :name="props.name" size="sm" :show-role="false" />
   </div>
 </template>

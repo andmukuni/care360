@@ -13,10 +13,12 @@ const props = withDefaults(
     role?: string | null
     size?: 'sm' | 'md'
     showName?: boolean
+    showRole?: boolean
   }>(),
   {
     size: 'sm',
     showName: true,
+    showRole: true,
   }
 )
 
@@ -50,7 +52,7 @@ const initials = computed(() => {
     </div>
     <div v-if="showName" class="user-badge__info">
       <div class="staff-navbar__user-name">{{ displayName }}</div>
-      <div class="staff-navbar__user-role">{{ displayRole }}</div>
+      <div v-if="showRole" class="staff-navbar__user-role">{{ displayRole }}</div>
     </div>
   </span>
 </template>
