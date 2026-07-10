@@ -1,4 +1,5 @@
 import { defineConfig } from '@adonisjs/shield'
+import { cookieSecure } from '#support/cookie_secure'
 
 const shieldConfig = defineConfig({
   /**
@@ -42,7 +43,7 @@ const shieldConfig = defineConfig({
    * Force browser to always use HTTPS
    */
   hsts: {
-    enabled: true,
+    enabled: cookieSecure(),
     maxAge: '180 days',
   },
 

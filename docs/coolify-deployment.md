@@ -71,6 +71,7 @@ Paste into Coolify → **Production Environment Variables** as plain `KEY=value`
 | `APP_KEY` | *(secret — from `node ace generate:key`)* |
 | `LOG_LEVEL` | `info` |
 | `SESSION_DRIVER` | `cookie` |
+| `COOKIE_SECURE` | `false` when using plain `http://` (sslip.io without TLS). Omit or `true` once HTTPS is enabled. |
 | `TZ` | `Africa/Lusaka` or `UTC` |
 | `DATABASE_URL` | `postgres://postgres:PASSWORD@13.140.178.27:3815/postgres` |
 | `DB_HOST` | `13.140.178.27` |
@@ -218,6 +219,19 @@ docker compose -f docker-compose.local.yml down
 ### Uploads disappear after redeploy
 
 - Add persistent mounts for `/app/public/storage` and `/app/storage/app`.
+
+### Login fails — `Invalid or expired CSRF token`
+
+**Symptom:** Login page loads but sign-in does nothing; logs show `Invalid or expired CSRF token`.
+
+**Cause:** In production, session and CSRF cookies default to `Secure`. Browsers **refuse to store or send** `Secure` cookies over plain HTTP (browser shows "Not Secure").
+
+**Fix (pick one):**
+
+1. **Preferred:** Enable HTTPS in Coolify for your domain and open `https://…` (leave `COOKIE_SECURE` unset).
+2. **HTTP-only testing:** Add `COOKIE_SECURE=false` to Coolify env vars and redeploy.
+
+After fixing cookies, ensure a staff user exists in the database (migrations do not seed a default admin).
 
 ### Session / CSRF issues over HTTPS
 
