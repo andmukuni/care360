@@ -12,6 +12,7 @@ import PharmacyDispense from '#models/pharmacy_dispense'
 import LabResult from '#models/lab_result'
 import CalendarEvent from '#models/calendar_event'
 import RbacService, { USER_MORPH_TYPE } from '#services/auth/rbac_service'
+import { publicStorageUrl } from '#support/public_storage_url'
 
 /**
  * Staff user management + self-service profile.
@@ -100,7 +101,7 @@ export default class UsersController {
         email: u.email,
         specialty: u.specialty,
         is_portal_bookable: Boolean(u.isPortalBookable),
-        profile_photo_url: u.profilePhotoPath ? `/storage/${u.profilePhotoPath}` : null,
+        profile_photo_url: publicStorageUrl(u.profilePhotoPath),
         roles: u.roles.map((r) => r.name).sort(),
         created_at: u.createdAt?.toFormat('dd LLL yyyy') ?? null,
         is_self: u.id === authUser.id,
@@ -246,9 +247,9 @@ export default class UsersController {
       email: user.email,
       is_portal_bookable: Boolean(user.isPortalBookable),
       profile_photo_path: user.profilePhotoPath,
-      profile_photo_url: user.profilePhotoPath ? `/storage/${user.profilePhotoPath}` : null,
+      profile_photo_url: publicStorageUrl(user.profilePhotoPath),
       signature_path: user.signaturePath,
-      signature_url: user.signaturePath ? `/storage/${user.signaturePath}` : null,
+      signature_url: publicStorageUrl(user.signaturePath),
     }
   }
 
@@ -304,6 +305,7 @@ export default class UsersController {
     })
     if (photo && photo.isValid) {
       const dir = app.makePath('public/storage/profile-photos')
+      mkdirSync(dir, { recursive: true })
       const fileName = `${randomUUID()}.${photo.extname}`
       await photo.move(dir, { name: fileName, overwrite: true })
       user.profilePhotoPath = `profile-photos/${fileName}`
@@ -504,7 +506,7 @@ export default class UsersController {
         bio: user.bio,
         email: user.email,
         is_portal_bookable: Boolean(user.isPortalBookable),
-        profile_photo_url: user.profilePhotoPath ? `/storage/${user.profilePhotoPath}` : null,
+        profile_photo_url: publicStorageUrl(user.profilePhotoPath),
         roles: await user.getRoleNames(),
       },
       stats: {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const props = withDefaults(
   defineProps<{
@@ -12,6 +12,16 @@ const props = withDefaults(
   }
 )
 
+const imageFailed = ref(false)
+
+const resolvedPhotoUrl = computed(() => {
+  if (imageFailed.value || !props.photoUrl) {
+    return null
+  }
+
+  return props.photoUrl
+})
+
 const initials = computed(() => {
   const value = props.name.trim()
   if (!value) return 'U'
@@ -21,6 +31,10 @@ const initials = computed(() => {
   }
   return value.slice(0, 2).toUpperCase()
 })
+
+function onImageError() {
+  imageFailed.value = true
+}
 </script>
 
 <template>
@@ -31,7 +45,13 @@ const initials = computed(() => {
     role="img"
     :aria-label="`${name} avatar`"
   >
-    <img v-if="photoUrl" :src="photoUrl" :alt="name" class="user-avatar__img" />
+    <img
+      v-if="resolvedPhotoUrl"
+      :src="resolvedPhotoUrl"
+      :alt="name"
+      class="user-avatar__img"
+      @error="onImageError"
+    />
     <span v-else class="user-avatar__initials">{{ initials }}</span>
   </div>
 </template>
