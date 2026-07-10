@@ -26,7 +26,6 @@ const fieldClass =
   'theme-field users-edit__field w-full rounded px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 dark:text-neutral-100 dark:placeholder:text-neutral-500'
 
 const form = useForm({
-  _method: 'put',
   name: props.user.name,
   title: props.user.title ?? '',
   specialty: props.user.specialty ?? '',
@@ -94,7 +93,7 @@ function clearSignatureSelection() {
 }
 
 function submit() {
-  form.post(props.action, { forceFormData: true })
+  form.put(props.action, { forceFormData: true })
 }
 
 onBeforeUnmount(() => {
