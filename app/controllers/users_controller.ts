@@ -6,6 +6,7 @@ import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import app from '@adonisjs/core/services/app'
 import User from '#models/user'
+import StaffSignatureInvite from '#models/staff_signature_invite'
 import Role from '#models/role'
 import Encounter from '#models/encounter'
 import PharmacyPrescription from '#models/pharmacy_prescription'
@@ -14,6 +15,7 @@ import LabResult from '#models/lab_result'
 import CalendarEvent from '#models/calendar_event'
 import RbacService, { USER_MORPH_TYPE } from '#services/auth/rbac_service'
 import { publicStorageUrl } from '#support/public_storage_url'
+import { signatureInviteUrl } from '#support/signature_invite_url'
 import { EncounterStageHelper } from '#enums/encounter_stage'
 import { EncounterStatusHelper } from '#enums/encounter_status'
 import type Patient from '#models/patient'
@@ -193,9 +195,11 @@ export default class UsersController {
     return inertia.render('users/show', await this.buildProfilePayload(user, authUser.id, request))
   }
 
-  async edit({ params, inertia }: HttpContext) {
+  async edit({ params, inertia, request }: HttpContext) {
     const user = await User.findOrFail(params.user)
-    return inertia.render('users/edit', { user: this.editPayload(user) })
+    return inertia.render('users/edit', {
+      user: await this.editPayload(user, request),
+    })
   }
 
   async update(ctx: HttpContext) {
@@ -271,9 +275,11 @@ export default class UsersController {
     return inertia.render('profile/show', await this.buildProfilePayload(user, user.id, request))
   }
 
-  async editProfile({ auth, inertia }: HttpContext) {
+  async editProfile({ auth, inertia, request }: HttpContext) {
     const user = auth.use('web').user!
-    return inertia.render('profile/edit', { user: this.editPayload(user) })
+    return inertia.render('profile/edit', {
+      user: await this.editPayload(user, request),
+    })
   }
 
   async updateProfile(ctx: HttpContext) {
@@ -287,7 +293,9 @@ export default class UsersController {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  private editPayload(user: User) {
+  private async editPayload(user: User, request?: HttpContext['request']) {
+    const pendingInvite = request ? await this.pendingSignatureInvite(user.id, request) : null
+
     return {
       id: user.id,
       name: user.name,
@@ -300,6 +308,25 @@ export default class UsersController {
       profile_photo_url: publicStorageUrl(user.profilePhotoPath),
       signature_path: user.signaturePath,
       signature_url: publicStorageUrl(user.signaturePath),
+      pending_signature_invite: pendingInvite,
+    }
+  }
+
+  private async pendingSignatureInvite(userId: number, request: HttpContext['request']) {
+    const invite = await StaffSignatureInvite.query()
+      .where('user_id', userId)
+      .whereNull('completed_at')
+      .where('expires_at', '>', DateTime.now().toSQL()!)
+      .orderBy('created_at', 'desc')
+      .first()
+
+    if (!invite) {
+      return null
+    }
+
+    return {
+      url: signatureInviteUrl(request, invite.token),
+      expires_at: invite.expiresAt.toISO(),
     }
   }
 

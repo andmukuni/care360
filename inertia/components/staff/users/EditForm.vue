@@ -1,8 +1,14 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue'
-import { useForm } from '@inertiajs/vue3'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { router, useForm } from '@inertiajs/vue3'
 import ActionButton from '~/components/ui/ActionButton.vue'
 import UserAvatar from '~/components/staff/users/UserAvatar.vue'
+import { readXsrfToken } from '~/support/xsrf'
+
+interface PendingSignatureInvite {
+  url: string
+  expires_at: string
+}
 
 interface EditUser {
   id: number
@@ -14,12 +20,14 @@ interface EditUser {
   is_portal_bookable: boolean
   profile_photo_url: string | null
   signature_url: string | null
+  pending_signature_invite?: PendingSignatureInvite | null
 }
 
 const props = defineProps<{
   user: EditUser
   action: string
   showPortalToggle?: boolean
+  signatureInviteEndpoint: string
 }>()
 
 const fieldClass =
@@ -36,12 +44,16 @@ const form = useForm({
   is_portal_bookable: props.user.is_portal_bookable,
   profile_photo: null as File | null,
   remove_profile_photo: false,
-  signature: null as File | null,
   remove_signature: false,
 })
 
 const photoPreview = ref<string | null>(null)
-const signaturePreview = ref<string | null>(null)
+const signingLink = ref<PendingSignatureInvite | null>(props.user.pending_signature_invite ?? null)
+const generatingLink = ref(false)
+const linkCopied = ref(false)
+const linkError = ref<string | null>(null)
+const canNativeShare = ref(false)
+const sharingLink = ref(false)
 
 const displayPhotoUrl = computed(() => {
   if (form.remove_profile_photo) return null
@@ -51,8 +63,16 @@ const displayPhotoUrl = computed(() => {
 
 const displaySignatureUrl = computed(() => {
   if (form.remove_signature) return null
-  if (signaturePreview.value) return signaturePreview.value
   return props.user.signature_url
+})
+
+const signingLinkExpiryLabel = computed(() => {
+  if (!signingLink.value?.expires_at) return null
+  const expires = new Date(signingLink.value.expires_at)
+  return expires.toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
 })
 
 const profileHeadline = computed(() => {
@@ -71,34 +91,91 @@ function onFile(event: Event) {
   if (file) form.remove_profile_photo = false
 }
 
-function onSignatureFile(event: Event) {
-  const target = event.target as HTMLInputElement
-  const file = target.files?.[0] ?? null
-  form.signature = file
-  if (signaturePreview.value) URL.revokeObjectURL(signaturePreview.value)
-  signaturePreview.value = file ? URL.createObjectURL(file) : null
-  if (file) form.remove_signature = false
-}
-
 function clearPhotoSelection() {
   form.profile_photo = null
   if (photoPreview.value) URL.revokeObjectURL(photoPreview.value)
   photoPreview.value = null
 }
 
-function clearSignatureSelection() {
-  form.signature = null
-  if (signaturePreview.value) URL.revokeObjectURL(signaturePreview.value)
-  signaturePreview.value = null
+async function generateSigningLink() {
+  generatingLink.value = true
+  linkError.value = null
+  linkCopied.value = false
+
+  try {
+    const response = await fetch(props.signatureInviteEndpoint, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'X-XSRF-TOKEN': readXsrfToken(),
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error('Could not generate signing link.')
+    }
+
+    const data = (await response.json()) as PendingSignatureInvite
+    signingLink.value = data
+  } catch {
+    linkError.value = 'Could not generate signing link. Please try again.'
+  } finally {
+    generatingLink.value = false
+  }
+}
+
+async function copySigningLink() {
+  if (!signingLink.value?.url) return
+
+  try {
+    await navigator.clipboard.writeText(signingLink.value.url)
+    linkCopied.value = true
+    window.setTimeout(() => {
+      linkCopied.value = false
+    }, 2000)
+  } catch {
+    linkError.value = 'Could not copy link. Select the URL and copy it manually.'
+  }
+}
+
+async function shareSigningLink() {
+  if (!signingLink.value?.url || !canNativeShare.value) return
+
+  sharingLink.value = true
+  linkError.value = null
+
+  const staffName = form.name.trim() || 'Staff member'
+
+  try {
+    await navigator.share({
+      title: 'Fairview signature',
+      text: `${staffName}, open this link to sign your name on your phone.`,
+      url: signingLink.value.url,
+    })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      return
+    }
+    linkError.value = 'Could not open the share menu. Try Copy instead.'
+  } finally {
+    sharingLink.value = false
+  }
+}
+
+function refreshSignatureStatus() {
+  router.reload({ only: ['user'] })
 }
 
 function submit() {
   form.put(props.action, { forceFormData: true })
 }
 
+onMounted(() => {
+  canNativeShare.value = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+})
+
 onBeforeUnmount(() => {
   if (photoPreview.value) URL.revokeObjectURL(photoPreview.value)
-  if (signaturePreview.value) URL.revokeObjectURL(signaturePreview.value)
 })
 </script>
 
@@ -185,20 +262,19 @@ onBeforeUnmount(() => {
             </div>
             <div class="min-w-0 flex-1">
               <p class="users-edit__media-label">Signature</p>
-              <p class="users-edit__media-hint">Appears on prescriptions and official documents.</p>
+              <p class="users-edit__media-hint">
+                Generate a mobile signing link for staff to draw their signature on a phone or tablet.
+              </p>
               <div class="mt-3 flex flex-wrap items-center gap-2">
-                <label class="users-edit__file-btn">
-                  <input type="file" accept="image/*" class="sr-only" @change="onSignatureFile" />
-                  {{ displaySignatureUrl ? 'Replace signature' : 'Upload signature' }}
-                </label>
-                <button
-                  v-if="form.signature"
+                <ActionButton
                   type="button"
-                  class="users-edit__text-btn"
-                  @click="clearSignatureSelection"
+                  variant="blue"
+                  :loading="generatingLink"
+                  loading-text="Generating…"
+                  @click="generateSigningLink"
                 >
-                  Clear selection
-                </button>
+                  {{ signingLink ? 'Regenerate link' : 'Generate signing link' }}
+                </ActionButton>
                 <button
                   v-if="props.user.signature_url && !form.remove_signature"
                   type="button"
@@ -215,7 +291,40 @@ onBeforeUnmount(() => {
                 >
                   Undo remove
                 </button>
+                <button type="button" class="users-edit__text-btn" @click="refreshSignatureStatus">
+                  Refresh status
+                </button>
               </div>
+
+              <div v-if="signingLink" class="users-edit__signing-link mt-3">
+                <label class="users-edit__label">Signing link</label>
+                <div class="users-edit__signing-link-row">
+                  <input
+                    :value="signingLink.url"
+                    type="text"
+                    readonly
+                    class="theme-field users-edit__field w-full rounded px-3 py-2 text-sm"
+                  />
+                  <button
+                    v-if="canNativeShare"
+                    type="button"
+                    class="users-edit__file-btn shrink-0"
+                    :disabled="sharingLink"
+                    @click="shareSigningLink"
+                  >
+                    {{ sharingLink ? 'Opening…' : 'Share' }}
+                  </button>
+                  <button type="button" class="users-edit__file-btn shrink-0" @click="copySigningLink">
+                    {{ linkCopied ? 'Copied' : 'Copy' }}
+                  </button>
+                </div>
+                <p v-if="signingLinkExpiryLabel" class="users-edit__media-hint mt-1">
+                  Expires {{ signingLinkExpiryLabel }}. Send this link to {{ form.name || 'the staff member' }} to sign on
+                  their phone.
+                </p>
+              </div>
+
+              <p v-if="linkError" class="users-edit__error">{{ linkError }}</p>
               <p v-if="form.errors.signature" class="users-edit__error">{{ form.errors.signature }}</p>
             </div>
           </div>

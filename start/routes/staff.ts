@@ -29,6 +29,7 @@ const LabResultFormsController = () => import('#controllers/lab_result_forms_con
 const LabSpecimenTypesController = () => import('#controllers/lab_specimen_types_controller')
 
 const UsersController = () => import('#controllers/users_controller')
+const StaffSignatureInviteController = () => import('#controllers/staff_signature_invite_controller')
 const AccessControlController = () => import('#controllers/access_control_controller')
 const AnnouncementsController = () => import('#controllers/announcements_controller')
 const NotificationsController = () => import('#controllers/notifications_controller')
@@ -76,6 +77,9 @@ router
     router.get('/profile', [UsersController, 'profile']).as('profile.show')
     router.get('/profile/edit', [UsersController, 'editProfile']).as('profile.edit')
     router.put('/profile', [UsersController, 'updateProfile']).as('profile.update')
+    router
+      .post('/profile/signature-invite', [StaffSignatureInviteController, 'createForSelf'])
+      .as('profile.signature-invite')
 
     // ── Patients ───────────────────────────────────────────────────────────
     router.get('/patients', [PatientsController, 'index']).as('patients.index')
@@ -443,6 +447,9 @@ router
         router.put('/users/:user/portal-bookable', [UsersController, 'togglePortalBookable']).as('users.portal-bookable.toggle').use(perm('users.write|settings.manage'))
         router.get('/users/:user', [UsersController, 'show']).as('users.show')
         router.get('/users/:user/edit', [UsersController, 'edit']).as('users.edit')
+        router
+          .post('/users/:user/signature-invite', [StaffSignatureInviteController, 'createForUser'])
+          .as('users.signature-invite')
         router.put('/users/:user', [UsersController, 'update']).as('users.update')
         router.delete('/users/:user', [UsersController, 'destroy']).as('users.destroy')
       })

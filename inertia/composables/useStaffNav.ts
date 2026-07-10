@@ -563,16 +563,13 @@ export function useStaffNav() {
     }
   })
 
+  const dashboardNavItem = computed((): NavItem | null => {
+    if (!canSeeDashboard.value || isWardNurse.value) return null
+    return DASHBOARD_ITEM
+  })
+
   const navSections = computed((): NavSection[] => {
     const sections: NavSection[] = []
-
-    if (canSeeDashboard.value && !isWardNurse.value) {
-      sections.push({
-        id: 'overview',
-        label: 'Overview',
-        items: [DASHBOARD_ITEM],
-      })
-    }
 
     if (cycleStages.value.length || isRegistrationClerk.value) {
       sections.push({
@@ -625,6 +622,7 @@ export function useStaffNav() {
     stageBadgeColors: STAGE_BADGE_COLORS,
     defaultActiveText,
     canSeeDashboard,
+    dashboardNavItem,
     isRegistrationClerk,
     isWardNurse,
     cycleStages,

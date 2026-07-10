@@ -1143,6 +1143,11 @@ main.flex-1.overflow-y-auto {
   margin-top: 0;
 }
 
+.staff-sidebar__dashboard {
+  flex-shrink: 0;
+  padding: 0.65rem 0.75rem 0.7rem;
+}
+
 .sidebar-section__items {
   display: flex;
   flex-direction: column;
@@ -3404,6 +3409,16 @@ input.encounters-filter-field[type='date']::-webkit-calendar-picker-indicator {
   margin-top: 0.125rem;
   font-size: 0.6875rem;
   color: #64748b;
+}
+.users-edit__signing-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+.users-edit__signing-link-row .users-edit__field {
+  flex: 1 1 12rem;
+  min-width: 0;
 }
 .users-edit__file-btn {
   display: inline-flex;

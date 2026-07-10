@@ -10,7 +10,12 @@ const props = defineProps<{ user: any }>()
   <StaffLayout>
     <template #header><h1 class="text-lg font-semibold">Edit My Profile</h1></template>
 
-    <EditForm :user="props.user" action="/profile" :show-portal-toggle="false">
+    <EditForm
+      :user="props.user"
+      action="/profile"
+      :show-portal-toggle="false"
+      signature-invite-endpoint="/profile/signature-invite"
+    >
       <template #cancel>
         <Link href="/profile" class="theme-icon-btn rounded px-4 py-2 text-sm">Cancel</Link>
       </template>

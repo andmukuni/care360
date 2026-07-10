@@ -30,6 +30,7 @@ const {
   stageBadge,
   stageBadgeColors,
   navSections,
+  dashboardNavItem,
   settingsNavItem,
   currentPath,
   itemIsActive,
@@ -179,6 +180,20 @@ watch(
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
+      </div>
+    </div>
+
+    <div v-if="dashboardNavItem" class="staff-sidebar__dashboard sidebar-section sidebar-section--overview sidebar-section--solo">
+      <div class="sidebar-section__items px-3">
+        <StaffNavGroup
+          :item="dashboardNavItem"
+          :active="itemIsActive(dashboardNavItem)"
+          :highlighted="itemIsHighlighted(dashboardNavItem)"
+          :active-text="activeTextForItem(dashboardNavItem)"
+          :is-active="itemIsActive"
+          :lab-cycle-active="labCycleActive"
+          :mobile-mode="mobileMode"
+        />
       </div>
     </div>
 

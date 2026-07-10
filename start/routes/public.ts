@@ -18,6 +18,7 @@ import router from '@adonisjs/core/services/router'
 
 const PwaController = () => import('#controllers/pwa_controller')
 const CorporateMembershipController = () => import('#controllers/corporate_membership_controller')
+const StaffSignatureInviteController = () => import('#controllers/staff_signature_invite_controller')
 
 // Dynamic web app manifest (application/manifest+json).
 router.get('/manifest.webmanifest', [PwaController, 'manifest'])
@@ -37,3 +38,11 @@ router
     router.get('/corporate/thank-you', [CorporateMembershipController, 'thankYou'])
   })
   .prefix('/wellness-fund')
+
+// Mobile staff signature capture (tokenized, no login required).
+router
+  .group(() => {
+    router.get('/:token', [StaffSignatureInviteController, 'show']).as('signatures.show')
+    router.post('/:token', [StaffSignatureInviteController, 'store']).as('signatures.store')
+  })
+  .prefix('/sign')

@@ -22,7 +22,12 @@ const props = defineProps<{ user: any }>()
       </div>
     </template>
 
-    <EditForm :user="props.user" :action="`/users/${props.user.id}`" :show-portal-toggle="true">
+    <EditForm
+      :user="props.user"
+      :action="`/users/${props.user.id}`"
+      :show-portal-toggle="true"
+      :signature-invite-endpoint="`/users/${props.user.id}/signature-invite`"
+    >
       <template #cancel>
         <Link :href="`/users/${props.user.id}`" class="theme-icon-btn rounded px-4 py-2 text-sm">Cancel</Link>
       </template>
