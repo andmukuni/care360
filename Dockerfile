@@ -5,8 +5,11 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Coolify injects NODE_ENV=production at build time; devDependencies are required for ace build + Vite
+ENV NODE_ENV=development
+
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --include=dev
 
 COPY . .
 RUN node ace build --ignore-ts-errors

@@ -33,7 +33,8 @@ Local development uses `docker-compose.yml` (app + Postgres + optional Redis).
 2. Connect your Git repo (`fairview-adonis`).
 3. **Build pack:** Dockerfile (root `Dockerfile`).
 4. **Port:** `3333` (must match `PORT` env).
-5. **Health check:**
+5. **Coolify env scope:** Mark `NODE_ENV`, `APP_KEY`, and all `DB_*` / `DATABASE_URL` as **Runtime only** (not "Available at Buildtime"). Coolify otherwise injects `NODE_ENV=production` during `docker build`, which skips devDependencies and breaks `node ace build`.
+6. **Health check:**
    - Path: `/health/db`
    - Interval: `30s`
    - Timeout: `10s`
