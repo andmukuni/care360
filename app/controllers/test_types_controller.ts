@@ -4,6 +4,7 @@ import db from '@adonisjs/lucid/services/db'
 import TestType from '#models/test_type'
 import LabResultForm from '#models/lab_result_form'
 import LabSpecimenType from '#models/lab_specimen_type'
+import ReferenceDataCache from '#services/cache/reference_data_cache'
 
 /**
  * Test types (lab tests) CRUD + the "categories" summary page. Ported from
@@ -15,22 +16,25 @@ import LabSpecimenType from '#models/lab_specimen_type'
  */
 export default class TestTypesController {
   async index({ inertia }: HttpContext) {
-    const testTypes = await TestType.query()
-      .preload('labSpecimenType')
-      .preload('labResultForm')
-      .orderBy('name')
-
-    const categories = await this.distinctDescriptions()
-
-    return inertia.render('test-types/index', {
-      testTypes: testTypes.map((t) => ({
+    const serialized = await ReferenceDataCache.testTypesAll(async () => {
+      const testTypes = await TestType.query()
+        .preload('labSpecimenType')
+        .preload('labResultForm')
+        .orderBy('name')
+      return testTypes.map((t) => ({
         id: t.id,
         name: t.name,
         description: t.description,
         category: t.labSpecimenType?.testCategory ?? null,
         resultForm: t.labResultForm?.label ?? '—',
         isActive: t.isActive,
-      })),
+      }))
+    })
+
+    const categories = await this.distinctDescriptions()
+
+    return inertia.render('test-types/index', {
+      testTypes: serialized,
       categories,
     })
   }
@@ -156,13 +160,15 @@ export default class TestTypesController {
   }
 
   private async distinctDescriptions(): Promise<string[]> {
-    const rows = await db
-      .from('test_types')
-      .distinct('description')
-      .whereNotNull('description')
-      .where('description', '!=', '')
-      .orderBy('description')
-    return rows.map((r) => r.description as string)
+    return ReferenceDataCache.testTypeCategories(async () => {
+      const rows = await db
+        .from('test_types')
+        .distinct('description')
+        .whereNotNull('description')
+        .where('description', '!=', '')
+        .orderBy('description')
+      return rows.map((r) => r.description as string)
+    })
   }
 
   private async formOptions() {

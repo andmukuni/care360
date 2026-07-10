@@ -11,6 +11,7 @@
 */
 
 process.env.NODE_ENV = 'test'
+process.env.CACHE_STORE = process.env.CACHE_STORE ?? 'memory'
 
 import 'reflect-metadata'
 import { Ignitor, prettyPrintError } from '@adonisjs/core'

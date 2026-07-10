@@ -6,6 +6,8 @@ import hash from '@adonisjs/core/services/hash'
 import db from '@adonisjs/lucid/services/db'
 import Patient from '#models/patient'
 import { TdltsBarcodeGenerator } from '#support/tdlts_barcode_generator'
+import { findAllPatientRows, findPatientRowByRef } from '#support/ref_resolvers'
+import ReferenceDataInvalidator from '#services/cache/reference_data_invalidator'
 import { notificationService, NOTIFIABLE_PATIENT } from '#services/notifications/notification_service'
 import { PortalInvitationNotification } from '../notifications/portal_invitation_notification.js'
 
@@ -144,12 +146,7 @@ export default class PatientsController {
    * id). Mirrors the Laravel raw-query route-model binding.
    */
   private async findByRef(ref: string) {
-    return db
-      .from('patients')
-      .where('patient_id', ref)
-      .orWhere('barcode', ref)
-      .orWhere('id', /^\d+$/.test(ref) ? Number(ref) : 0)
-      .first()
+    return findPatientRowByRef(ref)
   }
 
   private async buildHouseholdLookup(householdIds: string[], householdHeads: string[] = []) {
@@ -249,25 +246,31 @@ export default class PatientsController {
     const search = String(request.qs().search ?? '').trim()
     const householdId = String(request.qs().householdId ?? '')
 
-    const query = db.from('patients')
+    let rows: Record<string, any>[]
 
-    if (householdId !== '') {
-      query.where('household_id', householdId)
+    if (search === '' && householdId === '') {
+      rows = await findAllPatientRows()
+    } else {
+      const query = db.from('patients')
+
+      if (householdId !== '') {
+        query.where('household_id', householdId)
+      }
+
+      if (search !== '') {
+        const like = `%${search}%`
+        query.where((q) => {
+          q.whereILike('patient_id', like)
+            .orWhereILike('full_name', like)
+            .orWhereILike('phone_number', like)
+            .orWhereILike('nrc_number', like)
+            .orWhereILike('barcode', like)
+            .orWhereILike('household_id', like)
+        })
+      }
+
+      rows = await query.orderBy('source_created_at', 'desc').orderBy('id', 'desc')
     }
-
-    if (search !== '') {
-      const like = `%${search}%`
-      query.where((q) => {
-        q.whereILike('patient_id', like)
-          .orWhereILike('full_name', like)
-          .orWhereILike('phone_number', like)
-          .orWhereILike('nrc_number', like)
-          .orWhereILike('barcode', like)
-          .orWhereILike('household_id', like)
-      })
-    }
-
-    const rows = await query.orderBy('source_created_at', 'desc').orderBy('id', 'desc')
 
     const lookup = await this.buildHouseholdLookup(
       rows.map((r) => String(r.household_id ?? '')),
@@ -354,6 +357,8 @@ export default class PatientsController {
       created_at: now(),
       updated_at: now(),
     })
+
+    await ReferenceDataInvalidator.invalidatePatient({ patientId, barcode }, null)
 
     session.flash('success', 'Patient registered successfully.')
     return response.redirect().toPath(`/patients/${patientId}`)
@@ -568,10 +573,17 @@ export default class PatientsController {
       delete payload.allergies
     }
 
+    const previousRow = { ...row }
+
     await db
       .from('patients')
       .where('id', row.id)
       .update({ ...payload, updated_at: now() })
+
+    await ReferenceDataInvalidator.patientChangedFromRow(
+      { ...previousRow, ...payload, patient_id: row.patient_id, barcode: row.barcode, id: row.id },
+      previousRow
+    )
 
     session.flash('success', 'Patient updated successfully.')
     return response.redirect().toPath(`/patients/${row.patient_id}`)

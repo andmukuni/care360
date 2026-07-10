@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, belongsTo, column, hasMany } from '@adonisjs/lucid/orm'
+import { BaseModel, belongsTo, column, hasMany, afterSave, afterDelete } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import CashJournalLine from './cash_journal_line.js'
 import Patient from './patient.js'
@@ -67,4 +67,15 @@ export default class Household extends BaseModel {
   @hasMany(() => Patient, { foreignKey: 'householdId' })
   declare patients: HasMany<typeof Patient>
 
+  @afterSave()
+  static async invalidateReferenceCache(household: Household) {
+    const { invalidateHouseholdCache } = await import('#models/hooks/cache_invalidation_hooks')
+    await invalidateHouseholdCache(household)
+  }
+
+  @afterDelete()
+  static async invalidateReferenceCacheOnDelete(household: Household) {
+    const { invalidateHouseholdCache } = await import('#models/hooks/cache_invalidation_hooks')
+    await invalidateHouseholdCache(household)
+  }
 }

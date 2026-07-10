@@ -10,6 +10,7 @@ import { EncounterStatus } from '#enums/encounter_status'
 import StartEncounterAction from '#actions/encounter/start_encounter_action'
 import SearchPatientAction from '#actions/encounter/search_patient_action'
 import QueueEncounterToTriageAction from '#actions/encounter/queue_encounter_to_triage_action'
+import { findPatientRowByRef } from '#support/ref_resolvers'
 import {
   ActiveEncounterExistsException,
   PatientNotEligibleForEncounterException,
@@ -77,19 +78,16 @@ export default class RegistrationController {
     const validated = await request.validateUsing(validator, { data: request.qs() })
     const code = validated.code.trim()
 
-    const patient = await Patient.query()
-      .where((sub) => {
-        sub.where('patient_id', code).orWhere('barcode', code)
-      })
-      .first()
+    const row = await findPatientRowByRef(code)
 
-    if (!patient) {
+    if (!row) {
       return response.notFound({
         message: 'No patient matches that code. Use manual search, or register them as a new patient.',
         code,
       })
     }
 
+    const patient = await Patient.findOrFail(Number(row.id))
     const activeEncounter = await this.loadActiveEncounter(patient.id)
 
     return response.ok({ patient: this.patientCard(patient, activeEncounter) })

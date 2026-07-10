@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, hasMany, manyToMany } from '@adonisjs/lucid/orm'
+import { BaseModel, column, hasMany, manyToMany, afterSave, afterDelete } from '@adonisjs/lucid/orm'
 import type { HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import PharmacyDispenseItem from './pharmacy_dispense_item.js'
 import StartupMedication from './startup_medication.js'
@@ -68,4 +68,16 @@ export default class Medication extends BaseModel {
     pivotRelatedForeignKey: 'unit_id',
   })
   declare units: ManyToMany<typeof Unit>
+
+  @afterSave()
+  static async invalidateReferenceCache(medication: Medication) {
+    const { invalidateMedicationCache } = await import('#models/hooks/cache_invalidation_hooks')
+    await invalidateMedicationCache(medication)
+  }
+
+  @afterDelete()
+  static async invalidateReferenceCacheOnDelete(medication: Medication) {
+    const { invalidateMedicationCache } = await import('#models/hooks/cache_invalidation_hooks')
+    await invalidateMedicationCache(medication)
+  }
 }

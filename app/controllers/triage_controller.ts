@@ -9,6 +9,7 @@ import Ward from '#models/ward'
 import Medication from '#models/medication'
 import StartupMedication from '#models/startup_medication'
 import TriageRecord from '#models/triage_record'
+import ReferenceDataCache from '#services/cache/reference_data_cache'
 import MedicalDictionaryService from '#services/clinical/medical_dictionary_service'
 import { EncounterStage } from '#enums/encounter_stage'
 import { EncounterStatus } from '#enums/encounter_status'
@@ -632,21 +633,25 @@ export default class TriageController {
 
   // GET /medications/search  (JSON)
   async searchMedications({ request, response }: HttpContext) {
-    const q = String(request.qs().q ?? '').trim()
+    const q = String(request.qs().q ?? '').trim().toLowerCase()
 
-    const results = await Medication.query()
-      .where('isActive', true)
-      .preload('units', (unitQuery) => unitQuery.select('id', 'name', 'form', 'strength'))
-      .if(q !== '', (query) =>
-        query.where((sub) => {
-          sub
-            .whereILike('name', `%${q}%`)
-            .orWhereILike('generic_name', `%${q}%`)
-            .orWhereHas('units', (unitSub) => unitSub.whereILike('name', `%${q}%`))
-        })
-      )
-      .orderBy('name')
-      .limit(20)
+    const allMedications = await ReferenceDataCache.medicationsAll(async () => {
+      const rows = await Medication.query()
+        .where('isActive', true)
+        .preload('units', (unitQuery) => unitQuery.select('id', 'name', 'form', 'strength'))
+        .orderBy('name')
+      return rows.map((m) => m.serialize())
+    })
+
+    const results = allMedications
+      .filter((m) => m.isActive)
+      .filter((m) => {
+        if (q === '') return true
+        const unitNames = Array.isArray(m.units) ? m.units.map((u: any) => u.name ?? '').join(' ') : ''
+        const haystack = `${m.name} ${m.genericName ?? ''} ${unitNames}`.toLowerCase()
+        return haystack.includes(q)
+      })
+      .slice(0, 20)
 
     const defs = await MedicalDictionaryService.definitionsByLabels(
       'drug',
@@ -655,7 +660,8 @@ export default class TriageController {
 
     return response.json(
       results.map((m) => {
-        const primaryUnit = m.units[0]
+        const units = Array.isArray(m.units) ? m.units : []
+        const primaryUnit = units[0]
 
         return {
           id: m.id,
@@ -667,8 +673,8 @@ export default class TriageController {
           default_route: m.defaultRoute,
           default_frequency: m.defaultFrequency,
           stock_on_hand: m.stockOnHand,
-          units: m.units.map((u) => u.name),
-          unit_details: m.units.map((u) => ({
+          units: units.map((u: any) => u.name),
+          unit_details: units.map((u: any) => ({
             name: u.name,
             form: u.form,
             strength: u.strength,

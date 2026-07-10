@@ -1,4 +1,5 @@
 import Patient from '#models/patient'
+import { findPatientRowByRef } from '#support/ref_resolvers'
 
 /**
  * Searches for an existing patient using multiple identifiers.
@@ -39,6 +40,17 @@ export default class SearchPatientAction {
     }
 
     if (!q.includes(' ')) {
+      const cachedRow = await findPatientRowByRef(q)
+      if (cachedRow) {
+        const patient = await Patient.find(Number(cachedRow.id))
+        if (patient) {
+          if (normalizedSex && patient.gender?.toLowerCase() !== normalizedSex) {
+            return []
+          }
+          return [patient]
+        }
+      }
+
       const exactBuilder = Patient.query()
       if (normalizedSex) {
         exactBuilder.whereRaw('LOWER(gender) = ?', [normalizedSex])

@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, belongsTo, column } from '@adonisjs/lucid/orm'
+import { BaseModel, belongsTo, column, afterSave, afterDelete } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import LabResultForm from './lab_result_form.js'
 import LabSpecimenType from './lab_specimen_type.js'
@@ -37,4 +37,15 @@ export default class TestType extends BaseModel {
   @belongsTo(() => LabSpecimenType, { foreignKey: 'labSpecimenTypeId' })
   declare labSpecimenType: BelongsTo<typeof LabSpecimenType>
 
+  @afterSave()
+  static async invalidateReferenceCache(testType: TestType) {
+    const { invalidateTestTypeCache } = await import('#models/hooks/cache_invalidation_hooks')
+    await invalidateTestTypeCache(testType)
+  }
+
+  @afterDelete()
+  static async invalidateReferenceCacheOnDelete(testType: TestType) {
+    const { invalidateTestTypeCache } = await import('#models/hooks/cache_invalidation_hooks')
+    await invalidateTestTypeCache(testType)
+  }
 }

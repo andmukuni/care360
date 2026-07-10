@@ -25,7 +25,12 @@ export default defineConfig({
   | will be scanned automatically from the "./commands" directory.
   |
   */
-  commands: [() => import('@adonisjs/core/commands'), () => import('@adonisjs/lucid/commands'), () => import('@adonisjs/bouncer/commands')],
+  commands: [
+    () => import('@adonisjs/core/commands'),
+    () => import('@adonisjs/lucid/commands'),
+    () => import('@adonisjs/bouncer/commands'),
+    () => import('@adonisjs/cache/commands'),
+  ],
 
   /*
   |--------------------------------------------------------------------------
@@ -53,7 +58,12 @@ export default defineConfig({
     () => import('@adonisjs/auth/auth_provider'),
     () => import('@adonisjs/inertia/inertia_provider'),
     () => import('@adonisjs/bouncer/bouncer_provider'),
-    () => import('@adonisjs/transmit/transmit_provider')
+    () => import('@adonisjs/transmit/transmit_provider'),
+    {
+      file: () => import('@adonisjs/redis/redis_provider'),
+      environment: ['web', 'repl'],
+    },
+    () => import('@adonisjs/cache/cache_provider'),
   ],
 
   /*
@@ -68,6 +78,7 @@ export default defineConfig({
     () => import('#start/routes'),
     () => import('#start/kernel'),
     () => import('#start/transmit'),
+    () => import('#start/cache_warmup'),
   ],
 
   /*

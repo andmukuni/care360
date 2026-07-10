@@ -11,6 +11,7 @@ import ScreeningRecord from '#models/screening_record'
 import ScreeningVitalRecheck from '#models/screening_vital_recheck'
 import PharmacyRecommendation from '#models/pharmacy_recommendation'
 import TestType from '#models/test_type'
+import ReferenceDataCache from '#services/cache/reference_data_cache'
 import MedicalDictionaryService from '#services/clinical/medical_dictionary_service'
 import { GynObsAlertService } from '#services/gyn_obs/gyn_obs_alert_service'
 import { EncounterStage } from '#enums/encounter_stage'
@@ -245,14 +246,19 @@ export default class ScreeningController {
 
   // GET /screening/lab-tests/search  (JSON)
   async searchLabTests({ request, response }: HttpContext) {
-    const term = String(request.qs().q ?? '').trim()
+    const term = String(request.qs().q ?? '').trim().toLowerCase()
     const limit = Math.min(25, Math.max(5, Number(request.qs().limit ?? 15)))
 
-    const query = TestType.query().where('isActive', true).preload('labSpecimenType')
-    if (term !== '') {
-      query.whereILike('name', `%${term}%`)
-    }
-    const rows = await query.orderBy('name').limit(limit)
+    const allTestTypes = await ReferenceDataCache.testTypesAll(async () => {
+      const rows = await TestType.query().where('isActive', true).preload('labSpecimenType').orderBy('name')
+      return rows.map((t) => t.serialize())
+    })
+
+    const rows = allTestTypes
+      .filter((t) => t.isActive)
+      .filter((t) => term === '' || String(t.name).toLowerCase().includes(term))
+      .slice(0, limit)
+
     const defs = await MedicalDictionaryService.definitionsByLabels(
       'lab',
       rows.map((t) => t.name)

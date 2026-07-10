@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon'
 import hash from '@adonisjs/core/services/hash'
 import { compose } from '@adonisjs/core/helpers'
-import { BaseModel, belongsTo, column, hasMany } from '@adonisjs/lucid/orm'
+import { BaseModel, belongsTo, column, hasMany, afterSave, afterDelete } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import { withAuthFinder } from '@adonisjs/auth/mixins/lucid'
 import type { AccessToken } from '@adonisjs/auth/access_tokens'
@@ -301,4 +301,15 @@ export default class Patient extends compose(BaseModel, AuthFinder) {
   @hasMany(() => WellnessFundLedgerEntry, { foreignKey: 'patientId' })
   declare wellnessFundLedgerEntries: HasMany<typeof WellnessFundLedgerEntry>
 
+  @afterSave()
+  static async invalidateReferenceCache(patient: Patient) {
+    const { invalidatePatientCache } = await import('#models/hooks/cache_invalidation_hooks')
+    await invalidatePatientCache(patient)
+  }
+
+  @afterDelete()
+  static async invalidateReferenceCacheOnDelete(patient: Patient) {
+    const { invalidatePatientCache } = await import('#models/hooks/cache_invalidation_hooks')
+    await invalidatePatientCache(patient)
+  }
 }

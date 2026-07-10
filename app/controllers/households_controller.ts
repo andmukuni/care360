@@ -5,6 +5,12 @@ import vine from '@vinejs/vine'
 import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import { TdltsBarcodeGenerator } from '#support/tdlts_barcode_generator'
+import {
+  findAllHouseholdRows,
+  findHouseholdRowByRef,
+  findPatientRowByRef,
+} from '#support/ref_resolvers'
+import ReferenceDataInvalidator from '#services/cache/reference_data_invalidator'
 
 const now = () => DateTime.now().toSQL({ includeOffset: false })!
 
@@ -76,21 +82,11 @@ function nullifyEmptyStrings(input: Record<string, any>): Record<string, any> {
  */
 export default class HouseholdsController {
   private async findHouseholdByRef(ref: string) {
-    return db
-      .from('households')
-      .where('barcode', ref)
-      .orWhere('household_id', ref)
-      .orWhere('id', /^\d+$/.test(ref) ? Number(ref) : 0)
-      .first()
+    return findHouseholdRowByRef(ref)
   }
 
   private async findPatientByRef(ref: string) {
-    return db
-      .from('patients')
-      .where('patient_id', ref)
-      .orWhere('barcode', ref)
-      .orWhere('id', /^\d+$/.test(ref) ? Number(ref) : 0)
-      .first()
+    return findPatientRowByRef(ref)
   }
 
   private patientBelongsToHousehold(patientRow: any, householdRow: any): boolean {
@@ -293,8 +289,12 @@ export default class HouseholdsController {
   async index({ request, inertia }: HttpContext) {
     const search = String(request.qs().search ?? '').trim()
 
-    const query = db.from('households')
-    if (search !== '') {
+    let rows: Record<string, any>[]
+
+    if (search === '') {
+      rows = await findAllHouseholdRows()
+    } else {
+      const query = db.from('households')
       const like = `%${search}%`
       query.where((q) => {
         q.whereILike('household_id', like)
@@ -305,9 +305,8 @@ export default class HouseholdsController {
           .orWhereILike('town', like)
           .orWhereILike('payment_status', like)
       })
+      rows = await query.orderBy('source_created_at', 'desc').orderBy('id', 'desc')
     }
-
-    const rows = await query.orderBy('source_created_at', 'desc').orderBy('id', 'desc')
     let households = rows.map((r) => this.normalizeHousehold(r))
 
     const householdIds = households.map((h) => h.householdId.trim()).filter((id) => id !== '')
@@ -374,6 +373,8 @@ export default class HouseholdsController {
       created_at: now(),
       updated_at: now(),
     })
+
+    await ReferenceDataInvalidator.invalidateHousehold({ householdId, barcode }, null)
 
     session.flash('success', 'Household created successfully.')
     return response.redirect().toPath(`/households/${householdId}`)
@@ -457,6 +458,8 @@ export default class HouseholdsController {
         )
       })
 
+      await ReferenceDataInvalidator.invalidatePatientsAndHouseholds()
+
       session.flash('success', 'Patient linked to household successfully.')
       return response.redirect().toPath(`/households/${householdId}`)
     }
@@ -490,6 +493,8 @@ export default class HouseholdsController {
         relationship === 'Head' ? Number(memberDbId) : null
       )
     })
+
+    await ReferenceDataInvalidator.invalidatePatientsAndHouseholds()
 
     session.flash('success', 'Household member added successfully.')
     return response.redirect().toPath(`/households/${householdId}`)
@@ -536,6 +541,8 @@ export default class HouseholdsController {
       )
     })
 
+    await ReferenceDataInvalidator.patientChangedFromRow(patientRow)
+
     session.flash('success', 'Household member updated successfully.')
     return response.redirect().toPath(`/households/${householdId}`)
   }
@@ -561,6 +568,8 @@ export default class HouseholdsController {
         .update({ household_id: householdId, updated_at: now() })
       await this.rebalanceHouseholdHead(trx, householdId, Number(patientRow.id))
     })
+
+    await ReferenceDataInvalidator.invalidatePatientsAndHouseholds()
 
     session.flash('success', 'Head of house updated successfully.')
     return response.redirect().toPath(`/households/${householdId}`)
@@ -592,6 +601,8 @@ export default class HouseholdsController {
         })
       await this.rebalanceHouseholdHead(trx, householdId)
     })
+
+    await ReferenceDataInvalidator.patientChangedFromRow(patientRow)
 
     session.flash('success', 'Member removed from household successfully.')
     return response.redirect().toPath(`/households/${householdId}`)
@@ -640,6 +651,8 @@ export default class HouseholdsController {
       await this.rebalanceHouseholdHead(trx, targetHouseholdId, asHead ? Number(patientRow.id) : null)
     })
 
+    await ReferenceDataInvalidator.invalidatePatientsAndHouseholds()
+
     session.flash('success', 'Member transferred successfully.')
     return response.redirect().toPath(`/households/${sourceHouseholdId}`)
   }
@@ -653,6 +666,7 @@ export default class HouseholdsController {
     }
 
     const result = await this.extractHeadFromHouseholdRow(householdRow)
+    await ReferenceDataInvalidator.invalidatePatientsAndHouseholds()
     const target = `/households/${String(householdRow.household_id ?? ref)}`
 
     if (result.status === 'skipped') {
@@ -715,6 +729,8 @@ export default class HouseholdsController {
     }
 
     const batchId = `sync-${Date.now()}`
+
+    await ReferenceDataInvalidator.invalidatePatientsAndHouseholds()
 
     if (request.accepts(['json'])) {
       return response.json({

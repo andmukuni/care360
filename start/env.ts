@@ -59,4 +59,17 @@ export default await Env.create(new URL('../', import.meta.url), {
   LENCO_API_TOKEN: Env.schema.string.optional(),
   LENCO_WEBHOOK_SECRET: Env.schema.string.optional(),
   LENCO_OTP_PATH: Env.schema.string.optional(),
+
+  /*
+  |----------------------------------------------------------
+  | Variables for configuring Redis and cache
+  |----------------------------------------------------------
+  */
+  REDIS_HOST: Env.schema.string.optional(),
+  REDIS_PORT: Env.schema.number.optional(),
+  REDIS_PASSWORD: Env.schema.string.optional(),
+  REDIS_DB: Env.schema.number.optional(),
+  CACHE_STORE: Env.schema.enum(['redis', 'memory'] as const),
+  CACHE_REF_DATA_TTL: Env.schema.string.optional(),
+  CACHE_PATIENTS_FULL_LIST: Env.schema.boolean.optional(),
 })

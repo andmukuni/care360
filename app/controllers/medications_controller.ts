@@ -2,6 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
 import db from '@adonisjs/lucid/services/db'
 import Medication from '#models/medication'
+import ReferenceDataCache from '#services/cache/reference_data_cache'
 
 /**
  * Medications CRUD. Ported from App\Http\Controllers\MedicationController.
@@ -19,21 +20,19 @@ export default class MedicationsController {
     const search = qs.search ? String(qs.search).trim() : ''
     const category = qs.category ? String(qs.category) : ''
 
-    const medications = await Medication.query()
-      .if(search !== '', (q) =>
-        q.where((sub) => {
-          sub
-            .whereILike('name', `%${search}%`)
-            .orWhereILike('genericName', `%${search}%`)
-            .orWhereILike('unit', `%${search}%`)
-        })
-      )
-      .if(category !== '', (q) => q.where('category', category))
-      .orderBy('category')
-      .orderBy('name')
+    const allMedications = await ReferenceDataCache.medicationsAll(async () => {
+      const rows = await Medication.query().orderBy('category').orderBy('name')
+      return rows.map((m) => m.serialize())
+    })
 
-    return inertia.render('medications/index', {
-      medications: medications.map((m) => ({
+    const medications = allMedications
+      .filter((m) => {
+        if (category !== '' && m.category !== category) return false
+        if (search === '') return true
+        const haystack = `${m.name} ${m.genericName ?? ''} ${m.unit ?? ''}`.toLowerCase()
+        return haystack.includes(search.toLowerCase())
+      })
+      .map((m) => ({
         id: m.id,
         name: m.name,
         unit: m.unit,
@@ -43,7 +42,10 @@ export default class MedicationsController {
         defaultFrequency: m.defaultFrequency,
         isControlled: m.isControlled,
         isActive: m.isActive,
-      })),
+      }))
+
+    return inertia.render('medications/index', {
+      medications,
       categories: await this.categories(),
       search,
       category,
@@ -151,12 +153,14 @@ export default class MedicationsController {
   }
 
   private async categories(): Promise<string[]> {
-    const rows = await db
-      .from('medications')
-      .distinct('category')
-      .whereNotNull('category')
-      .orderBy('category')
-    return rows.map((r) => r.category as string)
+    return ReferenceDataCache.medicationCategories(async () => {
+      const rows = await db
+        .from('medications')
+        .distinct('category')
+        .whereNotNull('category')
+        .orderBy('category')
+      return rows.map((r) => r.category as string)
+    })
   }
 
   private async validate(request: HttpContext['request']) {
