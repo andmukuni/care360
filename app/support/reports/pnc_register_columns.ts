@@ -1,0 +1,76 @@
+/**
+ * MoH Postnatal Care Register column headers (row 8 of PNC_Register_Report_May26.xlsx).
+ * Ported from App\Support\Reports\PncRegisterColumns.
+ */
+export class PncRegisterColumns {
+  static headers(): string[] {
+    return [
+      'Client Name',
+      'SM Number',
+      'Age',
+      'Marital Status',
+      'Physical Address/Contact',
+      'Known HIV+',
+      'Date of Delivery',
+      'Place of Delivery',
+      'Mode of Delivery',
+      'Visit Count',
+      'Date of  this visit',
+      'Origin Code',
+      'Timing',
+      'Fever',
+      'Breathing Pattern',
+      'Skin Colour',
+      'Bowel Movement',
+      'Umbilicus',
+      'Birth Weight',
+      'Complications at Birth',
+      'ARV Prophylaxis',
+      'Timing',
+      'High Blood Pressure',
+      'Temperature',
+      'Urine',
+      'Pallor',
+      'Uterus Contracted',
+      'Lochia',
+      'Episiotomy/ Other tearst',
+      'Secondary PPH',
+      'Estimated Blood loss(2*PPH)',
+      'C-Section wound',
+      'Breast Cancer Suspected',
+      'Lactating',
+      'Breast Condition',
+      'Vitamin A',
+      'Completed Tetanus Toxoid',
+      'HIV Status Before this Visit',
+      'Already on ART',
+      'Tested in PNC',
+      'Started ART in PNC',
+      'HIV Exposure Status',
+      'Date of Syphilis Test',
+      'Age at First Syphilis test',
+      'Returned from lab',
+      'Collected',
+      'Syphilis Test Result',
+      'Baby Treated for Congenital Syphillis',
+      'Counselled as a Couple',
+      'Partner Tested in PNC',
+      'Results(partner)',
+      'MUAC < 23 cm',
+      'Counselling and Education',
+      'Micro-nutrition Supplement',
+      'Counselling',
+      'Method',
+      'STI Screening',
+      'Screening',
+      'Treatment',
+      'Name of Service Provider',
+      'Title/Rank of Service Provider',
+      'Remarks',
+    ]
+  }
+
+  static columnIndex(header: string): number {
+    return this.headers().indexOf(header)
+  }
+}

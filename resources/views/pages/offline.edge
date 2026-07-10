@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline — {{ facilityName }}</title>
+    @if(logoUrl)
+    <link rel="icon" type="image/png" href="{{ logoUrl }}">
+    @else
+    <link rel="icon" type="image/png" href="/images/app-icon.png">
+    @endif
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: system-ui, sans-serif;
+            background: #fafafa;
+            color: #171717;
+            padding: 24px;
+            text-align: center;
+        }
+        .card {
+            max-width: 360px;
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            border-radius: 12px;
+            padding: 32px 24px;
+        }
+        .logo {
+            width: 72px;
+            height: 72px;
+            object-fit: contain;
+            margin: 0 auto 16px;
+            display: block;
+        }
+        h1 { font-size: 1.25rem; margin: 0 0 8px; }
+        p { margin: 0 0 20px; color: #525252; font-size: 0.95rem; line-height: 1.5; }
+        button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-width: 110px;
+            background: #171717;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 18px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        button:disabled {
+            cursor: wait;
+            opacity: 0.85;
+        }
+        .spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            flex-shrink: 0;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .btn-label {
+            line-height: 1;
+        }
+    </style>
+</head>
+<body
+    data-facility-name="{{ facilityName }}"
+    @if(logoUrl)
+    data-logo-url="{{ logoUrl }}"
+    @endif
+    data-hide-logo="{{ hideLogo ? '1' : '0' }}"
+>
+    <div class="card">
+        @if(!hideLogo && logoUrl)
+        <img id="clinicLogo" src="{{ logoUrl }}" alt="{{ facilityName }}" class="logo" width="72" height="72">
+        @endif
+        <h1 id="offlineTitle">You are offline</h1>
+        <p>Check your internet connection, then try again.</p>
+        <button type="button" id="retryBtn" aria-busy="false">
+            <span class="btn-label">Retry</span>
+        </button>
+    </div>
+    <script>
+        (function () {
+            var root = document.body
+            var logoEl = document.getElementById('clinicLogo')
+            var serverName = root.dataset.facilityName || 'Hospital Management System'
+            var serverLogoUrl = root.dataset.logoUrl || null
+            var serverHideLogo = root.dataset.hideLogo === '1'
+
+            document.title = 'Offline — ' + serverName
+
+            try {
+                var saved = localStorage.getItem('hms-clinic-branding')
+                if (saved) {
+                    var branding = JSON.parse(saved)
+                    if (branding.name) {
+                        document.title = 'Offline — ' + branding.name
+                    }
+                    if (logoEl && !branding.hideLogo && branding.logoUrl) {
+                        logoEl.src = branding.logoUrl
+                        logoEl.alt = branding.name || serverName
+                    } else if (logoEl && branding.hideLogo) {
+                        logoEl.remove()
+                    }
+                }
+            } catch (e) {
+                /* ignore malformed cache */
+            }
+
+            if (!logoEl && !serverHideLogo && serverLogoUrl) {
+                var card = document.querySelector('.card')
+                if (card) {
+                    var img = document.createElement('img')
+                    img.id = 'clinicLogo'
+                    img.src = serverLogoUrl
+                    img.alt = serverName
+                    img.className = 'logo'
+                    img.width = 72
+                    img.height = 72
+                    card.insertBefore(img, card.firstChild)
+                }
+            }
+
+            var btn = document.getElementById('retryBtn')
+            if (!btn) return
+
+            btn.addEventListener('click', function () {
+                if (btn.disabled) return
+
+                btn.disabled = true
+                btn.setAttribute('aria-busy', 'true')
+                btn.innerHTML =
+                    '<span class="spinner" aria-hidden="true"></span>' +
+                    '<span class="btn-label">Retrying…</span>'
+
+                window.location.reload()
+            })
+        })()
+    </script>
+</body>
+</html>
