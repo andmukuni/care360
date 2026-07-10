@@ -5,6 +5,7 @@ import Role from '#models/role'
 import Permission from '#models/permission'
 import User from '#models/user'
 import RbacService, { USER_MORPH_TYPE } from '#services/auth/rbac_service'
+import RbacCache from '#services/cache/rbac_cache'
 
 /**
  * RBAC administration. Ported from App\Http\Controllers\AccessControlController.
@@ -51,6 +52,8 @@ async function syncRolePermissions(role: Role, permissionNames: string[]): Promi
       permRows.map((p) => ({ permission_id: p.id, role_id: role.id }))
     )
   }
+
+  await RbacCache.forgetRole(role.name)
 }
 
 const storeRoleValidator = vine.compile(
@@ -192,6 +195,8 @@ export default class AccessControlController {
     await db.from('role_has_permissions').where('role_id', role.id).delete()
     await db.from('model_has_roles').where('role_id', role.id).delete()
     await role.delete()
+
+    await RbacCache.forgetRole(role.name)
 
     session.flash('success', 'Role deleted successfully.')
     return response.redirect().toPath('/access-control')

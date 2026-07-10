@@ -13,8 +13,7 @@ import {
   initialScreeningRecord,
   isRegistrationClerk,
   latestStageTransition,
-  paginateStageQueue,
-  paginatorPayload,
+  paginateCachedStageQueue,
   parseQueuePages,
   reviewScreeningRecord,
   treatmentRoomQueueRow,
@@ -33,10 +32,11 @@ export default class TreatmentRoomController {
     const currentUserId = auth.use('web').user?.id ?? null
     const registrationClerk = await isRegistrationClerk(auth)
 
-    const { queuedPaginator, inProgressPaginator } = await paginateStageQueue({
+    const { queued, inProgress } = await paginateCachedStageQueue({
       stage: EncounterStage.TreatmentRoom,
       queuedPage,
       progressPage,
+      currentUserId,
       orderBy: 'clinical',
       preload: (query) => {
         query.preload('pharmacyPrescriptions', (q: any) => q.preload('prescribedByUser'))
@@ -46,16 +46,14 @@ export default class TreatmentRoomController {
           )
         )
       },
+      mapRow: (encounter, inProgress) =>
+        treatmentRoomQueueRow(encounter, { currentUserId: null, inProgress }),
     })
 
     return inertia.render('treatment-room/queue', {
       isRegistrationClerk: registrationClerk,
-      queued: paginatorPayload(queuedPaginator, (encounter) =>
-        treatmentRoomQueueRow(encounter, { currentUserId })
-      ),
-      inProgress: paginatorPayload(inProgressPaginator, (encounter) =>
-        treatmentRoomQueueRow(encounter, { currentUserId, inProgress: true })
-      ),
+      queued,
+      inProgress,
     })
   }
 

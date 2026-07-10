@@ -1,6 +1,7 @@
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import transmit from '@adonisjs/transmit/services/main'
 import type { EncounterStage } from '#enums/encounter_stage'
+import QueueCache from '#services/cache/queue_cache'
 
 export type StaffQueueBroadcastPayload = {
   stages: EncounterStage[]
@@ -18,6 +19,7 @@ export class StaffQueueBroadcastService {
     }
 
     const broadcast = () => {
+      void QueueCache.invalidateStages(uniqueStages)
       transmit.broadcast('staff/queues', { stages: uniqueStages } satisfies StaffQueueBroadcastPayload)
     }
 

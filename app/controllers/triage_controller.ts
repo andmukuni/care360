@@ -24,6 +24,9 @@ import { loadClinicalSuggestions } from '#support/clinical/load_clinical_suggest
 import { triageVitalsValidator, startupMedicationValidator } from '#validators/staff/triage'
 import { errors as vineErrors } from '@vinejs/vine'
 import { queueUserBadge } from '#support/queue/queue_user_badge'
+import QueueCache from '#services/cache/queue_cache'
+import { stageQueuePageKey } from '#services/cache/queue_cache_keys'
+import { patchQueueCanManage } from '#support/queue/stage_queue_helpers'
 
 /**
  * Triage workbench. Ported from App\Http\Controllers\TriageController.
@@ -92,6 +95,7 @@ function queueRow(
     received_by: queueUserBadge(transition?.receivedByUser),
     has_allergies: Boolean(e.patient?.allergies?.trim()),
     can_manage: canManage,
+    received_by_id: receivedById,
     temperature: triage?.temperature ?? null,
   }
 }
@@ -127,33 +131,47 @@ export default class TriageController {
     const queuedPage = Math.max(1, Number(request.qs().queued_page ?? 1))
     const progressPage = Math.max(1, Number(request.qs().progress_page ?? 1))
 
-    const base = () =>
-      Encounter.query()
-        .preload('patient')
-        .preload('triageRecords', (q) => q.orderBy('id', 'desc'))
-        .preload('encounterQueueTransitions', (q) =>
-          q.preload('queuedByUser').preload('receivedByUser')
-        )
-        .where('current_stage', EncounterStage.Triage)
+    const cacheKey = stageQueuePageKey({
+      stage: EncounterStage.Triage,
+      queuedPage,
+      progressPage,
+      orderBy: 'clinical',
+    })
 
-    const queuedPaginator = await Encounter.orderByClinicalPriority(
-      base().where('current_status', EncounterStatus.Queued),
-      'started_at'
-    ).paginate(queuedPage, 20)
+    const cached = await QueueCache.getOrSet(cacheKey, EncounterStage.Triage, async () => {
+      const base = () =>
+        Encounter.query()
+          .preload('patient')
+          .preload('triageRecords', (q) => q.orderBy('id', 'desc'))
+          .preload('encounterQueueTransitions', (q) =>
+            q.preload('queuedByUser').preload('receivedByUser')
+          )
+          .where('current_stage', EncounterStage.Triage)
 
-    const inProgressPaginator = await Encounter.orderByClinicalPriority(
-      base().where('current_status', EncounterStatus.InProgress),
-      'started_at'
-    ).paginate(progressPage, 20)
+      const queuedPaginator = await Encounter.orderByClinicalPriority(
+        base().where('current_status', EncounterStatus.Queued),
+        'started_at'
+      ).paginate(queuedPage, 20)
+
+      const inProgressPaginator = await Encounter.orderByClinicalPriority(
+        base().where('current_status', EncounterStatus.InProgress),
+        'started_at'
+      ).paginate(progressPage, 20)
+
+      return {
+        queued: paginatorPayload(queuedPaginator, (encounter) =>
+          queueRow(encounter, { currentUserId: null })
+        ),
+        inProgress: paginatorPayload(inProgressPaginator, (encounter) =>
+          queueRow(encounter, { currentUserId: null, inProgress: true })
+        ),
+      }
+    })
 
     return inertia.render('triage/queue', {
       isRegistrationClerk,
-      queued: paginatorPayload(queuedPaginator, (encounter) =>
-        queueRow(encounter, { currentUserId })
-      ),
-      inProgress: paginatorPayload(inProgressPaginator, (encounter) =>
-        queueRow(encounter, { currentUserId, inProgress: true })
-      ),
+      queued: patchQueueCanManage(cached.queued, currentUserId),
+      inProgress: patchQueueCanManage(cached.inProgress, currentUserId),
     })
   }
 

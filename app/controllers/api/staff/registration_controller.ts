@@ -11,6 +11,8 @@ import StartEncounterAction from '#actions/encounter/start_encounter_action'
 import SearchPatientAction from '#actions/encounter/search_patient_action'
 import QueueEncounterToTriageAction from '#actions/encounter/queue_encounter_to_triage_action'
 import { findPatientRowByRef } from '#support/ref_resolvers'
+import QueueCache from '#services/cache/queue_cache'
+import { apiStageQueueKey } from '#services/cache/queue_cache_keys'
 import {
   ActiveEncounterExistsException,
   PatientNotEligibleForEncounterException,
@@ -483,54 +485,58 @@ export default class RegistrationController {
     const validated = await request.validateUsing(validator, { data: request.qs() })
     const stage = validated.stage ?? 'triage'
 
-    const encounters = await Encounter.query()
-      .preload('patient')
-      .preload('encounterQueueTransitions', (q) =>
-        q.where('to_stage', stage).preload('receivedByUser', (u) => u.select('id', 'name'))
-      )
-      .where('current_stage', stage)
-      .whereIn('current_status', [EncounterStatus.Queued, EncounterStatus.InProgress])
-      .orderByRaw(
-        "CASE priority_level WHEN 'emergency' THEN 1 WHEN 'urgent' THEN 2 WHEN 'normal' THEN 3 ELSE 4 END asc"
-      )
-      .orderBy('started_at', 'asc')
-      .limit(200)
+    const payload = await QueueCache.getOrSet(apiStageQueueKey(stage), stage, async () => {
+      const encounters = await Encounter.query()
+        .preload('patient')
+        .preload('encounterQueueTransitions', (q) =>
+          q.where('to_stage', stage).preload('receivedByUser', (u) => u.select('id', 'name'))
+        )
+        .where('current_stage', stage)
+        .whereIn('current_status', [EncounterStatus.Queued, EncounterStatus.InProgress])
+        .orderByRaw(
+          "CASE priority_level WHEN 'emergency' THEN 1 WHEN 'urgent' THEN 2 WHEN 'normal' THEN 3 ELSE 4 END asc"
+        )
+        .orderBy('started_at', 'asc')
+        .limit(200)
 
-    const rows = encounters.map((e) => {
-      const status =
-        typeof e.currentStatus === 'string' ? e.currentStatus : String(e.currentStatus)
+      const rows = encounters.map((e) => {
+        const status =
+          typeof e.currentStatus === 'string' ? e.currentStatus : String(e.currentStatus)
 
-      const seenByTransition = (e.encounterQueueTransitions ?? [])
-        .filter((t) => t.receivedBy)
-        .sort((a, b) => b.id - a.id)[0]
+        const seenByTransition = (e.encounterQueueTransitions ?? [])
+          .filter((t) => t.receivedBy)
+          .sort((a, b) => b.id - a.id)[0]
+
+        return {
+          id: e.id,
+          encounter_number: e.encounterNumber,
+          status,
+          priority_level: e.priorityLevel,
+          visit_type: e.visitType,
+          started_at: e.startedAt?.toISO() ?? null,
+          waiting_since: e.updatedAt?.toISO() ?? null,
+          seen_by: seenByTransition?.receivedByUser?.name ?? null,
+          patient: {
+            patient_number: e.patient?.patientId ?? null,
+            full_name: e.patient?.fullName ?? null,
+            gender: e.patient?.gender ?? null,
+            age: this.age(e.patient?.dateOfBirth ?? null),
+            profile_photo_url: e.patient ? this.profilePhotoUrl(e.patient) : null,
+          },
+        }
+      })
 
       return {
-        id: e.id,
-        encounter_number: e.encounterNumber,
-        status,
-        priority_level: e.priorityLevel,
-        visit_type: e.visitType,
-        started_at: e.startedAt?.toISO() ?? null,
-        waiting_since: e.updatedAt?.toISO() ?? null,
-        seen_by: seenByTransition?.receivedByUser?.name ?? null,
-        patient: {
-          patient_number: e.patient?.patientId ?? null,
-          full_name: e.patient?.fullName ?? null,
-          gender: e.patient?.gender ?? null,
-          age: this.age(e.patient?.dateOfBirth ?? null),
-          profile_photo_url: e.patient ? this.profilePhotoUrl(e.patient) : null,
+        encounters: rows,
+        counts: {
+          queued: rows.filter((r) => r.status === 'queued').length,
+          in_progress: rows.filter((r) => r.status === 'in_progress').length,
+          total: rows.length,
         },
       }
     })
 
-    return response.ok({
-      encounters: rows,
-      counts: {
-        queued: rows.filter((r) => r.status === 'queued').length,
-        in_progress: rows.filter((r) => r.status === 'in_progress').length,
-        total: rows.length,
-      },
-    })
+    return response.ok(payload)
   }
 
   /**

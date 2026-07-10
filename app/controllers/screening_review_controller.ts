@@ -21,8 +21,7 @@ import {
 import {
   isRegistrationClerk,
   latestStageTransition,
-  paginateStageQueue,
-  paginatorPayload,
+  paginateCachedStageQueue,
   parseQueuePages,
   screeningReviewQueueRow,
 } from '#support/queue/stage_queue_helpers'
@@ -42,10 +41,11 @@ export default class ScreeningReviewController {
     const currentUserId = auth.use('web').user?.id ?? null
     const registrationClerk = await isRegistrationClerk(auth)
 
-    const { queuedPaginator, inProgressPaginator } = await paginateStageQueue({
+    const { queued, inProgress } = await paginateCachedStageQueue({
       stage: EncounterStage.ScreeningReview,
       queuedPage,
       progressPage,
+      currentUserId,
       orderBy: 'lab',
       preload: (query) => {
         query.preload('screeningRecords')
@@ -56,16 +56,14 @@ export default class ScreeningReviewController {
         })
         query.preload('pharmacyPrescriptions')
       },
+      mapRow: (encounter, inProgress) =>
+        screeningReviewQueueRow(encounter, { currentUserId: null, inProgress }),
     })
 
     return inertia.render('screening-review/queue', {
       isRegistrationClerk: registrationClerk,
-      queued: paginatorPayload(queuedPaginator, (encounter) =>
-        screeningReviewQueueRow(encounter, { currentUserId })
-      ),
-      inProgress: paginatorPayload(inProgressPaginator, (encounter) =>
-        screeningReviewQueueRow(encounter, { currentUserId, inProgress: true })
-      ),
+      queued,
+      inProgress,
     })
   }
 

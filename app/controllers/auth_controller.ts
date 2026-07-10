@@ -4,6 +4,7 @@ import db from '@adonisjs/lucid/services/db'
 import { DateTime } from 'luxon'
 import User from '#models/user'
 import DashboardController from '#controllers/dashboard_controller'
+import RbacService from '#services/auth/rbac_service'
 
 /**
  * Staff authentication. Ported from App\Http\Controllers\AuthController.
@@ -102,6 +103,8 @@ export default class AuthController {
     await auth.use('web').login(user)
     // Rotate the session id to prevent fixation (Laravel: session()->regenerate()).
     session.regenerate()
+    // Warm Redis RBAC snapshot so the first post-login page avoids a cold DB read.
+    await RbacService.snapshot(user)
 
     if (wantsJson) {
       return response.json({

@@ -27,7 +27,10 @@ router
 
     router.post('/logout', [AuthController, 'logout']).as('logout').use(middleware.auth())
 
-    router.get('/dashboard', [AuthController, 'dashboard']).as('dashboard').use(middleware.auth())
+    router.get('/dashboard', [AuthController, 'dashboard']).as('dashboard').use([
+      middleware.auth(),
+      middleware.resolveStaffRbac(),
+    ])
 
     // Lightweight session watchdog ping / keepalive (session-timeout modal).
     router

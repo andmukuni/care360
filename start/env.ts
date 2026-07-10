@@ -72,4 +72,6 @@ export default await Env.create(new URL('../', import.meta.url), {
   CACHE_STORE: Env.schema.enum(['redis', 'memory'] as const),
   CACHE_REF_DATA_TTL: Env.schema.string.optional(),
   CACHE_PATIENTS_FULL_LIST: Env.schema.boolean.optional(),
+  CACHE_QUEUE_TTL: Env.schema.string.optional(),
+  CACHE_RBAC_TTL: Env.schema.string.optional(),
 })

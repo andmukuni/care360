@@ -25,8 +25,7 @@ import {
   isRegistrationClerk,
   labQueueRow,
   latestStageTransition,
-  paginateStageQueue,
-  paginatorPayload,
+  paginateCachedStageQueue,
   parseQueuePages,
 } from '#support/queue/stage_queue_helpers'
 import { buildPatientHeaderEncounter, patientHeaderTriage } from '#support/encounter/patient_header_payload'
@@ -64,24 +63,23 @@ export default class LabController {
     const currentUserId = auth.use('web').user?.id ?? null
     const registrationClerk = await isRegistrationClerk(auth)
 
-    const { queuedPaginator, inProgressPaginator } = await paginateStageQueue({
+    const { queued, inProgress } = await paginateCachedStageQueue({
       stage: EncounterStage.Lab,
       queuedPage,
       progressPage,
+      currentUserId,
       orderBy: 'lab',
       preload: (query) => {
         query.preload('labRequests', (q: any) => q.preload('labRequestItems'))
       },
+      mapRow: (encounter, inProgress) =>
+        labQueueRow(encounter, { currentUserId: null, inProgress }),
     })
 
     return inertia.render('lab/queue', {
       isRegistrationClerk: registrationClerk,
-      queued: paginatorPayload(queuedPaginator, (encounter) =>
-        labQueueRow(encounter, { currentUserId })
-      ),
-      inProgress: paginatorPayload(inProgressPaginator, (encounter) =>
-        labQueueRow(encounter, { currentUserId, inProgress: true })
-      ),
+      queued,
+      inProgress,
     })
   }
 

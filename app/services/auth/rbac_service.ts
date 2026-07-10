@@ -1,5 +1,6 @@
 import db from '@adonisjs/lucid/services/db'
 import type User from '#models/user'
+import RbacCache from '#services/cache/rbac_cache'
 
 /**
  * RBAC service — replacement for spatie/laravel-permission.
@@ -41,6 +42,15 @@ export default class RbacService {
       return cached
     }
 
+    const redisCached = await RbacCache.getOrSet(user.id, async () => {
+      return this.loadSnapshotFromDatabase(user)
+    })
+
+    cache.set(user, redisCached)
+    return redisCached
+  }
+
+  private static async loadSnapshotFromDatabase(user: User): Promise<RbacSnapshot> {
     const [roleRows, directRows, viaRoleRows] = await Promise.all([
       db
         .from('roles')
@@ -69,10 +79,7 @@ export default class RbacService {
       ...new Set([...directPermissionNames, ...viaRoleRows.map((r) => String(r.name))]),
     ]
 
-    const snapshot: RbacSnapshot = { roleNames, directPermissionNames, permissionNames }
-    cache.set(user, snapshot)
-
-    return snapshot
+    return { roleNames, directPermissionNames, permissionNames }
   }
 
   /**
@@ -81,6 +88,7 @@ export default class RbacService {
    */
   static forget(user: User): void {
     cache.delete(user)
+    void RbacCache.forgetUser(user.id)
   }
 
   static async getRoleNames(user: User): Promise<string[]> {

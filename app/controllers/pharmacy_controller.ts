@@ -26,9 +26,8 @@ import {
   initialScreeningRecord,
   isRegistrationClerk,
   latestStageTransition,
-  paginateClosedEncounters,
-  paginatePharmacyQueue,
-  paginatorPayload,
+  paginateCachedClosedEncounters,
+  paginateCachedPharmacyQueue,
   parseQueuePages,
   pharmacyQueueRow,
   reviewScreeningRecord,
@@ -72,15 +71,15 @@ export default class PharmacyController {
       })
     }
 
-    const { queuedPaginator, inProgressPaginator, partiallyDispensedPaginator } =
-      await paginatePharmacyQueue({
-        queuedPage,
-        progressPage,
-        partiallyDispensedPage,
-        preload: pharmacyPreload,
-      })
+    const { queued, inProgress, partiallyDispensed } = await paginateCachedPharmacyQueue({
+      queuedPage,
+      progressPage,
+      partiallyDispensedPage,
+      currentUserId,
+      preload: pharmacyPreload,
+    })
 
-    const closedPaginator = await paginateClosedEncounters({
+    const closedEncounters = await paginateCachedClosedEncounters({
       closedPage,
       closedSearch,
     })
@@ -92,16 +91,10 @@ export default class PharmacyController {
         value: stage,
         label: EncounterStageHelper.label(stage),
       })),
-      queued: paginatorPayload(queuedPaginator, (encounter) =>
-        pharmacyQueueRow(encounter, { currentUserId })
-      ),
-      inProgress: paginatorPayload(inProgressPaginator, (encounter) =>
-        pharmacyQueueRow(encounter, { currentUserId, inProgress: true })
-      ),
-      partiallyDispensed: paginatorPayload(partiallyDispensedPaginator, (encounter) =>
-        pharmacyQueueRow(encounter, { currentUserId, inProgress: true })
-      ),
-      closedEncounters: paginatorPayload(closedPaginator, closedEncounterRow),
+      queued,
+      inProgress,
+      partiallyDispensed,
+      closedEncounters,
     })
   }
 

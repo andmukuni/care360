@@ -14,6 +14,8 @@ import {
   encounterDurationHours,
   reopenEligibility,
 } from '#support/encounter/reopen_encounter_policy'
+import QueueCache from '#services/cache/queue_cache'
+import { apiStageQueueKey, closedQueuePageKey, stageQueuePageKey } from '#services/cache/queue_cache_keys'
 
 export type QueuePaginatorPayload<T> = {
   data: T[]
@@ -38,6 +40,7 @@ export type BaseQueueRow = {
   received_by_name: string | null
   has_allergies: boolean
   can_manage: boolean
+  received_by_id?: number | null
   patient_age: number | null
 }
 
@@ -218,6 +221,29 @@ export function canManageEncounter(
   return !receivedById || (currentUserId !== null && receivedById === currentUserId)
 }
 
+type CanManagePatchable = {
+  can_manage: boolean
+  received_by_id?: number | null
+}
+
+export function patchQueueCanManage<T extends CanManagePatchable>(
+  payload: QueuePaginatorPayload<T>,
+  currentUserId: number | null
+): QueuePaginatorPayload<Omit<T, 'received_by_id'>> {
+  return {
+    data: payload.data.map((row) => {
+      const receivedById = row.received_by_id ?? null
+      const { received_by_id: _ignored, ...rest } = row
+      return {
+        ...rest,
+        can_manage:
+          !receivedById || (currentUserId !== null && receivedById === currentUserId),
+      } as Omit<T, 'received_by_id'>
+    }),
+    meta: payload.meta,
+  }
+}
+
 export function patientAgeYears(dob: DateTime | null | undefined): number | null {
   if (!dob) return null
   return Math.floor(DateTime.now().diff(dob, 'years').years)
@@ -271,6 +297,7 @@ export function baseQueueRow(
     received_by_name: transition?.receivedByUser?.name ?? null,
     has_allergies: Boolean(encounter.patient?.allergies?.trim()),
     can_manage: canManageEncounter(transition, options.currentUserId),
+    received_by_id: transition?.receivedBy ?? null,
     patient_age: patientAgeYears(encounter.patient?.dateOfBirth),
   }
 }
@@ -617,25 +644,86 @@ export async function paginateScreeningCategoryQueue(options: {
   progressPage: number
   currentUserId: number | null
 }) {
-  const { queuedPaginator, inProgressPaginator } = await paginateStageQueue({
+  const cacheKey = stageQueuePageKey({
     stage: EncounterStage.Screening,
+    scope: options.cat,
     queuedPage: options.queuedPage,
     progressPage: options.progressPage,
     orderBy: 'clinical',
-    applyFilter: (query) => applyScreeningCategoryFilter(query, options.cat),
-    preload: (query) => {
-      query.preload('screeningRecords', (q: any) => q.where('screening_type', 'initial'))
-    },
+  })
+
+  const cached = await QueueCache.getOrSet(cacheKey, EncounterStage.Screening, async () => {
+    const { queuedPaginator, inProgressPaginator } = await paginateStageQueue({
+      stage: EncounterStage.Screening,
+      queuedPage: options.queuedPage,
+      progressPage: options.progressPage,
+      orderBy: 'clinical',
+      applyFilter: (query) => applyScreeningCategoryFilter(query, options.cat),
+      preload: (query) => {
+        query.preload('screeningRecords', (q: any) => q.where('screening_type', 'initial'))
+      },
+    })
+
+    return {
+      queued: paginatorPayload(queuedPaginator, (encounter) =>
+        screeningQueueRow(encounter, { currentUserId: null })
+      ),
+      inProgress: paginatorPayload(inProgressPaginator, (encounter) =>
+        screeningQueueRow(encounter, { currentUserId: null, inProgress: true })
+      ),
+      queueTotal: queuedPaginator.total + inProgressPaginator.total,
+    }
   })
 
   return {
-    queued: paginatorPayload(queuedPaginator, (encounter) =>
-      screeningQueueRow(encounter, { currentUserId: options.currentUserId })
-    ),
-    inProgress: paginatorPayload(inProgressPaginator, (encounter) =>
-      screeningQueueRow(encounter, { currentUserId: options.currentUserId, inProgress: true })
-    ),
-    queueTotal: queuedPaginator.total + inProgressPaginator.total,
+    queued: patchQueueCanManage(cached.queued, options.currentUserId),
+    inProgress: patchQueueCanManage(cached.inProgress, options.currentUserId),
+    queueTotal: cached.queueTotal,
+  }
+}
+
+export async function paginateCachedStageQueue<T extends BaseQueueRow>(options: {
+  stage: EncounterStage
+  queuedPage: number
+  progressPage: number
+  currentUserId: number | null
+  cacheScope?: string
+  perPage?: number
+  orderBy?: QueueOrder
+  applyFilter?: (query: any) => void
+  preload?: (query: any) => void
+  mapRow: (encounter: Encounter, inProgress: boolean) => T
+}) {
+  const cacheKey = stageQueuePageKey({
+    stage: options.stage,
+    scope: options.cacheScope,
+    queuedPage: options.queuedPage,
+    progressPage: options.progressPage,
+    orderBy: options.orderBy,
+  })
+
+  const cached = await QueueCache.getOrSet(cacheKey, options.stage, async () => {
+    const { queuedPaginator, inProgressPaginator } = await paginateStageQueue({
+      stage: options.stage,
+      queuedPage: options.queuedPage,
+      progressPage: options.progressPage,
+      perPage: options.perPage,
+      orderBy: options.orderBy,
+      applyFilter: options.applyFilter,
+      preload: options.preload,
+    })
+
+    return {
+      queued: paginatorPayload(queuedPaginator, (encounter) => options.mapRow(encounter, false)),
+      inProgress: paginatorPayload(inProgressPaginator, (encounter) =>
+        options.mapRow(encounter, true)
+      ),
+    }
+  })
+
+  return {
+    queued: patchQueueCanManage(cached.queued, options.currentUserId),
+    inProgress: patchQueueCanManage(cached.inProgress, options.currentUserId),
   }
 }
 
@@ -764,3 +852,63 @@ export async function paginateClosedEncounters(options: {
 
   return query.orderBy('closed_at', 'desc').paginate(options.closedPage, perPage)
 }
+
+export async function paginateCachedPharmacyQueue(options: {
+  queuedPage: number
+  progressPage: number
+  partiallyDispensedPage: number
+  currentUserId: number | null
+  preload?: (query: any) => void
+}) {
+  const cacheKey = stageQueuePageKey({
+    stage: EncounterStage.Pharmacy,
+    queuedPage: options.queuedPage,
+    progressPage: options.progressPage,
+    partiallyDispensedPage: options.partiallyDispensedPage,
+    orderBy: 'clinical',
+  })
+
+  const cached = await QueueCache.getOrSet(cacheKey, EncounterStage.Pharmacy, async () => {
+    const { queuedPaginator, inProgressPaginator, partiallyDispensedPaginator } =
+      await paginatePharmacyQueue({
+        queuedPage: options.queuedPage,
+        progressPage: options.progressPage,
+        partiallyDispensedPage: options.partiallyDispensedPage,
+        preload: options.preload,
+      })
+
+    return {
+      queued: paginatorPayload(queuedPaginator, (encounter) =>
+        pharmacyQueueRow(encounter, { currentUserId: null })
+      ),
+      inProgress: paginatorPayload(inProgressPaginator, (encounter) =>
+        pharmacyQueueRow(encounter, { currentUserId: null, inProgress: true })
+      ),
+      partiallyDispensed: paginatorPayload(partiallyDispensedPaginator, (encounter) =>
+        pharmacyQueueRow(encounter, { currentUserId: null, inProgress: true })
+      ),
+    }
+  })
+
+  return {
+    queued: patchQueueCanManage(cached.queued, options.currentUserId),
+    inProgress: patchQueueCanManage(cached.inProgress, options.currentUserId),
+    partiallyDispensed: patchQueueCanManage(cached.partiallyDispensed, options.currentUserId),
+  }
+}
+
+export async function paginateCachedClosedEncounters(options: {
+  closedPage: number
+  closedSearch?: string
+  perPage?: number
+}) {
+  const search = options.closedSearch?.trim() ?? ''
+  const cacheKey = closedQueuePageKey(EncounterStage.Pharmacy, options.closedPage, search)
+
+  return QueueCache.getOrSet(cacheKey, EncounterStage.Pharmacy, async () => {
+    const closedPaginator = await paginateClosedEncounters(options)
+    return paginatorPayload(closedPaginator, closedEncounterRow)
+  })
+}
+
+export { apiStageQueueKey }

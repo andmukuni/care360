@@ -14,6 +14,8 @@ import {
   PatientNotEligibleForEncounterException,
 } from '#support/encounter/exceptions'
 import { startEncounterValidator } from '#validators/staff/registration'
+import QueueCache from '#services/cache/queue_cache'
+import { registrationDeskPageKey } from '#services/cache/queue_cache_keys'
 
 // Mirrors config/encounter.php (no Adonis config equivalent exists).
 const VISIT_TYPES = ['OPD', 'ANC', 'Immunisation', 'HIV Testing', 'ART', 'Admission', 'Appointment', 'Other']
@@ -48,13 +50,33 @@ export default class RegistrationController {
     const isRegistrationClerk = roleNames.includes('registration-clerk')
 
     const page = Math.max(1, Number(request.qs().page ?? 1))
-    const [paginator, villages] = await Promise.all([
-      Encounter.query()
-        .preload('patient')
-        .where('current_stage', EncounterStage.Registration)
-        .whereIn('current_status', [EncounterStatus.Started, EncounterStatus.InProgress])
-        .orderBy('started_at', 'desc')
-        .paginate(page, 15),
+    const [cachedDesk, villages] = await Promise.all([
+      QueueCache.getOrSet(registrationDeskPageKey(page), EncounterStage.Registration, async () => {
+        const paginator = await Encounter.query()
+          .preload('patient')
+          .where('current_stage', EncounterStage.Registration)
+          .whereIn('current_status', [EncounterStatus.Started, EncounterStatus.InProgress])
+          .orderBy('started_at', 'desc')
+          .paginate(page, 15)
+
+        return {
+          data: paginator.all().map((e) => ({
+            id: e.id,
+            encounter_number: e.encounterNumber,
+            patient_name: e.patient?.fullName ?? 'Unknown',
+            patient_initial: (e.patient?.fullName ?? '?').charAt(0).toUpperCase(),
+            visit_type: e.visitType,
+            priority_level: e.priorityLevel,
+            started_at_relative: e.startedAt?.toRelative() ?? null,
+          })),
+          meta: {
+            current_page: paginator.currentPage,
+            last_page: paginator.lastPage,
+            per_page: paginator.perPage,
+            total: paginator.total,
+          },
+        }
+      }),
       listVillageNames(),
     ])
 
@@ -100,28 +122,10 @@ export default class RegistrationController {
       registrationDeskKpis.queuedToTriageToday = queuedToTriageToday
     }
 
-    const items = paginator.all()
-
     return inertia.render('registration/index', {
       isRegistrationClerk,
       registrationDeskKpis,
-      activeEncounters: {
-        data: items.map((e) => ({
-          id: e.id,
-          encounter_number: e.encounterNumber,
-          patient_name: e.patient?.fullName ?? 'Unknown',
-          patient_initial: (e.patient?.fullName ?? '?').charAt(0).toUpperCase(),
-          visit_type: e.visitType,
-          priority_level: e.priorityLevel,
-          started_at_relative: e.startedAt?.toRelative() ?? null,
-        })),
-        meta: {
-          current_page: paginator.currentPage,
-          last_page: paginator.lastPage,
-          per_page: paginator.perPage,
-          total: paginator.total,
-        },
-      },
+      activeEncounters: cachedDesk,
       villages,
       visitTypes: VISIT_TYPES,
       priorityLevels: Object.entries(PRIORITY_LEVELS).map(([value, label]) => ({ value, label })),
