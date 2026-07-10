@@ -2,7 +2,7 @@
 
 Deploy **care360** to [Coolify](https://coolify.io) using the production `Dockerfile` only, with **external Postgres** and persistent upload volumes.
 
-> **Important:** Do **not** use `docker-compose` on Coolify for this app. The local compose file is named `docker-compose.local.yml` so Coolify auto-detects the `Dockerfile` instead of spinning up a bundled Postgres and binding host port `3333`.
+> **Important:** Root `docker-compose.yml` is a **Coolify-only** single-service file (no bundled Postgres, no host port `3333` bind). Local dev with Postgres uses `docker-compose.local.yml`.
 
 ## Architecture
 
@@ -33,8 +33,8 @@ Local development uses `docker-compose.local.yml` (app + bundled Postgres + opti
 
 1. In Coolify: **New Resource → Application**.
 2. Connect your Git repo (`care360`).
-3. **Build pack:** **Dockerfile** (root `Dockerfile`) — **not** Docker Compose.
-4. Confirm Coolify is **not** using `docker-compose.yml` (this repo ships `docker-compose.local.yml` for local dev only).
+3. **Build pack:** **Docker Compose** (uses root `docker-compose.yml` — app only) or **Dockerfile** (both work after this fix).
+4. Root `docker-compose.yml` has **no** bundled Postgres and **no** host `ports:` binding. Local full stack: `docker-compose.local.yml`.
 5. **Port (container):** `3333` (must match `PORT` env). Coolify Traefik routes to the container; you do **not** need to publish host port `3333`.
 6. **Coolify env scope:** Mark `NODE_ENV`, `APP_KEY`, and all `DB_*` / `DATABASE_URL` as **Runtime only** (uncheck "Available at Buildtime"). Coolify otherwise injects `NODE_ENV=production` during `docker build`, which skips devDependencies and breaks `node ace build`.
 7. **Health check:**
@@ -170,23 +170,29 @@ docker compose -f docker-compose.local.yml down
 
 **Symptom:** Deploy builds successfully but container fails to start.
 
-**Cause:** Coolify deployed via `docker-compose.yml`, which published host port `3333`. Another container on the server already uses that port.
+**Cause:** Old compose published host port `3333` or Coolify app conflicted with another container on the same port.
 
 **Fix:**
 
-1. Use **Dockerfile-only** deploy (this repo no longer ships root `docker-compose.yml`).
-2. Redeploy — Coolify Traefik routes to container port `3333` without binding the host.
-3. If a previous failed deploy left a bundled `postgres-*` container, remove it in Coolify (not needed when using external Postgres at `13.140.178.27:3815`).
+1. Use the current root `docker-compose.yml` (app only, no `ports:` section).
+2. Redeploy — Traefik routes to container port `3333` internally.
+3. If a previous failed deploy left containers running, remove orphaned `postgres-*` containers from old compose.
 4. If you must debug on the server:
    ```bash
    docker ps --format 'table {{.Names}}\t{{.Ports}}' | grep 3333
    ```
 
+### `Docker Compose file not found at: /docker-compose.yml`
+
+**Cause:** Coolify app is set to **Docker Compose** build pack but the repo had no root compose file (only `docker-compose.local.yml`).
+
+**Fix:** Pull latest `main` — root `docker-compose.yml` is restored as a Coolify-safe app-only file.
+
 ### App uses wrong database (local postgres instead of external)
 
-**Cause:** Old `docker-compose.yml` at repo root overrode `DB_HOST=postgres` and started a bundled Postgres service.
+**Cause:** Old compose included a `postgres` service and `DB_HOST=postgres` override.
 
-**Fix:** Pull latest `main` (uses `docker-compose.local.yml` only). Redeploy with Dockerfile build pack. Confirm env has `DB_HOST=13.140.178.27` and `DB_PORT=3815`.
+**Fix:** Pull latest `main`. Confirm env has `DB_HOST=13.140.178.27` and `DB_PORT=3815`.
 
 ### Database connection timeout
 
@@ -241,7 +247,8 @@ docker compose -f docker-compose.local.yml down
 |---|---|
 | [`Dockerfile`](../Dockerfile) | Multi-stage production image (Coolify) |
 | [`docker/entrypoint.sh`](../docker/entrypoint.sh) | Migrate + optional dictionary sync + start server |
-| [`docker-compose.local.yml`](../docker-compose.local.yml) | **Local dev only** — app + Postgres + optional Redis |
+| [`docker-compose.yml`](../docker-compose.yml) | **Coolify** — app only, external Postgres |
+| [`docker-compose.local.yml`](../docker-compose.local.yml) | **Local dev** — app + Postgres + optional Redis |
 | [`.env.docker.example`](../.env.docker.example) | Local compose env template |
 | [`start/env.ts`](../start/env.ts) | Validated environment variables |
 | [`config/database.ts`](../config/database.ts) | `DATABASE_URL` or `DB_*` connection |

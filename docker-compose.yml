@@ -1,0 +1,26 @@
+# Coolify production compose — app only, external Postgres via env vars.
+# Do not add host `ports:` (Traefik routes internally). Local dev uses docker-compose.local.yml.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    expose:
+      - '3333'
+    labels:
+      - traefik.http.services.app.loadbalancer.server.port=3333
+    volumes:
+      - app_public_storage:/app/public/storage
+      - app_storage_app:/app/storage/app
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3333/health/db']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  app_public_storage:
+  app_storage_app:
