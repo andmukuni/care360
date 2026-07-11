@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
+import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import Invoice from '#models/invoice'
 import MembershipPlan from '#models/membership_plan'
@@ -13,8 +14,7 @@ import { num } from '#support/money_helpers'
  * Ported from App\Http\Controllers\SubscriptionController.
  *
  * The Laravel version paginated accounts server-side; here `index` returns the
- * full ordered set (with status counts) so the Inertia page can filter/paginate
- * client-side via the shared DataTable.
+ * filtered ordered set (with status counts) for the Inertia list page.
  */
 const OPEN_INVOICE_STATUSES = ['issued', 'partial']
 
@@ -22,10 +22,31 @@ export default class SubscriptionsController {
   private readonly wellnessFund = new WellnessFundService()
 
   async index({ request, inertia }: HttpContext) {
-    const status = String(request.qs().status ?? '').trim() || null
+    const filters = request.only(['status', 'search', 'date_from', 'date_to'])
+    const status = String(filters.status ?? '').trim() || null
+    const search = String(filters.search ?? '').trim()
+    const dateFrom = String(filters.date_from ?? '').trim()
+    const dateTo = String(filters.date_to ?? '').trim()
 
     const accounts = await WellnessFundAccount.query()
       .if(status, (q) => q.where('status', status!))
+      .if(search !== '', (q) => {
+        q.where((w) => {
+          w.whereHas('patient', (pq) => {
+            pq.whereILike('fullName', `%${search}%`).orWhereILike('patientId', `%${search}%`)
+          }).orWhereHas('membershipPlan', (mq) => {
+            mq.whereILike('name', `%${search}%`)
+          })
+        })
+      })
+      .if(dateFrom !== '', (q) => {
+        const from = DateTime.fromISO(dateFrom).startOf('day')
+        if (from.isValid) q.where('enrolledAt', '>=', from.toSQL()!)
+      })
+      .if(dateTo !== '', (q) => {
+        const to = DateTime.fromISO(dateTo).endOf('day')
+        if (to.isValid) q.where('enrolledAt', '<=', to.toSQL()!)
+      })
       .preload('patient', (q) => q.select('id', 'patientId', 'fullName'))
       .preload('membershipPlan', (q) => q.select('id', 'name', 'tier'))
       .orderBy('id', 'desc')
@@ -72,6 +93,7 @@ export default class SubscriptionsController {
         outstandingAmount: outstanding.get(a.id) ?? 0,
         hasOutstanding: outstanding.has(a.id),
         enrolledAt: a.enrolledAt ? a.enrolledAt.toISO() : null,
+        enrolledAtFormatted: a.enrolledAt ? a.enrolledAt.toFormat('dd LLL yyyy') : null,
       })),
       plans: plans.map((p) => ({
         id: p.id,
@@ -80,7 +102,12 @@ export default class SubscriptionsController {
         minimumDeposit: num(p.minimumDeposit),
       })),
       counts,
-      status,
+      filters: {
+        status: status ?? '',
+        search,
+        date_from: dateFrom,
+        date_to: dateTo,
+      },
     })
   }
 
