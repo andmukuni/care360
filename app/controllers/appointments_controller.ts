@@ -123,6 +123,8 @@ export default class AppointmentsController {
 
     const a = appointment
     const encounter = a.encounters?.[0] ?? null
+    const isDependentBooking =
+      !!a.requestedByPatient && !!a.patient && a.requestedByPatient.id !== a.patient.id
 
     return inertia.render('appointments/show', {
       appointment: {
@@ -139,10 +141,15 @@ export default class AppointmentsController {
         confirmedTime: this.fmtTime(a.confirmedTime),
         provider: a.preferredProvider?.name ?? null,
         requestedBy: a.requestedByPatient?.fullName ?? null,
+        requestedByPatientNumber: a.requestedByPatient?.patientId ?? null,
+        isDependentBooking,
         confirmedBy: a.confirmedByUser?.name ?? null,
         staffNotes: a.staffNotes,
         cancellationReason: a.cancellationReason,
         createdAt: a.createdAt ? a.createdAt.toISO() : null,
+        createdAtFormatted: a.createdAt ? a.createdAt.toFormat('dd LLL yyyy, HH:mm') : null,
+        createdAtRelative: a.createdAt?.toRelative() ?? null,
+        backTab: a.status === 'pending' ? 'pending' : 'confirmed',
         patient: a.patient
           ? {
               id: a.patient.id,
@@ -159,6 +166,8 @@ export default class AppointmentsController {
               encounterNumber: encounter.encounterNumber,
               currentStage: encounter.currentStage,
               currentStatus: encounter.currentStatus,
+              visitType: encounter.visitType,
+              startedAt: encounter.startedAt ? encounter.startedAt.toFormat('dd LLL yyyy, HH:mm') : null,
               startedBy: encounter.startedByUser?.name ?? null,
               audits: encounter.encounterAudits.map((au) => ({
                 id: au.id,
@@ -167,6 +176,8 @@ export default class AppointmentsController {
                 actionBy: au.actionByUser?.name ?? null,
                 notes: au.notes,
                 createdAt: au.createdAt ? au.createdAt.toISO() : null,
+                createdAtRelative: au.createdAt?.toRelative() ?? null,
+                createdAtFormatted: au.createdAt ? au.createdAt.toFormat('dd LLL yyyy, HH:mm') : null,
               })),
             }
           : null,
