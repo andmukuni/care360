@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { router } from '@inertiajs/vue3'
 import ActionButton from '~/components/ui/ActionButton.vue'
 import { readXsrfToken } from '~/support/xsrf'
+import { copyTextToClipboard } from '~/support/copy_text'
 
 interface PendingSignatureInvite {
   url: string
@@ -41,6 +42,7 @@ const linkError = ref<string | null>(null)
 const canNativeShare = ref(false)
 const sharingLink = ref(false)
 const linkJustGenerated = ref(false)
+const linkInputRef = ref<HTMLInputElement | null>(null)
 
 const isSigned = computed(() => Boolean(props.signatureUrl))
 const isAwaiting = computed(() => !isSigned.value && Boolean(signingLink.value))
@@ -81,15 +83,24 @@ async function generateSigningLink() {
 async function copySigningLink() {
   if (!signingLink.value?.url) return
 
-  try {
-    await navigator.clipboard.writeText(signingLink.value.url)
+  linkError.value = null
+  const copied = await copyTextToClipboard(signingLink.value.url, linkInputRef.value)
+
+  if (copied) {
     linkCopied.value = true
     window.setTimeout(() => {
       linkCopied.value = false
     }, 2500)
-  } catch {
-    linkError.value = 'Could not copy link. Select the URL and copy it manually.'
+    return
   }
+
+  linkInputRef.value?.focus()
+  linkInputRef.value?.select()
+}
+
+function selectLinkInput() {
+  linkInputRef.value?.focus()
+  linkInputRef.value?.select()
 }
 
 async function shareSigningLink() {
@@ -169,7 +180,15 @@ onMounted(() => {
         {{ linkJustGenerated ? 'Link ready — share with staff:' : 'Existing link:' }}
       </p>
       <div class="signature-panel__link-row">
-        <input :value="signingLink.url" type="text" readonly class="signature-panel__link-input" />
+        <input
+          ref="linkInputRef"
+          :value="signingLink.url"
+          type="text"
+          readonly
+          class="signature-panel__link-input"
+          @focus="selectLinkInput"
+          @click="selectLinkInput"
+        />
         <button
           v-if="canNativeShare"
           type="button"
