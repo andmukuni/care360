@@ -55,12 +55,28 @@ export default class AppointmentsController {
 
     const appointments = await query
 
-    const pendingRow = await db.from('appointments').where('status', 'pending').count('* as count').first()
-    const pendingCount = Number(pendingRow?.count ?? 0)
+    const [pendingRows, confirmedRows, todayRows] = await Promise.all([
+      db.from('appointments').where('status', 'pending').count('* as total'),
+      Appointment.query()
+        .where('status', 'confirmed')
+        .where((w) => {
+          w.where('confirmedDate', '>=', today).orWhere((w2) => {
+            w2.whereNull('confirmedDate').where('preferredDate', '>=', today)
+          })
+        })
+        .count('* as total'),
+      Appointment.query().where('status', 'confirmed').where('confirmedDate', today).count('* as total'),
+    ])
+
+    const pendingCount = Number(pendingRows[0]?.total ?? 0)
+    const confirmedCount = Number((confirmedRows[0] as { $extras?: { total?: number } })?.$extras?.total ?? 0)
+    const todayCount = Number((todayRows[0] as { $extras?: { total?: number } })?.$extras?.total ?? 0)
 
     return inertia.render('appointments/index', {
       tab,
       pendingCount,
+      confirmedCount,
+      todayCount,
       appointments: appointments.map((a) => ({
         id: a.id,
         appointmentType: a.appointmentType,
@@ -69,6 +85,8 @@ export default class AppointmentsController {
         status: a.status,
         preferredDate: a.preferredDate ? a.preferredDate.toISODate() : null,
         preferredTime: this.fmtTime(a.preferredTime),
+        alternateDate: a.alternateDate ? a.alternateDate.toISODate() : null,
+        alternateTime: this.fmtTime(a.alternateTime),
         confirmedDate: a.confirmedDate ? a.confirmedDate.toISODate() : null,
         confirmedTime: this.fmtTime(a.confirmedTime),
         provider: a.preferredProvider?.name ?? null,

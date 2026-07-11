@@ -2065,6 +2065,26 @@ input.encounters-filter-field[type='date']::-webkit-calendar-picker-indicator {
   border-left: 1px solid #f3f4f6;
 }
 
+/* Registry list tables: patients, households, encounters */
+.staff-table-head {
+  background: #525252;
+  border-bottom: 1px solid #404040;
+}
+.staff-table-head th {
+  color: #f5f5f5 !important;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.dark .staff-table-head {
+  background: #262626;
+  border-bottom-color: #404040;
+}
+.dark .staff-table-head th {
+  color: #e5e5e5 !important;
+}
+
 .dark .encounters-table tbody td + td {
   border-left-color: #262626;
 }
@@ -2078,7 +2098,7 @@ input.encounters-filter-field[type='date']::-webkit-calendar-picker-indicator {
 
 .encounters-table thead .encounters-table__actions {
   z-index: 3;
-  background: #fafafa;
+  background: #525252;
 }
 
 .dark .encounters-table__actions {
@@ -2086,7 +2106,7 @@ input.encounters-filter-field[type='date']::-webkit-calendar-picker-indicator {
 }
 
 .dark .encounters-table thead .encounters-table__actions {
-  background: rgba(38, 38, 38, 0.6);
+  background: #262626;
 }
 
 .encounters-table tbody tr:hover .encounters-table__actions {

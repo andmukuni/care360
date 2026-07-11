@@ -18,11 +18,13 @@ const props = withDefaults(
     searchKeys?: string[]
     emptyText?: string
     rowHref?: (row: Record<string, any>) => string | null
+    darkHeader?: boolean
   }>(),
   {
     searchable: true,
     perPage: 15,
     emptyText: 'No records found.',
+    darkHeader: false,
   }
 )
 
@@ -106,7 +108,14 @@ function openRow(row: Record<string, any>, event: MouseEvent) {
     <div class="data-table-shell theme-surface overflow-x-auto rounded-lg">
       <table class="w-full text-sm">
         <thead>
-          <tr class="theme-card-header border-b text-left text-sand-11 dark:text-neutral-400">
+          <tr
+            class="border-b text-left"
+            :class="
+              darkHeader
+                ? 'staff-table-head'
+                : 'theme-card-header text-sand-11 dark:text-neutral-400'
+            "
+          >
             <th
               v-for="col in columns"
               :key="col.key"

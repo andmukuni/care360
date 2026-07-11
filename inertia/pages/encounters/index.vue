@@ -207,29 +207,29 @@ function openEncounter(row: EncounterRow, event: MouseEvent) {
       <div class="overflow-x-auto">
         <table class="encounters-table w-full min-w-[960px] text-sm">
           <thead>
-            <tr class="theme-card-header">
-              <th class="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+            <tr class="staff-table-head">
+              <th class="px-4 py-2.5 text-left">
                 Encounter #
               </th>
-              <th class="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+              <th class="px-4 py-2.5 text-left">
                 Patient
               </th>
-              <th class="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+              <th class="px-4 py-2.5 text-left">
                 Stage
               </th>
-              <th class="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+              <th class="px-4 py-2.5 text-left">
                 Status
               </th>
-              <th class="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+              <th class="px-4 py-2.5 text-left">
                 Priority
               </th>
-              <th class="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+              <th class="px-4 py-2.5 text-left">
                 Started
               </th>
-              <th class="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+              <th class="px-4 py-2.5 text-left">
                 Started by
               </th>
-              <th class="encounters-table__actions px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+              <th class="encounters-table__actions px-4 py-2.5 text-right">
                 Actions
               </th>
             </tr>

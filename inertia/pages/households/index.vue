@@ -400,6 +400,7 @@ function extractAll() {
       :searchable="false"
       :per-page="Math.max(households.length, 1)"
       :row-href="householdRowHref"
+      dark-header
       empty-text="No households match the current filters."
     >
       <template #cell:household="{ row }">

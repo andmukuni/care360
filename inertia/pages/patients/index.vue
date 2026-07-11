@@ -395,6 +395,7 @@ function formatDob(value: string | null): string {
       :searchable="false"
       :per-page="Math.max(patients.length, 1)"
       :row-href="patientRowHref"
+      dark-header
       empty-text="No patients match the current filters."
     >
       <template #cell:patient="{ row }">
