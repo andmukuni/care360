@@ -254,6 +254,10 @@ function goPage(nextPage: number) {
   visitPatients({ page: nextPage })
 }
 
+function patientRowHref(row: PatientRow) {
+  return `/patients/${row.patientId}`
+}
+
 function patientInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)
   if (parts.length === 0) return 'P'
@@ -390,6 +394,7 @@ function formatDob(value: string | null): string {
       :rows="patients"
       :searchable="false"
       :per-page="Math.max(patients.length, 1)"
+      :row-href="patientRowHref"
       empty-text="No patients match the current filters."
     >
       <template #cell:patient="{ row }">

@@ -232,6 +232,10 @@ function goPage(nextPage: number) {
   visitHouseholds({ page: nextPage })
 }
 
+function householdRowHref(row: HouseholdRow) {
+  return `/households/${row.householdId}`
+}
+
 function householdInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)
   if (parts.length === 0) return 'H'
@@ -395,6 +399,7 @@ function extractAll() {
       :rows="households"
       :searchable="false"
       :per-page="Math.max(households.length, 1)"
+      :row-href="householdRowHref"
       empty-text="No households match the current filters."
     >
       <template #cell:household="{ row }">

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { router } from '@inertiajs/vue3'
 
 interface Column {
   key: string
@@ -16,6 +17,7 @@ const props = withDefaults(
     perPage?: number
     searchKeys?: string[]
     emptyText?: string
+    rowHref?: (row: Record<string, any>) => string | null
   }>(),
   {
     searchable: true,
@@ -69,6 +71,23 @@ function toggleSort(col: Column) {
     sortDir.value = 'asc'
   }
 }
+
+function openRow(row: Record<string, any>, event: MouseEvent) {
+  if (!props.rowHref) return
+
+  const href = props.rowHref(row)
+  if (!href) return
+
+  const target = event.target as HTMLElement
+  if (target.closest('a, button, input, select, textarea, label')) return
+
+  if (event.metaKey || event.ctrlKey || event.shiftKey) {
+    window.open(href, '_blank')
+    return
+  }
+
+  router.visit(href)
+}
 </script>
 
 <template>
@@ -105,7 +124,13 @@ function toggleSort(col: Column) {
           <tr
             v-for="(row, i) in paged"
             :key="i"
-            class="border-b border-sand-4 text-neutral-800 hover:bg-sand-2 dark:border-white/[0.03] dark:text-neutral-200 dark:hover:bg-neutral-800/60"
+            class="border-b border-sand-4 text-neutral-800 dark:border-white/[0.03] dark:text-neutral-200"
+            :class="
+              rowHref
+                ? 'cursor-pointer transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/40'
+                : 'hover:bg-sand-2 dark:hover:bg-neutral-800/60'
+            "
+            @click="openRow(row, $event)"
           >
             <td v-for="col in columns" :key="col.key" class="px-3 py-2" :class="col.class">
               <slot :name="`cell:${col.key}`" :row="row" :value="row[col.key]">
