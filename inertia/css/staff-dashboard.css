@@ -3311,7 +3311,9 @@ input.encounters-filter-field[type='date']::-webkit-calendar-picker-indicator {
 }
 
 .users-edit {
-  max-width: 48rem;
+  width: 100%;
+  max-width: 56rem;
+  margin-inline: auto;
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -3319,11 +3321,26 @@ input.encounters-filter-field[type='date']::-webkit-calendar-picker-indicator {
 .users-edit__hero {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 1.25rem;
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
   background: #fff;
-  padding: 1.25rem 1.5rem;
+  padding: 1.5rem;
+}
+.users-edit__grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+@media (min-width: 900px) {
+  .users-edit__grid {
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  }
+  .users-edit__section--signature {
+    grid-column: 1;
+    grid-row: 1 / -1;
+  }
 }
 .users-edit__avatar-picker {
   display: flex;
@@ -3401,11 +3418,6 @@ input.encounters-filter-field[type='date']::-webkit-calendar-picker-indicator {
 .users-edit__status-pill--muted {
   background: #f1f5f9;
   color: #64748b;
-}
-.users-edit__sections {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
 }
 .users-edit__section {
   border: 1px solid #e2e8f0;

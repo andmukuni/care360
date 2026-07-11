@@ -173,7 +173,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div class="users-edit__sections">
+    <div class="users-edit__grid">
       <section class="users-edit__section users-edit__section--signature">
         <header class="users-edit__section-head">
           <h3 class="users-edit__section-title">Signature</h3>
