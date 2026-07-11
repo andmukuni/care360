@@ -64,6 +64,7 @@ export default class PatientPortalAdminController {
       .orderBy('updatedAt', 'desc')
 
     return inertia.render('portal-registrations/index', {
+      pendingCount: registrations.length,
       registrations: registrations.map((p) => ({
         id: p.id,
         patientNumber: p.patientId,
@@ -73,6 +74,8 @@ export default class PatientPortalAdminController {
         gender: p.gender,
         status: p.status,
         updatedAt: p.updatedAt ? p.updatedAt.toISO() : null,
+        updatedAtFormatted: p.updatedAt ? p.updatedAt.toFormat('dd LLL yyyy, HH:mm') : null,
+        updatedAtRelative: p.updatedAt?.toRelative() ?? null,
       })),
     })
   }
