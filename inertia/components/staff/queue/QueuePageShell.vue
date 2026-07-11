@@ -6,9 +6,9 @@ import QueueLiveIndicator from '~/components/staff/queue/QueueLiveIndicator.vue'
 defineProps<{
   title: string
   description?: string
-  tab: QueueTab
-  queuedTotal: number
-  inProgressTotal: number
+  tab?: QueueTab
+  queuedTotal?: number
+  inProgressTotal?: number
   partiallyDispensedTotal?: number
   closedTotal?: number
   waitingLabel?: string
@@ -17,6 +17,7 @@ defineProps<{
   closedLabel?: string
   theme?: 'default' | 'treatment'
   isRegistrationClerk?: boolean
+  showLiveIndicator?: boolean
 }>()
 
 defineEmits<{
@@ -30,7 +31,7 @@ defineEmits<{
       <div class="min-w-0 flex-1">
         <div class="flex flex-wrap items-center gap-2.5">
           <h1 class="queue-page-title">{{ title }}</h1>
-          <QueueLiveIndicator />
+          <QueueLiveIndicator v-if="showLiveIndicator !== false" />
         </div>
         <p v-if="description" class="queue-page-description">{{ description }}</p>
       </div>
@@ -45,10 +46,13 @@ defineEmits<{
 
     <slot v-if="$slots.categories" name="categories" />
 
+    <slot v-if="$slots.tabs" name="tabs" />
+
     <QueueTabs
-      :tab="tab"
-      :queued-total="queuedTotal"
-      :in-progress-total="inProgressTotal"
+      v-else
+      :tab="tab!"
+      :queued-total="queuedTotal ?? 0"
+      :in-progress-total="inProgressTotal ?? 0"
       :partially-dispensed-total="partiallyDispensedTotal"
       :closed-total="closedTotal"
       :waiting-label="waitingLabel"

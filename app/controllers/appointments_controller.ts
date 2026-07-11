@@ -90,6 +90,7 @@ export default class AppointmentsController {
         confirmedDate: a.confirmedDate ? a.confirmedDate.toISODate() : null,
         confirmedTime: this.fmtTime(a.confirmedTime),
         provider: a.preferredProvider?.name ?? null,
+        createdAtRelative: a.createdAt?.toRelative() ?? null,
         patient: a.patient
           ? {
               id: a.patient.id,

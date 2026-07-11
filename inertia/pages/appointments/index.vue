@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Link, router, useForm } from '@inertiajs/vue3'
+import { router, useForm } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
+import QueuePageShell from '~/components/staff/queue/QueuePageShell.vue'
 import QueueTable from '~/components/staff/queue/QueueTable.vue'
 import QueueEmptyState from '~/components/staff/queue/QueueEmptyState.vue'
 import QueueSearchField from '~/components/staff/queue/QueueSearchField.vue'
+import AppointmentTabs, { type AppointmentTab } from '~/components/staff/queue/AppointmentTabs.vue'
+import QueueAppointmentCell from '~/components/staff/queue/QueueAppointmentCell.vue'
+import QueuePatientCell from '~/components/staff/queue/QueuePatientCell.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
 
 interface Patient {
@@ -28,11 +32,12 @@ interface Appointment {
   confirmedDate: string | null
   confirmedTime: string | null
   provider: string | null
+  createdAtRelative: string | null
   patient: Patient | null
 }
 
 const props = defineProps<{
-  tab: string
+  tab: AppointmentTab
   pendingCount: number
   confirmedCount: number
   todayCount: number
@@ -40,12 +45,6 @@ const props = defineProps<{
 }>()
 
 const search = ref('')
-
-const tabs = [
-  { key: 'pending', label: 'Pending', count: () => props.pendingCount },
-  { key: 'confirmed', label: 'Confirmed', count: () => props.confirmedCount },
-  { key: 'today', label: 'Today', count: () => props.todayCount },
-] as const
 
 const emptyCopy = computed(() => {
   if (props.tab === 'pending') {
@@ -93,22 +92,18 @@ function formatDate(value: string | null): string {
   return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-function formatWhen(date: string | null, time: string | null): string {
-  const dateLabel = formatDate(date)
-  if (dateLabel === '—') return '—'
-  return time ? `${dateLabel} · ${time}` : dateLabel
-}
-
 function appointmentSubtitle(a: Appointment): string {
   const patient = a.patient?.fullName ?? '—'
   const when =
     props.tab === 'pending'
-      ? formatWhen(a.preferredDate, a.preferredTime)
-      : formatWhen(a.confirmedDate ?? a.preferredDate, a.confirmedTime ?? a.preferredTime)
-  return `${patient} · ${when}`
+      ? [formatDate(a.preferredDate), a.preferredTime].filter((v) => v && v !== '—').join(' · ')
+      : [formatDate(a.confirmedDate ?? a.preferredDate), a.confirmedTime ?? a.preferredTime]
+          .filter((v) => v && v !== '—')
+          .join(' · ')
+  return `${patient} · ${when || '—'}`
 }
 
-function switchTab(tab: string) {
+function switchTab(tab: AppointmentTab) {
   router.get('/appointments', { tab }, { preserveState: false })
 }
 
@@ -116,10 +111,6 @@ function openAppointment(id: number, event: MouseEvent) {
   const target = event.target as HTMLElement
   if (target.closest('a, button, input, select, textarea, label')) return
   router.visit(`/appointments/${id}`)
-}
-
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat().format(value)
 }
 
 // ── Confirm modal ──────────────────────────────────────────────────────────
@@ -186,158 +177,252 @@ function submitQueue() {
       <span class="font-medium text-neutral-700 dark:text-neutral-200">Appointments</span>
     </template>
 
-    <div class="queue-page w-full space-y-5">
-      <header class="queue-page-header">
-        <div class="min-w-0 flex-1">
-          <h1 class="queue-page-title">Appointments</h1>
-          <p class="queue-page-description">
-            Review portal requests and manage confirmed bookings.
-          </p>
-        </div>
-      </header>
+    <QueuePageShell
+      title="Appointments"
+      description="Review portal requests and manage confirmed bookings."
+      :show-live-indicator="false"
+    >
+      <template #tabs>
+        <AppointmentTabs
+          :tab="tab"
+          :pending-count="pendingCount"
+          :confirmed-count="confirmedCount"
+          :today-count="todayCount"
+          @update:tab="switchTab"
+        />
+      </template>
 
-      <div class="queue-stat-row">
-        <div class="queue-stat">
-          <span class="queue-stat-label">Pending</span>
-          <span class="queue-stat-value">{{ formatNumber(pendingCount) }}</span>
-        </div>
-        <div class="queue-stat">
-          <span class="queue-stat-label">Confirmed</span>
-          <span class="queue-stat-value">{{ formatNumber(confirmedCount) }}</span>
-        </div>
-        <div class="queue-stat">
-          <span class="queue-stat-label">Today</span>
-          <span class="queue-stat-value">{{ formatNumber(todayCount) }}</span>
-        </div>
-      </div>
+      <template #toolbar>
+        <QueueSearchField
+          v-model="search"
+          label="Search appointments"
+          placeholder="Search by patient, type, reason, or provider…"
+          :hint="search.trim() ? `${filteredAppointments.length} of ${appointments.length} shown` : undefined"
+        />
+      </template>
 
-      <div class="queue-segments queue-segments--full" role="tablist" aria-label="Appointment views">
-        <button
-          v-for="t in tabs"
-          :key="t.key"
-          type="button"
-          role="tab"
-          class="queue-segment"
-          :class="{ active: tab === t.key }"
-          :aria-selected="tab === t.key"
-          @click="switchTab(t.key)"
-        >
-          <span>{{ t.label }}</span>
-          <span
-            v-if="t.count() > 0"
-            class="queue-segment-count"
-            :class="t.key === 'pending' && pendingCount > 0 ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : ''"
+      <div v-show="tab === 'pending'" class="space-y-3">
+        <QueueEmptyState
+          v-if="filteredAppointments.length === 0"
+          :title="search.trim() ? 'No matching appointments' : emptyCopy.title"
+          :description="search.trim() ? 'Try a different search term or switch tabs.' : emptyCopy.description"
+        />
+        <QueueTable v-else>
+          <template #head>
+            <tr>
+              <th>Appointment</th>
+              <th>Patient</th>
+              <th>Preferred</th>
+              <th>Alternate</th>
+              <th class="text-right">Action</th>
+            </tr>
+          </template>
+          <tr
+            v-for="row in filteredAppointments"
+            :key="row.id"
+            class="cursor-pointer"
+            @click="openAppointment(row.id, $event)"
           >
-            {{ t.count() }}
-          </span>
-        </button>
+            <td>
+              <QueueAppointmentCell
+                :appointment-type="row.appointmentType"
+                :appointment-purpose="row.appointmentPurpose"
+                :created-at-relative="row.createdAtRelative"
+                :reason="row.reason"
+              />
+            </td>
+            <td>
+              <QueuePatientCell
+                :patient-name="row.patient?.fullName ?? null"
+                :details="row.patient?.patientNumber ?? null"
+              />
+            </td>
+            <td>
+              <div v-if="row.preferredDate" class="queue-cell-inline">
+                <span class="queue-cell-main">{{ formatDate(row.preferredDate) }}</span>
+                <template v-if="row.preferredTime">
+                  <span class="queue-cell-sep" aria-hidden="true">·</span>
+                  <span class="queue-cell-sub">{{ row.preferredTime }}</span>
+                </template>
+              </div>
+              <span v-else class="queue-cell-sub">—</span>
+            </td>
+            <td>
+              <div v-if="row.alternateDate" class="queue-cell-inline">
+                <span class="queue-cell-main">{{ formatDate(row.alternateDate) }}</span>
+                <template v-if="row.alternateTime">
+                  <span class="queue-cell-sep" aria-hidden="true">·</span>
+                  <span class="queue-cell-sub">{{ row.alternateTime }}</span>
+                </template>
+              </div>
+              <span v-else class="queue-cell-sub">—</span>
+            </td>
+            <td class="queue-action-col">
+              <div class="queue-card-action">
+                <ActionButton variant="queue" @click.stop="openConfirm(row)">Confirm</ActionButton>
+                <ActionButton variant="outline" @click.stop="openDecline(row)">Decline</ActionButton>
+              </div>
+            </td>
+          </tr>
+        </QueueTable>
       </div>
 
-      <QueueSearchField
-        v-model="search"
-        label="Search appointments"
-        placeholder="Search by patient, type, reason, or provider…"
-        :hint="`${filteredAppointments.length} of ${appointments.length} shown`"
-      />
-
-      <QueueEmptyState
-        v-if="filteredAppointments.length === 0"
-        :title="search.trim() ? 'No matching appointments' : emptyCopy.title"
-        :description="search.trim() ? 'Try a different search term or switch tabs.' : emptyCopy.description"
-      />
-
-      <QueueTable v-else>
-        <template #head>
-          <tr>
-            <th>Appointment</th>
-            <th>Patient</th>
-            <th>Preferred</th>
-            <th v-if="tab === 'pending'">Alternate</th>
-            <template v-else>
+      <div v-show="tab === 'confirmed'" class="space-y-3">
+        <QueueEmptyState
+          v-if="filteredAppointments.length === 0"
+          :title="search.trim() ? 'No matching appointments' : emptyCopy.title"
+          :description="search.trim() ? 'Try a different search term or switch tabs.' : emptyCopy.description"
+        />
+        <QueueTable v-else>
+          <template #head>
+            <tr>
+              <th>Appointment</th>
+              <th>Patient</th>
+              <th>Preferred</th>
               <th>Confirmed</th>
               <th>Provider</th>
-            </template>
-            <th class="text-right">Action</th>
-          </tr>
-        </template>
-
-        <tr
-          v-for="row in filteredAppointments"
-          :key="row.id"
-          class="cursor-pointer"
-          @click="openAppointment(row.id, $event)"
-        >
-          <td>
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="queue-cell-main">{{ row.appointmentType }}</span>
-              <span v-if="row.appointmentPurpose" class="queue-chip queue-chip--info">
-                {{ row.appointmentPurpose }}
-              </span>
-            </div>
-            <p v-if="row.reason" class="mt-0.5 max-w-[280px] truncate text-xs text-neutral-400">
-              {{ row.reason }}
-            </p>
-          </td>
-
-          <td>
-            <template v-if="row.patient">
-              <Link
-                :href="`/patients/${row.patient.patientNumber}`"
-                class="queue-cell-main hover:underline"
-                @click.stop
-              >
-                {{ row.patient.fullName }}
-              </Link>
-              <span class="mt-0.5 block font-mono text-xs text-neutral-400">{{ row.patient.patientNumber }}</span>
-            </template>
-            <span v-else class="text-neutral-400">—</span>
-          </td>
-
-          <td class="whitespace-nowrap text-neutral-700 dark:text-neutral-200">
-            {{ formatWhen(row.preferredDate, row.preferredTime) }}
-          </td>
-
-          <td v-if="tab === 'pending'" class="whitespace-nowrap text-neutral-500">
-            {{ row.alternateDate ? formatWhen(row.alternateDate, row.alternateTime) : '—' }}
-          </td>
-
-          <template v-else>
-            <td class="whitespace-nowrap font-semibold text-emerald-700 dark:text-emerald-400">
-              {{ formatWhen(row.confirmedDate, row.confirmedTime) }}
-            </td>
-            <td class="whitespace-nowrap text-neutral-700 dark:text-neutral-200">
-              {{ row.provider ?? '—' }}
-            </td>
+              <th class="text-right">Action</th>
+            </tr>
           </template>
-
-          <td class="queue-action-col">
-            <div v-if="tab === 'pending'" class="inline-flex flex-wrap justify-end gap-2">
-              <button type="button" class="queue-btn queue-btn--primary" @click.stop="openConfirm(row)">
-                Confirm
-              </button>
-              <button
-                type="button"
-                class="queue-btn border border-red-300 text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
-                @click.stop="openDecline(row)"
+          <tr
+            v-for="row in filteredAppointments"
+            :key="row.id"
+            class="cursor-pointer"
+            @click="openAppointment(row.id, $event)"
+          >
+            <td>
+              <QueueAppointmentCell
+                :appointment-type="row.appointmentType"
+                :appointment-purpose="row.appointmentPurpose"
+                :created-at-relative="row.createdAtRelative"
+                :reason="row.reason"
+              />
+            </td>
+            <td>
+              <QueuePatientCell
+                :patient-name="row.patient?.fullName ?? null"
+                :details="row.patient?.patientNumber ?? null"
+              />
+            </td>
+            <td>
+              <div v-if="row.preferredDate" class="queue-cell-inline">
+                <span class="queue-cell-main">{{ formatDate(row.preferredDate) }}</span>
+                <template v-if="row.preferredTime">
+                  <span class="queue-cell-sep" aria-hidden="true">·</span>
+                  <span class="queue-cell-sub">{{ row.preferredTime }}</span>
+                </template>
+              </div>
+              <span v-else class="queue-cell-sub">—</span>
+            </td>
+            <td>
+              <div v-if="row.confirmedDate" class="queue-cell-inline">
+                <span class="queue-cell-main">{{ formatDate(row.confirmedDate) }}</span>
+                <template v-if="row.confirmedTime">
+                  <span class="queue-cell-sep" aria-hidden="true">·</span>
+                  <span class="queue-cell-sub">{{ row.confirmedTime }}</span>
+                </template>
+              </div>
+              <span v-else class="queue-cell-sub">—</span>
+            </td>
+            <td>
+              <span class="queue-cell-main">{{ row.provider ?? '—' }}</span>
+            </td>
+            <td class="queue-action-col">
+              <ActionButton
+                v-if="row.status === 'confirmed'"
+                variant="queue"
+                @click.stop="openQueue(row)"
               >
-                Decline
-              </button>
-            </div>
-            <button
-              v-else-if="row.status === 'confirmed'"
-              type="button"
-              class="queue-btn queue-btn--primary"
-              @click.stop="openQueue(row)"
-            >
-              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-              </svg>
-              Queue patient
-            </button>
-          </td>
-        </tr>
-      </QueueTable>
-    </div>
+                <template #icon>
+                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                  </svg>
+                </template>
+                Queue patient
+              </ActionButton>
+            </td>
+          </tr>
+        </QueueTable>
+      </div>
+
+      <div v-show="tab === 'today'" class="space-y-3">
+        <QueueEmptyState
+          v-if="filteredAppointments.length === 0"
+          :title="search.trim() ? 'No matching appointments' : emptyCopy.title"
+          :description="search.trim() ? 'Try a different search term or switch tabs.' : emptyCopy.description"
+        />
+        <QueueTable v-else>
+          <template #head>
+            <tr>
+              <th>Appointment</th>
+              <th>Patient</th>
+              <th>Preferred</th>
+              <th>Confirmed</th>
+              <th>Provider</th>
+              <th class="text-right">Action</th>
+            </tr>
+          </template>
+          <tr
+            v-for="row in filteredAppointments"
+            :key="row.id"
+            class="cursor-pointer"
+            @click="openAppointment(row.id, $event)"
+          >
+            <td>
+              <QueueAppointmentCell
+                :appointment-type="row.appointmentType"
+                :appointment-purpose="row.appointmentPurpose"
+                :created-at-relative="row.createdAtRelative"
+                :reason="row.reason"
+              />
+            </td>
+            <td>
+              <QueuePatientCell
+                :patient-name="row.patient?.fullName ?? null"
+                :details="row.patient?.patientNumber ?? null"
+              />
+            </td>
+            <td>
+              <div v-if="row.preferredDate" class="queue-cell-inline">
+                <span class="queue-cell-main">{{ formatDate(row.preferredDate) }}</span>
+                <template v-if="row.preferredTime">
+                  <span class="queue-cell-sep" aria-hidden="true">·</span>
+                  <span class="queue-cell-sub">{{ row.preferredTime }}</span>
+                </template>
+              </div>
+              <span v-else class="queue-cell-sub">—</span>
+            </td>
+            <td>
+              <div v-if="row.confirmedDate" class="queue-cell-inline">
+                <span class="queue-cell-main">{{ formatDate(row.confirmedDate) }}</span>
+                <template v-if="row.confirmedTime">
+                  <span class="queue-cell-sep" aria-hidden="true">·</span>
+                  <span class="queue-cell-sub">{{ row.confirmedTime }}</span>
+                </template>
+              </div>
+              <span v-else class="queue-cell-sub">—</span>
+            </td>
+            <td>
+              <span class="queue-cell-main">{{ row.provider ?? '—' }}</span>
+            </td>
+            <td class="queue-action-col">
+              <ActionButton
+                v-if="row.status === 'confirmed'"
+                variant="queue"
+                @click.stop="openQueue(row)"
+              >
+                <template #icon>
+                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                  </svg>
+                </template>
+                Queue patient
+              </ActionButton>
+            </td>
+          </tr>
+        </QueueTable>
+      </div>
+    </QueuePageShell>
 
     <!-- Confirm modal -->
     <div
