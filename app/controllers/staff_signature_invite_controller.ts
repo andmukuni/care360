@@ -16,6 +16,11 @@ const storeSignatureValidator = vine.compile(
   })
 )
 
+type ActiveInviteContext = {
+  invite: StaffSignatureInvite
+  user: User
+}
+
 async function invalidatePendingInvites(userId: number): Promise<void> {
   await StaffSignatureInvite.query()
     .where('user_id', userId)
@@ -46,12 +51,18 @@ function invitePayload(invite: StaffSignatureInvite, request: HttpContext['reque
   }
 }
 
-async function findActiveInvite(token: string): Promise<StaffSignatureInvite | null> {
-  const invite = await StaffSignatureInvite.query().where('token', token).preload('user').first()
-  if (!invite || !invite.isActive()) {
+async function findActiveInvite(token: string): Promise<ActiveInviteContext | null> {
+  const invite = await StaffSignatureInvite.query().where('token', token).first()
+  if (!invite?.isActive()) {
     return null
   }
-  return invite
+
+  const user = await User.find(invite.userId)
+  if (!user) {
+    return null
+  }
+
+  return { invite, user }
 }
 
 async function latestCompletedInvite(userId: number): Promise<StaffSignatureInvite | null> {
@@ -62,8 +73,13 @@ async function latestCompletedInvite(userId: number): Promise<StaffSignatureInvi
     .first()
 }
 
-function capturePayload(invite: StaffSignatureInvite, extras: Record<string, unknown> = {}) {
-  const user = invite.user
+function formatSignedAt(value: DateTime | null | undefined): string | null {
+  if (!value) return null
+  const dt = value instanceof DateTime ? value : DateTime.fromISO(String(value))
+  return dt.isValid ? dt.toFormat("dd LLL yyyy 'at' HH:mm") : null
+}
+
+function capturePayload(invite: StaffSignatureInvite, user: User, extras: Record<string, unknown> = {}) {
   return {
     token: invite.token,
     staff_name: user.name,
@@ -99,52 +115,61 @@ export default class StaffSignatureInviteController {
    * GET /sign/:token — mobile signature capture page (public).
    */
   async show({ params, inertia }: HttpContext) {
-    const invite = await findActiveInvite(params.token)
-    if (!invite) {
+    const context = await findActiveInvite(params.token)
+    if (!context) {
       return inertia.render('signatures/invalid')
     }
 
-    const user = invite.user
+    const { invite, user } = context
     const signatureUrl = publicStorageUrl(user.signaturePath)
     if (signatureUrl) {
       const completed = await latestCompletedInvite(user.id)
-      return inertia.render('signatures/capture', capturePayload(invite, {
-        already_signed: true,
-        signature_url: signatureUrl,
-        signed_at: completed?.completedAt?.toFormat("dd MMM yyyy 'at' hh:mm a") ?? null,
-      }))
+      return inertia.render(
+        'signatures/capture',
+        capturePayload(invite, user, {
+          already_signed: true,
+          signature_url: signatureUrl,
+          signed_at: formatSignedAt(completed?.completedAt),
+        })
+      )
     }
 
-    return inertia.render('signatures/capture', capturePayload(invite))
+    return inertia.render('signatures/capture', capturePayload(invite, user))
   }
 
   /**
    * POST /sign/:token — save a drawn signature (public).
    */
   async store({ params, request, inertia }: HttpContext) {
-    const invite = await findActiveInvite(params.token)
-    if (!invite) {
+    const context = await findActiveInvite(params.token)
+    if (!context) {
       return inertia.render('signatures/invalid')
     }
 
-    const user = invite.user
+    const { invite, user } = context
     const existingSignature = publicStorageUrl(user.signaturePath)
     if (existingSignature) {
       const completed = await latestCompletedInvite(user.id)
-      return inertia.render('signatures/capture', capturePayload(invite, {
-        already_signed: true,
-        signature_url: existingSignature,
-        signed_at: completed?.completedAt?.toFormat("dd MMM yyyy 'at' hh:mm a") ?? null,
-      }))
+      return inertia.render(
+        'signatures/capture',
+        capturePayload(invite, user, {
+          already_signed: true,
+          signature_url: existingSignature,
+          signed_at: formatSignedAt(completed?.completedAt),
+        })
+      )
     }
 
     const { signature_image: signatureImage } = await request.validateUsing(storeSignatureValidator)
     const relativePath = saveStaffSignatureFromDataUrl(signatureImage)
 
     if (!relativePath) {
-      return inertia.render('signatures/capture', capturePayload(invite, {
-        error_message: 'Please draw your signature before submitting.',
-      }))
+      return inertia.render(
+        'signatures/capture',
+        capturePayload(invite, user, {
+          error_message: 'Please draw your signature before submitting.',
+        })
+      )
     }
 
     user.signaturePath = relativePath
@@ -160,10 +185,13 @@ export default class StaffSignatureInviteController {
 
     const savedSignatureUrl = publicStorageUrl(relativePath)
 
-    return inertia.render('signatures/capture', capturePayload(invite, {
-      saved: true,
-      signature_url: savedSignatureUrl,
-      signed_at: invite.completedAt.toFormat("dd MMM yyyy 'at' hh:mm a"),
-    }))
+    return inertia.render(
+      'signatures/capture',
+      capturePayload(invite, user, {
+        saved: true,
+        signature_url: savedSignatureUrl,
+        signed_at: formatSignedAt(invite.completedAt),
+      })
+    )
   }
 }

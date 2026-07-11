@@ -36,10 +36,19 @@ export default class StaffSignatureInvite extends BaseModel {
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
 
-  @belongsTo(() => User)
+  @belongsTo(() => User, { foreignKey: 'userId' })
   declare user: BelongsTo<typeof User>
 
   isActive(): boolean {
-    return this.completedAt === null && this.expiresAt > DateTime.now()
+    if (this.completedAt !== null && this.completedAt !== undefined) {
+      return false
+    }
+
+    const expires =
+      this.expiresAt instanceof DateTime
+        ? this.expiresAt
+        : DateTime.fromISO(String(this.expiresAt ?? ''))
+
+    return expires.isValid && expires > DateTime.now()
   }
 }
