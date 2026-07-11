@@ -428,7 +428,6 @@ onBeforeUnmount(() => {
   color: #fff;
   font-size: 1rem;
   font-weight: 700;
-  box-shadow: 0 10px 25px rgb(79 70 229 / 40%);
 }
 
 .signature-capture-page__submit:hover {
