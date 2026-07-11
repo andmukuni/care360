@@ -6,7 +6,7 @@ import hash from '@adonisjs/core/services/hash'
 import db from '@adonisjs/lucid/services/db'
 import Patient from '#models/patient'
 import { TdltsBarcodeGenerator } from '#support/tdlts_barcode_generator'
-import { findAllPatientRows, findPatientRowByRef } from '#support/ref_resolvers'
+import { findPatientRowByRef } from '#support/ref_resolvers'
 import ReferenceDataInvalidator from '#services/cache/reference_data_invalidator'
 import { notificationService, NOTIFIABLE_PATIENT } from '#services/notifications/notification_service'
 import { PortalInvitationNotification } from '../notifications/portal_invitation_notification.js'
@@ -137,8 +137,8 @@ const portalPasswordValidator = vine.compile(
  *
  * The Laravel controller resolved patients via a business `{ref}` (patient_id /
  * barcode / numeric id) using raw DB queries; that lookup is replicated here.
- * jQuery DataTables JSON endpoints are collapsed into `index`, which returns the
- * full ordered patient list for the client-side DataTable.
+ * jQuery DataTables JSON endpoints are collapsed into `index`, which returns a
+ * paginated patient list with server-side search and filters.
  */
 export default class PatientsController {
   /**
@@ -240,56 +240,138 @@ export default class PatientsController {
   }
 
   /**
-   * GET /patients — full ordered list for the client-side DataTable.
+   * GET /patients — paginated list with server-side search and filters.
    */
-  async index({ request, inertia }: HttpContext) {
-    const search = String(request.qs().search ?? '').trim()
-    const householdId = String(request.qs().householdId ?? '')
+  private applyPatientIndexFilters(
+    query: ReturnType<typeof db.from>,
+    filters: { search: string; householdId: string; gender: string; status: string }
+  ) {
+    const { search, householdId, gender, status } = filters
 
-    let rows: Record<string, any>[]
-
-    if (search === '' && householdId === '') {
-      rows = await findAllPatientRows()
-    } else {
-      const query = db.from('patients')
-
-      if (householdId !== '') {
-        query.where('household_id', householdId)
-      }
-
-      if (search !== '') {
-        const like = `%${search}%`
-        query.where((q) => {
-          q.whereILike('patient_id', like)
-            .orWhereILike('full_name', like)
-            .orWhereILike('phone_number', like)
-            .orWhereILike('nrc_number', like)
-            .orWhereILike('barcode', like)
-            .orWhereILike('household_id', like)
-        })
-      }
-
-      rows = await query.orderBy('source_created_at', 'desc').orderBy('id', 'desc')
+    if (householdId !== '') {
+      query.where('household_id', householdId)
     }
 
-    const lookup = await this.buildHouseholdLookup(
-      rows.map((r) => String(r.household_id ?? '')),
-      rows.map((r) => String(r.household_head_of_house ?? ''))
-    )
+    if (gender !== '') {
+      query.where('gender', gender)
+    }
 
-    const patients = rows.map((row) => {
-      const hid = String(row.household_id ?? '')
-      const head = String(row.household_head_of_house ?? '').toLowerCase()
-      let household = hid !== '' ? (lookup.byId[hid] ?? null) : null
-      if (!household && head !== '') household = lookup.byHead[head] ?? null
-      return this.normalizePatient(row, household)
-    })
+    if (status === 'deceased') {
+      query.where('is_deceased', true)
+    } else if (status === 'active') {
+      query.where('status', 'active').where('is_deceased', false)
+    } else if (status === 'inactive') {
+      query.where('status', 'inactive').where('is_deceased', false)
+    }
+
+    if (search !== '') {
+      const like = `%${search}%`
+      query.where((q) => {
+        q.whereILike('patient_id', like)
+          .orWhereILike('full_name', like)
+          .orWhereILike('phone_number', like)
+          .orWhereILike('nrc_number', like)
+          .orWhereILike('barcode', like)
+          .orWhereILike('household_id', like)
+      })
+    }
+  }
+
+  private normalizePatientListRow(row: Record<string, any>) {
+    return {
+      patientId: String(row.patient_id ?? ''),
+      fullName: String(row.full_name ?? ''),
+      gender: String(row.gender ?? ''),
+      dateOfBirth: row.date_of_birth ? String(row.date_of_birth) : null,
+      phoneNumber: String(row.phone_number ?? ''),
+      householdId: String(row.household_id ?? ''),
+      barcode: String(row.barcode ?? ''),
+      status: this.ucfirst(String(row.status ?? 'active')),
+      isDeceased: Boolean(row.is_deceased),
+    }
+  }
+
+  private async buildPatientKpis() {
+    const [totalRow, activeRow, deceasedRow, householdRow] = await Promise.all([
+      db.from('patients').count('* as total'),
+      db
+        .from('patients')
+        .where('status', 'active')
+        .where('is_deceased', false)
+        .count('* as total'),
+      db.from('patients').where('is_deceased', true).count('* as total'),
+      db
+        .from('patients')
+        .whereNotNull('household_id')
+        .where('household_id', '!=', '')
+        .count('* as total'),
+    ])
+
+    const total = Number(totalRow[0]?.$extras?.total ?? totalRow[0]?.total ?? 0)
+    const active = Number(activeRow[0]?.$extras?.total ?? activeRow[0]?.total ?? 0)
+    const deceased = Number(deceasedRow[0]?.$extras?.total ?? deceasedRow[0]?.total ?? 0)
+    const withHousehold = Number(householdRow[0]?.$extras?.total ?? householdRow[0]?.total ?? 0)
+
+    return { total, active, deceased, withHousehold }
+  }
+
+  async index({ request, inertia }: HttpContext) {
+    const search = String(request.qs().search ?? '').trim()
+    const householdId = String(request.qs().householdId ?? '').trim()
+    const gender = String(request.qs().gender ?? '').trim()
+    const status = String(request.qs().status ?? '').trim()
+    const page = Math.max(1, Number(request.qs().page ?? 1) || 1)
+    const perPageRaw = Number(request.qs().per_page ?? 25)
+    const perPage = [15, 25, 50].includes(perPageRaw) ? perPageRaw : 25
+
+    const filters = { search, householdId, gender, status }
+
+    const countQuery = db.from('patients')
+    this.applyPatientIndexFilters(countQuery, filters)
+    const countRow = await countQuery.count('* as total')
+    const filteredTotal = Number(countRow[0]?.$extras?.total ?? countRow[0]?.total ?? 0)
+    const lastPage = Math.max(1, Math.ceil(filteredTotal / perPage))
+    const currentPage = Math.min(page, lastPage)
+    const offset = (currentPage - 1) * perPage
+
+    const dataQuery = db
+      .from('patients')
+      .select(
+        'patient_id',
+        'full_name',
+        'gender',
+        'date_of_birth',
+        'phone_number',
+        'household_id',
+        'barcode',
+        'status',
+        'is_deceased'
+      )
+    this.applyPatientIndexFilters(dataQuery, filters)
+
+    const rows = await dataQuery
+      .orderBy('source_created_at', 'desc')
+      .orderBy('id', 'desc')
+      .offset(offset)
+      .limit(perPage)
+
+    const patients = rows.map((row) => this.normalizePatientListRow(row))
+    const kpis = await this.buildPatientKpis()
+    const from = filteredTotal === 0 ? 0 : offset + 1
+    const to = filteredTotal === 0 ? 0 : Math.min(offset + patients.length, filteredTotal)
 
     return inertia.render('patients/index', {
       patients,
-      total: patients.length,
-      search,
-      householdId,
+      kpis,
+      filters: { search, householdId, gender, status },
+      pagination: {
+        page: currentPage,
+        perPage,
+        total: filteredTotal,
+        lastPage,
+        from,
+        to,
+      },
     })
   }
 
