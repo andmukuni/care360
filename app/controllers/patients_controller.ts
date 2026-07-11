@@ -554,6 +554,7 @@ export default class PatientsController {
 
     return inertia.render('patients/show', {
       patient,
+      patientDbId,
       household,
       recentEncounters,
       householdMembers,

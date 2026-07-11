@@ -72,6 +72,15 @@ export default class ReferenceDataCache {
     })
   }
 
+  static async householdsKpis<T>(factory: () => Promise<T>): Promise<T> {
+    return cache.getOrSet({
+      key: REFDATA_KEYS.householdsKpis,
+      ttl: REFDATA_TTL,
+      tags: [REFDATA_TAGS.households],
+      factory,
+    })
+  }
+
   static async householdByRef<T>(ref: string, factory: () => Promise<T>): Promise<T> {
     return cache.getOrSet({
       key: `refdata:households:ref:${ref.trim()}`,

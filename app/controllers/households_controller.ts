@@ -6,11 +6,11 @@ import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import { TdltsBarcodeGenerator } from '#support/tdlts_barcode_generator'
 import {
-  findAllHouseholdRows,
   findHouseholdRowByRef,
   findPatientRowByRef,
 } from '#support/ref_resolvers'
 import ReferenceDataInvalidator from '#services/cache/reference_data_invalidator'
+import ReferenceDataCache from '#services/cache/reference_data_cache'
 
 const now = () => DateTime.now().toSQL({ includeOffset: false })!
 
@@ -71,9 +71,9 @@ function nullifyEmptyStrings(input: Record<string, any>): Record<string, any> {
  *
  * Households and their patient members are resolved by a business `{ref}`
  * (barcode / household_id / numeric id) exactly like the Laravel controller.
- * DataTables JSON endpoints are collapsed into `index`/`show` which return the
- * full ordered rows for client-side tables. The `search*` methods remain JSON
- * (used by select2-style member pickers).
+ * DataTables JSON endpoints are collapsed into `index`/`show` which return
+ * paginated rows with server-side search and filters. The `search*` methods
+ * remain JSON (used by select2-style member pickers).
  *
  * NOTE (deferral): the Laravel `extractHeadPatients` dispatched a queued Bus
  * batch (ExtractHouseholdHeadPatientJob). No queue/batch system is wired in the
@@ -282,19 +282,55 @@ export default class HouseholdsController {
     }
   }
 
-  /**
-   * GET /households — full ordered list (with head-extraction status) for the
-   * client-side DataTable.
-   */
-  async index({ request, inertia }: HttpContext) {
-    const search = String(request.qs().search ?? '').trim()
+  private normalizeHouseholdListRow(row: Record<string, any>) {
+    return {
+      householdId: String(row.household_id ?? ''),
+      headOfHouseName: String(row.head_of_house ?? '—'),
+      phoneNumber: String(row.phone_number ?? ''),
+      village: String(row.village ?? ''),
+      town: String(row.town ?? ''),
+      barcode: String(row.barcode ?? ''),
+      paymentStatus: String(row.payment_status ?? 'Active'),
+    }
+  }
 
-    let rows: Record<string, any>[]
+  private countQueryTotal(rows: { total?: number | string; $extras?: { total?: number | string } }[]): number {
+    return Number(rows[0]?.$extras?.total ?? rows[0]?.total ?? 0)
+  }
 
-    if (search === '') {
-      rows = await findAllHouseholdRows()
-    } else {
-      const query = db.from('households')
+  private applyHouseholdIndexFilters(
+    query: ReturnType<typeof db.from>,
+    filters: { search: string; paymentStatus: string; headExtraction: string }
+  ) {
+    const { search, paymentStatus, headExtraction } = filters
+
+    if (paymentStatus !== '') {
+      query.whereILike('payment_status', paymentStatus)
+    }
+
+    if (headExtraction === 'missing') {
+      query.where((q) => {
+        q.whereNull('head_of_house').orWhere('head_of_house', '').orWhere('head_of_house', '—')
+      })
+    } else if (headExtraction === 'extracted') {
+      query.whereRaw(`exists (
+        select 1 from patients p
+        where p.household_id = households.household_id
+          and lower(trim(p.full_name)) = lower(trim(households.head_of_house))
+      )`)
+    } else if (headExtraction === 'pending') {
+      query
+        .whereNotNull('head_of_house')
+        .where('head_of_house', '!=', '')
+        .where('head_of_house', '!=', '—')
+        .whereRaw(`not exists (
+          select 1 from patients p
+          where p.household_id = households.household_id
+            and lower(trim(p.full_name)) = lower(trim(households.head_of_house))
+        )`)
+    }
+
+    if (search !== '') {
       const like = `%${search}%`
       query.where((q) => {
         q.whereILike('household_id', like)
@@ -305,18 +341,24 @@ export default class HouseholdsController {
           .orWhereILike('town', like)
           .orWhereILike('payment_status', like)
       })
-      rows = await query.orderBy('source_created_at', 'desc').orderBy('id', 'desc')
     }
-    let households = rows.map((r) => this.normalizeHousehold(r))
+  }
 
+  private async attachHeadExtractionStatus<
+    T extends {
+      householdId: string
+      headOfHouseName: string
+    },
+  >(households: T[]) {
     const householdIds = households.map((h) => h.householdId.trim()).filter((id) => id !== '')
-
     const membersByHousehold: Record<string, string[]> = {}
+
     if (householdIds.length > 0) {
       const patientRows = await db
         .from('patients')
         .whereIn('household_id', householdIds)
         .select('household_id', 'full_name')
+
       for (const row of patientRows) {
         const hid = String(row.household_id ?? '').trim()
         if (!membersByHousehold[hid]) membersByHousehold[hid] = []
@@ -324,24 +366,110 @@ export default class HouseholdsController {
       }
     }
 
-    households = households.map((h) => {
+    return households.map((h) => {
       const headName = h.headOfHouseName.trim()
       if (headName === '' || headName === '—') {
         return { ...h, headExtractionStatus: 'missing', headExtractionLabel: 'Missing head' }
       }
+
       const members = membersByHousehold[h.householdId.trim()] ?? []
       const hasExtracted = members.includes(headName.toLowerCase())
+
       return {
         ...h,
         headExtractionStatus: hasExtracted ? 'extracted' : 'pending',
         headExtractionLabel: hasExtracted ? 'Already extracted' : 'Not extracted',
       }
     })
+  }
+
+  private async buildHouseholdKpis() {
+    return ReferenceDataCache.householdsKpis(async () => {
+      const [totalRow, activeRow, missingHeadRow, withMembersRow] = await Promise.all([
+        db.from('households').count('* as total'),
+        db.from('households').whereILike('payment_status', 'active').count('* as total'),
+        db
+          .from('households')
+          .where((q) => {
+            q.whereNull('head_of_house').orWhere('head_of_house', '').orWhere('head_of_house', '—')
+          })
+          .count('* as total'),
+        db
+          .from('patients')
+          .whereNotNull('household_id')
+          .where('household_id', '!=', '')
+          .countDistinct('household_id as total'),
+      ])
+
+      return {
+        total: this.countQueryTotal(totalRow),
+        activePayment: this.countQueryTotal(activeRow),
+        missingHead: this.countQueryTotal(missingHeadRow),
+        withMembers: this.countQueryTotal(withMembersRow),
+      }
+    })
+  }
+
+  /**
+   * GET /households — paginated list with server-side search and filters.
+   */
+  async index({ request, inertia }: HttpContext) {
+    const search = String(request.qs().search ?? '').trim()
+    const paymentStatus = String(request.qs().payment_status ?? '').trim()
+    const headExtraction = String(request.qs().head_extraction ?? '').trim()
+    const page = Math.max(1, Number(request.qs().page ?? 1) || 1)
+    const perPageRaw = Number(request.qs().per_page ?? 25)
+    const perPage = [15, 25, 50].includes(perPageRaw) ? perPageRaw : 25
+
+    const filters = { search, paymentStatus, headExtraction }
+
+    const countQuery = db.from('households')
+    this.applyHouseholdIndexFilters(countQuery, filters)
+    const countRow = await countQuery.count('* as total')
+    const filteredTotal = this.countQueryTotal(countRow)
+    const lastPage = Math.max(1, Math.ceil(filteredTotal / perPage))
+    const currentPage = Math.min(page, lastPage)
+    const offset = (currentPage - 1) * perPage
+
+    const dataQuery = db
+      .from('households')
+      .select(
+        'household_id',
+        'head_of_house',
+        'phone_number',
+        'village',
+        'town',
+        'barcode',
+        'payment_status'
+      )
+    this.applyHouseholdIndexFilters(dataQuery, filters)
+
+    const rows = await dataQuery
+      .orderBy('source_created_at', 'desc')
+      .orderBy('id', 'desc')
+      .offset(offset)
+      .limit(perPage)
+
+    const households = await this.attachHeadExtractionStatus(
+      rows.map((row) => this.normalizeHouseholdListRow(row))
+    )
+
+    const kpis = await this.buildHouseholdKpis()
+    const from = filteredTotal === 0 ? 0 : offset + 1
+    const to = filteredTotal === 0 ? 0 : Math.min(offset + households.length, filteredTotal)
 
     return inertia.render('households/index', {
       households,
-      total: households.length,
-      search,
+      kpis,
+      filters: { search, paymentStatus, headExtraction },
+      pagination: {
+        page: currentPage,
+        perPage,
+        total: filteredTotal,
+        lastPage,
+        from,
+        to,
+      },
     })
   }
 
