@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
 import { router } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import QueuePageShell from '~/components/staff/queue/QueuePageShell.vue'
 import QueueTable from '~/components/staff/queue/QueueTable.vue'
 import QueueEmptyState from '~/components/staff/queue/QueueEmptyState.vue'
-import QueueSearchField from '~/components/staff/queue/QueueSearchField.vue'
 import QueuePatientCell from '~/components/staff/queue/QueuePatientCell.vue'
 import { useAsyncAction } from '~/composables/useAsyncAction'
 
@@ -22,30 +20,11 @@ interface Registration {
   updatedAtRelative: string | null
 }
 
-const props = defineProps<{
+defineProps<{
   registrations: Registration[]
-  pendingCount: number
 }>()
 
-const search = ref('')
 const { processingId, runFor } = useAsyncAction<string>()
-
-const filteredRegistrations = computed(() => {
-  const q = search.value.trim().toLowerCase()
-  if (!q) return props.registrations
-
-  return props.registrations.filter((r) => {
-    const haystack = [r.fullName, r.patientNumber, r.email, r.phoneNumber, r.gender]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-    return haystack.includes(q)
-  })
-})
-
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat().format(value)
-}
 
 function display(value: string | null | undefined): string {
   const text = String(value ?? '').trim()
@@ -85,35 +64,11 @@ function decline(r: Registration) {
       description="Patients who self-registered via the mobile app and are awaiting staff approval. Review their details, then approve to grant portal access or decline to block the sign-up."
       :show-live-indicator="false"
     >
-      <div class="queue-stat-row">
-        <div class="queue-stat">
-          <span class="queue-stat-label">Awaiting Approval</span>
-          <span class="queue-stat-value">{{ formatNumber(pendingCount) }}</span>
-        </div>
-        <div class="queue-stat">
-          <span class="queue-stat-label">Showing</span>
-          <span class="queue-stat-value">{{ formatNumber(filteredRegistrations.length) }}</span>
-        </div>
-      </div>
-
-      <template #toolbar>
-        <QueueSearchField
-          v-model="search"
-          label="Search registrations"
-          placeholder="Search by name, patient ID, email, or phone…"
-          :hint="search.trim() ? `${filteredRegistrations.length} of ${registrations.length} shown` : undefined"
-        />
-      </template>
-
       <div class="space-y-3">
         <QueueEmptyState
-          v-if="filteredRegistrations.length === 0"
-          :title="search.trim() ? 'No matching registrations' : 'No sign-ups awaiting approval'"
-          :description="
-            search.trim()
-              ? 'Try a different search term.'
-              : 'New portal self-registrations will appear here for KYC review.'
-          "
+          v-if="registrations.length === 0"
+          title="No sign-ups awaiting approval"
+          description="New portal self-registrations will appear here for KYC review."
         />
 
         <QueueTable v-else>
@@ -127,7 +82,7 @@ function decline(r: Registration) {
           </template>
 
           <tr
-            v-for="row in filteredRegistrations"
+            v-for="row in registrations"
             :key="row.id"
             class="cursor-pointer"
             @click="openPatient(row.patientNumber, $event)"
