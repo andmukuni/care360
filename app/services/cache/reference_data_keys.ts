@@ -65,6 +65,7 @@ export function testTypeIdKey(id: number | string): string {
 
 export const REFDATA_KEYS = {
   patientsAll: 'refdata:patients:all',
+  patientsKpis: 'refdata:patients:kpis',
   householdsAll: 'refdata:households:all',
   medicationsAll: 'refdata:medications:all',
   medicationsCategories: 'refdata:medications:categories',

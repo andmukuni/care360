@@ -36,6 +36,15 @@ export default class ReferenceDataCache {
     })
   }
 
+  static async patientsKpis<T>(factory: () => Promise<T>): Promise<T> {
+    return cache.getOrSet({
+      key: REFDATA_KEYS.patientsKpis,
+      ttl: REFDATA_TTL,
+      tags: [REFDATA_TAGS.patients],
+      factory,
+    })
+  }
+
   static async patientByRef<T>(ref: string, factory: () => Promise<T>): Promise<T> {
     return cache.getOrSet({
       key: `refdata:patients:ref:${ref.trim()}`,

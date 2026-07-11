@@ -8,6 +8,7 @@ import Patient from '#models/patient'
 import { TdltsBarcodeGenerator } from '#support/tdlts_barcode_generator'
 import { findPatientRowByRef } from '#support/ref_resolvers'
 import ReferenceDataInvalidator from '#services/cache/reference_data_invalidator'
+import ReferenceDataCache from '#services/cache/reference_data_cache'
 import { notificationService, NOTIFIABLE_PATIENT } from '#services/notifications/notification_service'
 import { PortalInvitationNotification } from '../notifications/portal_invitation_notification.js'
 
@@ -292,27 +293,29 @@ export default class PatientsController {
   }
 
   private async buildPatientKpis() {
-    const [totalRow, activeRow, deceasedRow, householdRow] = await Promise.all([
-      db.from('patients').count('* as total'),
-      db
-        .from('patients')
-        .where('status', 'active')
-        .where('is_deceased', false)
-        .count('* as total'),
-      db.from('patients').where('is_deceased', true).count('* as total'),
-      db
-        .from('patients')
-        .whereNotNull('household_id')
-        .where('household_id', '!=', '')
-        .count('* as total'),
-    ])
+    return ReferenceDataCache.patientsKpis(async () => {
+      const [totalRow, activeRow, deceasedRow, householdRow] = await Promise.all([
+        db.from('patients').count('* as total'),
+        db
+          .from('patients')
+          .where('status', 'active')
+          .where('is_deceased', false)
+          .count('* as total'),
+        db.from('patients').where('is_deceased', true).count('* as total'),
+        db
+          .from('patients')
+          .whereNotNull('household_id')
+          .where('household_id', '!=', '')
+          .count('* as total'),
+      ])
 
-    const total = Number(totalRow[0]?.$extras?.total ?? totalRow[0]?.total ?? 0)
-    const active = Number(activeRow[0]?.$extras?.total ?? activeRow[0]?.total ?? 0)
-    const deceased = Number(deceasedRow[0]?.$extras?.total ?? deceasedRow[0]?.total ?? 0)
-    const withHousehold = Number(householdRow[0]?.$extras?.total ?? householdRow[0]?.total ?? 0)
+      const total = Number(totalRow[0]?.$extras?.total ?? totalRow[0]?.total ?? 0)
+      const active = Number(activeRow[0]?.$extras?.total ?? activeRow[0]?.total ?? 0)
+      const deceased = Number(deceasedRow[0]?.$extras?.total ?? deceasedRow[0]?.total ?? 0)
+      const withHousehold = Number(householdRow[0]?.$extras?.total ?? householdRow[0]?.total ?? 0)
 
-    return { total, active, deceased, withHousehold }
+      return { total, active, deceased, withHousehold }
+    })
   }
 
   async index({ request, inertia }: HttpContext) {
