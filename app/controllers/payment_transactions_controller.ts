@@ -1,4 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
+import { DateTime } from 'luxon'
 import PaymentCollection from '#models/payment_collection'
 import MobileMoneyPaymentService from '#services/payments/mobile_money_payment_service'
 import { num } from '#support/money_helpers'
@@ -8,27 +9,54 @@ import { num } from '#support/money_helpers'
  * Ported from App\Http\Controllers\PaymentTransactionController.
  *
  * The Laravel version paginated collections server-side; here `index` returns the
- * full ordered set for the client-side DataTable. `checkStatus` and `retry`
+ * full ordered set for the client-side table. `checkStatus` and `retry`
  * delegate to the ported MobileMoneyPaymentService (sandbox auto-approves).
  */
-const STATUSES = ['pending', 'otp-required', 'pay-offline', 'successful', 'failed']
 
 export default class PaymentTransactionsController {
   private readonly payments = new MobileMoneyPaymentService()
 
   async index({ request, inertia }: HttpContext) {
-    const status = String(request.qs().status ?? '').trim()
+    const filters = request.only(['status', 'search', 'date_from', 'date_to'])
+    const status = String(filters.status ?? '').trim()
+    const search = String(filters.search ?? '').trim()
+    const dateFrom = String(filters.date_from ?? '').trim()
+    const dateTo = String(filters.date_to ?? '').trim()
 
     const transactions = await PaymentCollection.query()
       .if(status !== '', (q) => q.where('status', status))
+      .if(search !== '', (q) => {
+        q.where((w) => {
+          w.whereILike('reference', `%${search}%`)
+            .orWhereILike('phone', `%${search}%`)
+            .orWhereHas('patient', (pq) => {
+              pq.whereILike('fullName', `%${search}%`).orWhereILike('patientId', `%${search}%`)
+            })
+            .orWhereHas('invoice', (iq) => {
+              iq.whereILike('invoiceNumber', `%${search}%`)
+            })
+        })
+      })
+      .if(dateFrom !== '', (q) => {
+        const from = DateTime.fromISO(dateFrom).startOf('day')
+        if (from.isValid) q.where('createdAt', '>=', from.toSQL()!)
+      })
+      .if(dateTo !== '', (q) => {
+        const to = DateTime.fromISO(dateTo).endOf('day')
+        if (to.isValid) q.where('createdAt', '<=', to.toSQL()!)
+      })
       .preload('patient', (q) => q.select('id', 'fullName', 'patientId'))
       .preload('invoice', (q) => q.select('id', 'invoiceNumber'))
       .orderBy('createdAt', 'desc')
       .orderBy('id', 'desc')
 
     return inertia.render('payment-transactions/index', {
-      statuses: STATUSES,
-      status,
+      filters: {
+        status,
+        search,
+        date_from: dateFrom,
+        date_to: dateTo,
+      },
       transactions: transactions.map((t) => ({
         id: t.id,
         provider: t.provider,
@@ -42,6 +70,7 @@ export default class PaymentTransactionsController {
         failureReason: t.failureReason,
         lastCheckedAt: t.lastCheckedAt ? t.lastCheckedAt.toISO() : null,
         createdAt: t.createdAt ? t.createdAt.toISO() : null,
+        createdAtFormatted: t.createdAt ? t.createdAt.toFormat('dd LLL yyyy, HH:mm') : null,
         patientName: t.patient?.fullName ?? '—',
         patientNumber: t.patient?.patientId ?? null,
         invoiceNumber: t.invoice?.invoiceNumber ?? null,
