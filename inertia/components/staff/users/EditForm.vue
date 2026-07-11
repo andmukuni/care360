@@ -7,7 +7,6 @@ import SignatureSigningPanel from '~/components/staff/users/SignatureSigningPane
 
 interface PendingSignatureInvite {
   url: string
-  expires_at: string
 }
 
 interface EditUser {

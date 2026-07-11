@@ -8,25 +8,20 @@ import { saveStaffSignatureFromDataUrl } from '#support/save_staff_signature'
 import { signatureInviteUrl } from '#support/signature_invite_url'
 import { publicStorageUrl } from '#support/public_storage_url'
 
-const INVITE_TTL_DAYS = 7
-
 const storeSignatureValidator = vine.compile(
   vine.object({
     signature_image: vine.string().trim(),
   })
 )
 
-type ActiveInviteContext = {
+type InviteContext = {
   invite: StaffSignatureInvite
   user: User
 }
 
-async function invalidatePendingInvites(userId: number): Promise<void> {
-  await StaffSignatureInvite.query()
-    .where('user_id', userId)
-    .whereNull('completed_at')
-    .where('expires_at', '>', DateTime.now().toSQL()!)
-    .update({ expiresAt: DateTime.now() })
+/** Drop outstanding links when a new one is generated (only one pending link per user). */
+async function cancelPendingInvites(userId: number): Promise<void> {
+  await StaffSignatureInvite.query().where('user_id', userId).whereNull('completed_at').delete()
 }
 
 async function createInvite(
@@ -34,26 +29,26 @@ async function createInvite(
   createdBy: User | null,
   request: HttpContext['request']
 ): Promise<StaffSignatureInvite> {
-  await invalidatePendingInvites(targetUser.id)
+  await cancelPendingInvites(targetUser.id)
 
   return StaffSignatureInvite.create({
     userId: targetUser.id,
     token: randomBytes(32).toString('hex'),
     createdBy: createdBy?.id ?? null,
-    expiresAt: DateTime.now().plus({ days: INVITE_TTL_DAYS }),
+    // Column is required; value is not used for expiry — links stay open until signed.
+    expiresAt: DateTime.fromObject({ year: 2099, month: 12, day: 31 }, { zone: 'utc' }),
   })
 }
 
 function invitePayload(invite: StaffSignatureInvite, request: HttpContext['request']) {
   return {
     url: signatureInviteUrl(request, invite.token),
-    expires_at: invite.expiresAt.toISO(),
   }
 }
 
-async function findActiveInvite(token: string): Promise<ActiveInviteContext | null> {
+async function findInviteByToken(token: string): Promise<InviteContext | null> {
   const invite = await StaffSignatureInvite.query().where('token', token).first()
-  if (!invite?.isActive()) {
+  if (!invite) {
     return null
   }
 
@@ -63,14 +58,6 @@ async function findActiveInvite(token: string): Promise<ActiveInviteContext | nu
   }
 
   return { invite, user }
-}
-
-async function latestCompletedInvite(userId: number): Promise<StaffSignatureInvite | null> {
-  return StaffSignatureInvite.query()
-    .where('user_id', userId)
-    .whereNotNull('completed_at')
-    .orderBy('completed_at', 'desc')
-    .first()
 }
 
 function formatSignedAt(value: DateTime | null | undefined): string | null {
@@ -88,6 +75,15 @@ function capturePayload(invite: StaffSignatureInvite, user: User, extras: Record
     staff_email: user.email,
     ...extras,
   }
+}
+
+function alreadySignedPayload(invite: StaffSignatureInvite, user: User) {
+  const signatureUrl = publicStorageUrl(user.signaturePath)
+  return capturePayload(invite, user, {
+    already_signed: true,
+    signature_url: signatureUrl,
+    signed_at: formatSignedAt(invite.completedAt),
+  })
 }
 
 export default class StaffSignatureInviteController {
@@ -115,23 +111,14 @@ export default class StaffSignatureInviteController {
    * GET /sign/:token — mobile signature capture page (public).
    */
   async show({ params, inertia }: HttpContext) {
-    const context = await findActiveInvite(params.token)
+    const context = await findInviteByToken(params.token)
     if (!context) {
       return inertia.render('signatures/invalid')
     }
 
     const { invite, user } = context
-    const signatureUrl = publicStorageUrl(user.signaturePath)
-    if (signatureUrl) {
-      const completed = await latestCompletedInvite(user.id)
-      return inertia.render(
-        'signatures/capture',
-        capturePayload(invite, user, {
-          already_signed: true,
-          signature_url: signatureUrl,
-          signed_at: formatSignedAt(completed?.completedAt),
-        })
-      )
+    if (!invite.isPending() || publicStorageUrl(user.signaturePath)) {
+      return inertia.render('signatures/capture', alreadySignedPayload(invite, user))
     }
 
     return inertia.render('signatures/capture', capturePayload(invite, user))
@@ -141,23 +128,14 @@ export default class StaffSignatureInviteController {
    * POST /sign/:token — save a drawn signature (public).
    */
   async store({ params, request, inertia }: HttpContext) {
-    const context = await findActiveInvite(params.token)
+    const context = await findInviteByToken(params.token)
     if (!context) {
       return inertia.render('signatures/invalid')
     }
 
     const { invite, user } = context
-    const existingSignature = publicStorageUrl(user.signaturePath)
-    if (existingSignature) {
-      const completed = await latestCompletedInvite(user.id)
-      return inertia.render(
-        'signatures/capture',
-        capturePayload(invite, user, {
-          already_signed: true,
-          signature_url: existingSignature,
-          signed_at: formatSignedAt(completed?.completedAt),
-        })
-      )
+    if (!invite.isPending() || publicStorageUrl(user.signaturePath)) {
+      return inertia.render('signatures/capture', alreadySignedPayload(invite, user))
     }
 
     const { signature_image: signatureImage } = await request.validateUsing(storeSignatureValidator)

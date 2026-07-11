@@ -20,7 +20,7 @@ interface ProfileUser {
   is_self: boolean
   signature_url?: string | null
   signature_signed_at?: string | null
-  pending_signature_invite?: { url: string; expires_at: string } | null
+  pending_signature_invite?: { url: string } | null
   can_manage_signature?: boolean
   signature_invite_endpoint?: string | null
 }

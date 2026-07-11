@@ -39,16 +39,12 @@ export default class StaffSignatureInvite extends BaseModel {
   @belongsTo(() => User, { foreignKey: 'userId' })
   declare user: BelongsTo<typeof User>
 
+  isPending(): boolean {
+    return this.completedAt === null || this.completedAt === undefined
+  }
+
+  /** @deprecated Use isPending(); kept for clarity — links do not time-expire. */
   isActive(): boolean {
-    if (this.completedAt !== null && this.completedAt !== undefined) {
-      return false
-    }
-
-    const expires =
-      this.expiresAt instanceof DateTime
-        ? this.expiresAt
-        : DateTime.fromISO(String(this.expiresAt ?? ''))
-
-    return expires.isValid && expires > DateTime.now()
+    return this.isPending()
   }
 }

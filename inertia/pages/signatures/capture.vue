@@ -212,10 +212,9 @@ onBeforeUnmount(() => {
           <div class="signature-capture-page__success-icon" aria-hidden="true">✓</div>
           <h2 class="signature-capture-page__success-title">Already signed</h2>
           <p class="signature-capture-page__success-desc">
-            This profile was signed
-            <strong v-if="props.signed_at">{{ props.signed_at }}</strong>
-            <span v-else>previously</span>.
+            This signing link has been used. It is no longer available for a new signature.
           </p>
+          <p v-if="props.signed_at" class="signature-capture-page__hint">Signed {{ props.signed_at }}</p>
           <div v-if="props.signature_url" class="signature-capture-page__signature-preview">
             <img :src="props.signature_url" alt="Staff signature" />
           </div>
@@ -279,7 +278,7 @@ onBeforeUnmount(() => {
         </button>
       </template>
 
-      <p class="signature-capture-page__footer-note">This link is unique to this staff member.</p>
+      <p class="signature-capture-page__footer-note">This link stays active until your signature is submitted.</p>
     </div>
   </div>
 </template>

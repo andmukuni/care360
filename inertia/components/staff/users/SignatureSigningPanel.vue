@@ -7,7 +7,6 @@ import { copyTextToClipboard } from '~/support/copy_text'
 
 interface PendingSignatureInvite {
   url: string
-  expires_at: string
 }
 
 const props = withDefaults(
@@ -46,11 +45,6 @@ const linkInputRef = ref<HTMLInputElement | null>(null)
 
 const isSigned = computed(() => Boolean(props.signatureUrl))
 const isAwaiting = computed(() => !isSigned.value && Boolean(signingLink.value))
-const signingLinkExpiryLabel = computed(() => {
-  if (!signingLink.value?.expires_at) return null
-  const expires = new Date(signingLink.value.expires_at)
-  return expires.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-})
 
 async function generateSigningLink() {
   generatingLink.value = true
@@ -202,8 +196,8 @@ onMounted(() => {
           {{ linkCopied ? 'Copied' : 'Copy' }}
         </button>
       </div>
-      <p v-if="signingLinkExpiryLabel" class="signature-panel__link-hint">
-        Expires {{ signingLinkExpiryLabel }}. Staff can open this on any device to draw their signature.
+      <p class="signature-panel__link-hint">
+        Staff can open this on any device to draw their signature. The link stays active until they sign.
       </p>
     </div>
 

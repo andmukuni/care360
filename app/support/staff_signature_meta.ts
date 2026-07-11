@@ -1,4 +1,3 @@
-import { DateTime } from 'luxon'
 import type { Request } from '@adonisjs/core/http'
 import User from '#models/user'
 import StaffSignatureInvite from '#models/staff_signature_invite'
@@ -8,7 +7,7 @@ import { signatureInviteUrl } from '#support/signature_invite_url'
 export type StaffSignatureMeta = {
   signature_url: string | null
   signature_signed_at: string | null
-  pending_signature_invite: { url: string; expires_at: string } | null
+  pending_signature_invite: { url: string } | null
 }
 
 export async function staffSignatureMeta(
@@ -28,14 +27,12 @@ export async function staffSignatureMeta(
     const invite = await StaffSignatureInvite.query()
       .where('user_id', user.id)
       .whereNull('completed_at')
-      .where('expires_at', '>', DateTime.now().toSQL()!)
       .orderBy('created_at', 'desc')
       .first()
 
     if (invite) {
       pendingInvite = {
         url: signatureInviteUrl(request, invite.token),
-        expires_at: invite.expiresAt.toISO()!,
       }
     }
   }

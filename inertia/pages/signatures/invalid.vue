@@ -5,7 +5,7 @@
         <div class="signature-capture-page__brand-icon" aria-hidden="true">!</div>
         <h1 class="signature-capture-page__brand-title">Link unavailable</h1>
         <p class="signature-capture-page__brand-sub">
-          This signing link has expired, already been used, or is invalid. Ask an administrator to generate a new link.
+          This signing link is invalid or has been replaced. Ask an administrator to generate a new link.
         </p>
       </div>
     </div>
