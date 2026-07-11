@@ -49,6 +49,7 @@ const form = useForm({
 })
 
 const photoPreview = ref<string | null>(null)
+const photoInputRef = ref<HTMLInputElement | null>(null)
 
 const displayPhotoUrl = computed(() => {
   if (form.remove_profile_photo) return null
@@ -77,10 +78,15 @@ function onFile(event: Event) {
   if (file) form.remove_profile_photo = false
 }
 
+function openPhotoPicker() {
+  photoInputRef.value?.click()
+}
+
 function clearPhotoSelection() {
   form.profile_photo = null
   if (photoPreview.value) URL.revokeObjectURL(photoPreview.value)
   photoPreview.value = null
+  if (photoInputRef.value) photoInputRef.value.value = ''
 }
 
 function submit() {
@@ -95,7 +101,61 @@ onBeforeUnmount(() => {
 <template>
   <form class="users-edit" @submit.prevent="submit">
     <div class="users-edit__hero">
-      <UserAvatar :name="form.name" :photo-url="displayPhotoUrl" size="lg" />
+      <div class="users-edit__avatar-picker">
+        <button
+          type="button"
+          class="users-edit__avatar-picker-btn"
+          :aria-label="displayPhotoUrl ? 'Change profile photo' : 'Upload profile photo'"
+          @click="openPhotoPicker"
+        >
+          <UserAvatar :name="form.name" :photo-url="displayPhotoUrl" size="lg" />
+          <span class="users-edit__avatar-picker-overlay" aria-hidden="true">
+            <svg class="users-edit__avatar-picker-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+              />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span class="users-edit__avatar-picker-label">{{ displayPhotoUrl ? 'Change' : 'Upload' }}</span>
+          </span>
+        </button>
+        <input
+          ref="photoInputRef"
+          type="file"
+          accept="image/*"
+          class="sr-only"
+          @change="onFile"
+        />
+        <div class="users-edit__avatar-actions">
+          <button
+            v-if="form.profile_photo"
+            type="button"
+            class="users-edit__text-btn"
+            @click="clearPhotoSelection"
+          >
+            Clear selection
+          </button>
+          <button
+            v-if="props.user.profile_photo_url && !form.remove_profile_photo"
+            type="button"
+            class="users-edit__text-btn users-edit__text-btn--danger"
+            @click="form.remove_profile_photo = true"
+          >
+            Remove photo
+          </button>
+          <button
+            v-if="form.remove_profile_photo"
+            type="button"
+            class="users-edit__text-btn"
+            @click="form.remove_profile_photo = false"
+          >
+            Undo remove
+          </button>
+        </div>
+        <p v-if="form.errors.profile_photo" class="users-edit__error">{{ form.errors.profile_photo }}</p>
+      </div>
       <div class="min-w-0">
         <h2 class="truncate text-lg font-semibold text-slate-900 dark:text-neutral-100">{{ form.name || 'Staff member' }}</h2>
         <p class="truncate text-sm text-sand-11">{{ profileHeadline }}</p>
@@ -108,107 +168,49 @@ onBeforeUnmount(() => {
             {{ form.is_portal_bookable ? 'Visible on patient portal' : 'Hidden from patient portal' }}
           </span>
           <span v-if="displayPhotoUrl" class="users-edit__status-pill users-edit__status-pill--muted">Photo on file</span>
+          <span v-if="form.profile_photo" class="users-edit__status-pill users-edit__status-pill--teal">New photo selected</span>
           <span v-if="displaySignatureUrl" class="users-edit__status-pill users-edit__status-pill--muted">Signature on file</span>
         </div>
       </div>
     </div>
 
     <div class="users-edit__sections">
-      <section class="users-edit__section">
+      <section class="users-edit__section users-edit__section--signature">
         <header class="users-edit__section-head">
-          <h3 class="users-edit__section-title">Profile media</h3>
-          <p class="users-edit__section-desc">Photo and signature shown on the portal and official documents.</p>
+          <h3 class="users-edit__section-title">Signature</h3>
+          <p class="users-edit__section-desc">
+            Generate a mobile signing link for staff to draw their signature on a phone or tablet. Used on prescriptions
+            and official documents.
+          </p>
         </header>
 
-        <div class="users-edit__media-grid">
-          <div class="users-edit__media-card">
-            <div class="users-edit__media-preview users-edit__media-preview--photo">
-              <UserAvatar v-if="displayPhotoUrl" :name="form.name" :photo-url="displayPhotoUrl" size="lg" />
-              <UserAvatar v-else :name="form.name" size="lg" />
-            </div>
-            <div class="min-w-0 flex-1">
-              <p class="users-edit__media-label">Profile photo</p>
-              <p class="users-edit__media-hint">Used on staff lists, profiles, and the patient portal.</p>
-              <div class="mt-3 flex flex-wrap items-center gap-2">
-                <label class="users-edit__file-btn">
-                  <input type="file" accept="image/*" class="sr-only" @change="onFile" />
-                  {{ displayPhotoUrl ? 'Replace photo' : 'Upload photo' }}
-                </label>
-                <button
-                  v-if="form.profile_photo"
-                  type="button"
-                  class="users-edit__text-btn"
-                  @click="clearPhotoSelection"
-                >
-                  Clear selection
-                </button>
-                <button
-                  v-if="props.user.profile_photo_url && !form.remove_profile_photo"
-                  type="button"
-                  class="users-edit__text-btn users-edit__text-btn--danger"
-                  @click="form.remove_profile_photo = true"
-                >
-                  Remove current
-                </button>
-                <button
-                  v-if="form.remove_profile_photo"
-                  type="button"
-                  class="users-edit__text-btn"
-                  @click="form.remove_profile_photo = false"
-                >
-                  Undo remove
-                </button>
-              </div>
-              <p v-if="form.errors.profile_photo" class="users-edit__error">{{ form.errors.profile_photo }}</p>
-            </div>
-          </div>
-
-          <div class="users-edit__media-card">
-            <div class="users-edit__media-preview users-edit__media-preview--signature">
-              <img
-                v-if="displaySignatureUrl"
-                :src="displaySignatureUrl"
-                alt="Signature preview"
-                class="max-h-full max-w-full object-contain"
-              />
-              <span v-else class="text-xs text-sand-11">No signature</span>
-            </div>
-            <div class="min-w-0 flex-1">
-              <p class="users-edit__media-label">Signature</p>
-              <p class="users-edit__media-hint">
-                Generate a mobile signing link for staff to draw their signature on a phone or tablet.
-              </p>
-              <SignatureSigningPanel
-                class="mt-3"
-                :staff-name="form.name"
-                :invite-endpoint="props.signatureInviteEndpoint"
-                :signature-url="displaySignatureUrl"
-                :signed-at="props.user.signature_signed_at"
-                :pending-invite="props.user.pending_signature_invite"
-              >
-                <template #actions>
-                  <button
-                    v-if="props.user.signature_url && !form.remove_signature"
-                    type="button"
-                    class="users-edit__text-btn users-edit__text-btn--danger"
-                    @click="form.remove_signature = true"
-                  >
-                    Remove current
-                  </button>
-                  <button
-                    v-if="form.remove_signature"
-                    type="button"
-                    class="users-edit__text-btn"
-                    @click="form.remove_signature = false"
-                  >
-                    Undo remove
-                  </button>
-                </template>
-              </SignatureSigningPanel>
-              <p v-if="form.errors.signature" class="users-edit__error">{{ form.errors.signature }}</p>
-            </div>
-          </div>
-        </div>
+        <SignatureSigningPanel
+          :staff-name="form.name"
+          :invite-endpoint="props.signatureInviteEndpoint"
+          :signature-url="displaySignatureUrl"
+          :signed-at="props.user.signature_signed_at"
+          :pending-invite="props.user.pending_signature_invite"
+        >
+          <template #actions>
+            <button
+              v-if="props.user.signature_url && !form.remove_signature"
+              type="button"
+              class="users-edit__text-btn users-edit__text-btn--danger"
+              @click="form.remove_signature = true"
+            >
+              Remove current
+            </button>
+            <button
+              v-if="form.remove_signature"
+              type="button"
+              class="users-edit__text-btn"
+              @click="form.remove_signature = false"
+            >
+              Undo remove
+            </button>
+          </template>
+        </SignatureSigningPanel>
+        <p v-if="form.errors.signature" class="users-edit__error">{{ form.errors.signature }}</p>
       </section>
 
       <section class="users-edit__section">
