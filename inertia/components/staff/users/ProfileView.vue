@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { Link, router, usePage } from '@inertiajs/vue3'
+import SignatureSigningPanel from '~/components/staff/users/SignatureSigningPanel.vue'
 
 interface ProfileUser {
   id: number
@@ -17,6 +18,11 @@ interface ProfileUser {
   updated_at: string | null
   email_verified_at: string | null
   is_self: boolean
+  signature_url?: string | null
+  signature_signed_at?: string | null
+  pending_signature_invite?: { url: string; expires_at: string } | null
+  can_manage_signature?: boolean
+  signature_invite_endpoint?: string | null
 }
 
 interface Stats {
@@ -369,6 +375,25 @@ function goTimelinePage(nextPage: number) {
             <span class="staff-profile__card-title">Bio</span>
           </header>
           <div class="staff-profile__bio">{{ props.user.bio }}</div>
+        </section>
+
+        <section
+          v-if="props.user.can_manage_signature && props.user.signature_invite_endpoint"
+          class="staff-profile__card staff-profile__card--signature"
+        >
+          <header class="staff-profile__card-hd">
+            <span class="staff-profile__card-title">Signature</span>
+          </header>
+          <div class="staff-profile__signature-panel">
+            <SignatureSigningPanel
+              compact
+              :staff-name="props.user.raw_name"
+              :invite-endpoint="props.user.signature_invite_endpoint"
+              :signature-url="props.user.signature_url"
+              :signed-at="props.user.signature_signed_at"
+              :pending-invite="props.user.pending_signature_invite"
+            />
+          </div>
         </section>
 
         <section class="staff-profile__card">

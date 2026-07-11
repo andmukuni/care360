@@ -6,7 +6,6 @@ import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import app from '@adonisjs/core/services/app'
 import User from '#models/user'
-import StaffSignatureInvite from '#models/staff_signature_invite'
 import Role from '#models/role'
 import Encounter from '#models/encounter'
 import PharmacyPrescription from '#models/pharmacy_prescription'
@@ -15,7 +14,7 @@ import LabResult from '#models/lab_result'
 import CalendarEvent from '#models/calendar_event'
 import RbacService, { USER_MORPH_TYPE } from '#services/auth/rbac_service'
 import { publicStorageUrl } from '#support/public_storage_url'
-import { signatureInviteUrl } from '#support/signature_invite_url'
+import { staffSignatureMeta } from '#support/staff_signature_meta'
 import { EncounterStageHelper } from '#enums/encounter_stage'
 import { EncounterStatusHelper } from '#enums/encounter_status'
 import type Patient from '#models/patient'
@@ -98,6 +97,14 @@ async function syncUserRoles(user: User, roleNames: string[]): Promise<void> {
   }
 
   RbacService.forget(user)
+}
+
+async function canManageUserSignature(user: User | undefined | null, targetUserId: number): Promise<boolean> {
+  if (!user) return false
+  if (user.id === targetUserId) return true
+  if (await user.isLegacyUserWithoutRbac()) return true
+  if (await user.hasAnyPermission(['users.write', 'settings.manage'])) return true
+  return user.hasRole('super-admin')
 }
 
 async function canManageRolesOnUsers(user: User | undefined | null): Promise<boolean> {
@@ -294,7 +301,7 @@ export default class UsersController {
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   private async editPayload(user: User, request?: HttpContext['request']) {
-    const pendingInvite = request ? await this.pendingSignatureInvite(user.id, request) : null
+    const signature = request ? await staffSignatureMeta(user, request) : await staffSignatureMeta(user)
 
     return {
       id: user.id,
@@ -307,26 +314,9 @@ export default class UsersController {
       profile_photo_path: user.profilePhotoPath,
       profile_photo_url: publicStorageUrl(user.profilePhotoPath),
       signature_path: user.signaturePath,
-      signature_url: publicStorageUrl(user.signaturePath),
-      pending_signature_invite: pendingInvite,
-    }
-  }
-
-  private async pendingSignatureInvite(userId: number, request: HttpContext['request']) {
-    const invite = await StaffSignatureInvite.query()
-      .where('user_id', userId)
-      .whereNull('completed_at')
-      .where('expires_at', '>', DateTime.now().toSQL()!)
-      .orderBy('created_at', 'desc')
-      .first()
-
-    if (!invite) {
-      return null
-    }
-
-    return {
-      url: signatureInviteUrl(request, invite.token),
-      expires_at: invite.expiresAt.toISO(),
+      signature_url: signature.signature_url,
+      signature_signed_at: signature.signature_signed_at,
+      pending_signature_invite: signature.pending_signature_invite,
     }
   }
 
@@ -635,6 +625,12 @@ export default class UsersController {
     const fmtDateTime = (dt: DateTime | null | undefined): string | null =>
       dt?.toFormat('dd LLL yyyy HH:mm') ?? null
 
+    const signature = request ? await staffSignatureMeta(user, request) : await staffSignatureMeta(user)
+    const viewer = viewerId ? await User.find(viewerId) : null
+    const canManageSignature = viewer ? await canManageUserSignature(viewer, user.id) : false
+    const signatureInviteEndpoint =
+      viewer?.id === user.id ? '/profile/signature-invite' : `/users/${user.id}/signature-invite`
+
     return {
       user: {
         id: user.id,
@@ -651,6 +647,11 @@ export default class UsersController {
         updated_at: user.updatedAt?.toISO() ?? null,
         email_verified_at: user.emailVerifiedAt?.toFormat('dd LLL yyyy') ?? null,
         is_self: viewerId !== undefined && user.id === viewerId,
+        signature_url: signature.signature_url,
+        signature_signed_at: signature.signature_signed_at,
+        pending_signature_invite: signature.pending_signature_invite,
+        can_manage_signature: canManageSignature,
+        signature_invite_endpoint: canManageSignature ? signatureInviteEndpoint : null,
       },
       stats: {
         encountersStarted,

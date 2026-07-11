@@ -6,6 +6,7 @@ import User from '#models/user'
 import StaffSignatureInvite from '#models/staff_signature_invite'
 import { saveStaffSignatureFromDataUrl } from '#support/save_staff_signature'
 import { signatureInviteUrl } from '#support/signature_invite_url'
+import { publicStorageUrl } from '#support/public_storage_url'
 
 const INVITE_TTL_DAYS = 7
 
@@ -53,6 +54,26 @@ async function findActiveInvite(token: string): Promise<StaffSignatureInvite | n
   return invite
 }
 
+async function latestCompletedInvite(userId: number): Promise<StaffSignatureInvite | null> {
+  return StaffSignatureInvite.query()
+    .where('user_id', userId)
+    .whereNotNull('completed_at')
+    .orderBy('completed_at', 'desc')
+    .first()
+}
+
+function capturePayload(invite: StaffSignatureInvite, extras: Record<string, unknown> = {}) {
+  const user = invite.user
+  return {
+    token: invite.token,
+    staff_name: user.name,
+    staff_title: user.title,
+    staff_specialty: user.specialty,
+    staff_email: user.email,
+    ...extras,
+  }
+}
+
 export default class StaffSignatureInviteController {
   /**
    * POST /users/:user/signature-invite — generate a mobile signing link (admin).
@@ -83,10 +104,18 @@ export default class StaffSignatureInviteController {
       return inertia.render('signatures/invalid')
     }
 
-    return inertia.render('signatures/capture', {
-      token: invite.token,
-      staff_name: invite.user.name,
-    })
+    const user = invite.user
+    const signatureUrl = publicStorageUrl(user.signaturePath)
+    if (signatureUrl) {
+      const completed = await latestCompletedInvite(user.id)
+      return inertia.render('signatures/capture', capturePayload(invite, {
+        already_signed: true,
+        signature_url: signatureUrl,
+        signed_at: completed?.completedAt?.toFormat("dd MMM yyyy 'at' hh:mm a") ?? null,
+      }))
+    }
+
+    return inertia.render('signatures/capture', capturePayload(invite))
   }
 
   /**
@@ -98,31 +127,43 @@ export default class StaffSignatureInviteController {
       return inertia.render('signatures/invalid')
     }
 
+    const user = invite.user
+    const existingSignature = publicStorageUrl(user.signaturePath)
+    if (existingSignature) {
+      const completed = await latestCompletedInvite(user.id)
+      return inertia.render('signatures/capture', capturePayload(invite, {
+        already_signed: true,
+        signature_url: existingSignature,
+        signed_at: completed?.completedAt?.toFormat("dd MMM yyyy 'at' hh:mm a") ?? null,
+      }))
+    }
+
     const { signature_image: signatureImage } = await request.validateUsing(storeSignatureValidator)
     const relativePath = saveStaffSignatureFromDataUrl(signatureImage)
 
     if (!relativePath) {
-      return inertia.render('signatures/capture', {
-        token: invite.token,
-        staff_name: invite.user.name,
-        error_message: 'Please draw your signature before saving.',
-      })
+      return inertia.render('signatures/capture', capturePayload(invite, {
+        error_message: 'Please draw your signature before submitting.',
+      }))
     }
 
-    const user = invite.user
     user.signaturePath = relativePath
     await user.save()
 
     invite.completedAt = DateTime.now()
+    invite.signerIp = request.ip()
+    invite.signerUserAgent = (request.header('user-agent') ?? '').slice(0, 500) || null
     await invite.save()
 
     const { CachedSessionUserProvider } = await import('#services/auth/cached_session_user_provider')
     CachedSessionUserProvider.forgetUser(user.id)
 
-    return inertia.render('signatures/capture', {
-      token: invite.token,
-      staff_name: user.name,
+    const savedSignatureUrl = publicStorageUrl(relativePath)
+
+    return inertia.render('signatures/capture', capturePayload(invite, {
       saved: true,
-    })
+      signature_url: savedSignatureUrl,
+      signed_at: invite.completedAt.toFormat("dd MMM yyyy 'at' hh:mm a"),
+    }))
   }
 }

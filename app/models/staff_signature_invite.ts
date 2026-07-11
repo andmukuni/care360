@@ -24,6 +24,12 @@ export default class StaffSignatureInvite extends BaseModel {
   @column.dateTime()
   declare completedAt: DateTime | null
 
+  @column()
+  declare signerIp: string | null
+
+  @column()
+  declare signerUserAgent: string | null
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 
