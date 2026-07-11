@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 
@@ -45,11 +45,27 @@ const props = defineProps<{
   lastGeneratedLabel: string
 }>()
 
+const search = ref('')
+const filterCategory = ref('')
+const filterType = ref('')
+
 const filters = reactive({
   start_date: props.startDate,
   end_date: props.endDate,
   attendant_type: props.attendantType || '',
 })
+
+watch(
+  () => [props.startDate, props.endDate, props.attendantType],
+  () => {
+    filters.start_date = props.startDate
+    filters.end_date = props.endDate
+    filters.attendant_type = props.attendantType || ''
+  }
+)
+
+const fieldClass =
+  'theme-field encounters-filter-field w-full px-2.5 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 dark:text-neutral-100 dark:placeholder:text-neutral-500'
 
 const moduleRoutes: Record<string, string> = {
   shift_management: '/reports/shifts',
@@ -58,16 +74,69 @@ const moduleRoutes: Record<string, string> = {
   presumptive_tb: '/reports/presumptive-tb',
 }
 
+const typeOptions = ['View', 'Table', 'Module']
+
 const isOpd = computed(() => props.activeReport?.key === 'opd_register')
+
+const filteredReports = computed(() => {
+  let list = props.reportCatalogue
+  const term = search.value.trim().toLowerCase()
+
+  if (term) {
+    list = list.filter(
+      (r) =>
+        r.name.toLowerCase().includes(term) ||
+        r.category.toLowerCase().includes(term) ||
+        r.description.toLowerCase().includes(term)
+    )
+  }
+  if (filterCategory.value) list = list.filter((r) => r.category === filterCategory.value)
+  if (filterType.value) list = list.filter((r) => r.type === filterType.value)
+
+  return list
+})
+
+const hasBrowseFilters = computed(
+  () => search.value.trim() !== '' || filterCategory.value !== '' || filterType.value !== ''
+)
+
+function clearBrowseFilters() {
+  search.value = ''
+  filterCategory.value = ''
+  filterType.value = ''
+}
+
+function typeBadgeClass(type: string): string {
+  switch (type) {
+    case 'View':
+      return 'badge b-blue'
+    case 'Table':
+      return 'badge b-green'
+    case 'Module':
+      return 'badge b-amber'
+    default:
+      return 'badge b-gray'
+  }
+}
 
 function selectReport(entry: CatalogueEntry) {
   if (entry.module && moduleRoutes[entry.key]) {
     router.visit(moduleRoutes[entry.key])
     return
   }
-  router.get('/reports', { report_key: entry.key, start_date: filters.start_date, end_date: filters.end_date }, {
-    preserveScroll: true,
-  })
+  router.get(
+    '/reports',
+    { report_key: entry.key, start_date: filters.start_date, end_date: filters.end_date },
+    { preserveScroll: true }
+  )
+}
+
+function clearSelection() {
+  router.get(
+    '/reports',
+    { start_date: filters.start_date, end_date: filters.end_date },
+    { preserveScroll: true }
+  )
 }
 
 function queryParams() {
@@ -94,150 +163,389 @@ function queueExport() {
   router.post('/reports/queue-export', queryParams())
 }
 
-function dismiss(id: number) {
-  router.delete(`/reports/exports/${id}`, { preserveScroll: true })
+// ── Export banner polling ───────────────────────────────────────────────────
+const pendingExports = ref<ExportBanner[]>([...props.initialPendingExports])
+const readyExports = ref<ExportBanner[]>([...props.initialReadyExports])
+const failedExports = ref<ExportBanner[]>([...props.initialFailedExports])
+
+let pollTimer: ReturnType<typeof setInterval> | null = null
+
+async function pollExports() {
+  try {
+    const resp = await fetch('/reports/exports/status', {
+      headers: { Accept: 'application/json' },
+    })
+    if (!resp.ok) return
+    const data = await resp.json()
+    const exports: ExportBanner[] = data.exports ?? []
+    pendingExports.value = exports.filter((e) => e.status === 'pending' || e.status === 'processing')
+    readyExports.value = exports.filter((e) => e.status === 'completed')
+    failedExports.value = exports.filter((e) => e.status === 'failed')
+  } catch {
+    // ignore transient network errors
+  }
 }
 
-const entriesByCategory = computed(() => {
-  const map: Record<string, CatalogueEntry[]> = {}
-  for (const cat of props.reportCategories) {
-    map[cat] = props.reportCatalogue.filter((e) => e.category === cat)
-  }
-  return map
+async function dismiss(id: number) {
+  await fetch(`/reports/exports/${id}`, {
+    method: 'DELETE',
+    headers: { Accept: 'application/json' },
+  })
+  await pollExports()
+}
+
+const hasExportBanners = computed(
+  () => pendingExports.value.length > 0 || readyExports.value.length > 0 || failedExports.value.length > 0
+)
+
+onMounted(() => {
+  pollExports()
+  pollTimer = setInterval(pollExports, 5000)
 })
+
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer)
+})
+
+const generatePanel = ref<HTMLElement | null>(null)
+
+watch(
+  () => props.activeReport,
+  (report) => {
+    if (report) {
+      requestAnimationFrame(() => {
+        generatePanel.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      })
+    }
+  },
+  { immediate: true }
+)
 </script>
 
 <template>
   <StaffLayout>
-    <template #header><h1 class="text-lg font-semibold">Reports</h1></template>
+    <template #header><h1 class="text-lg font-semibold">Reports &amp; Analytics</h1></template>
 
-    <div class="mb-6 flex items-center justify-between">
-      <p class="text-sm text-sand-11">
-        Last report generated:
-        <span class="font-medium text-sand-12">{{ lastGenerated ?? '—' }}</span>
-        <span class="text-sand-11"> · {{ lastGeneratedLabel }}</span>
+    <p class="mb-4 text-sm text-neutral-500 dark:text-neutral-400">
+      Browse, filter, and generate clinical and operational reports.
+    </p>
+
+    <!-- KPI strip -->
+    <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div class="card p-4">
+        <p class="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Total reports</p>
+        <p class="mt-1 text-2xl font-bold text-neutral-900 dark:text-neutral-100">{{ reportCatalogue.length }}</p>
+      </div>
+      <div class="card p-4">
+        <p class="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Categories</p>
+        <p class="mt-1 text-2xl font-bold text-neutral-900 dark:text-neutral-100">{{ reportCategories.length }}</p>
+      </div>
+      <div class="card p-4">
+        <p class="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Last generated</p>
+        <p class="mt-1 text-2xl font-bold text-neutral-900 dark:text-neutral-100">{{ lastGenerated ?? 'None' }}</p>
+        <p class="mt-1 text-xs text-neutral-500">{{ lastGeneratedLabel }}</p>
+      </div>
+      <div class="card p-4">
+        <p class="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Background exports</p>
+        <p class="mt-2 text-xs leading-relaxed text-neutral-600 dark:text-neutral-400">
+          Large CSVs run in the background. Progress updates here every few seconds — you can navigate away safely.
+        </p>
+      </div>
+    </div>
+
+    <div
+      v-if="exportDispatched"
+      class="card mb-4 border-blue-300 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20"
+    >
+      <h3 class="text-sm font-semibold text-blue-900 dark:text-blue-200">Report queued for background generation</h3>
+      <p class="mt-1 text-xs text-blue-800/80 dark:text-blue-300/80">
+        Your report is being generated. A download link will appear below when ready.
       </p>
     </div>
 
     <!-- Export banners -->
-    <div v-if="initialPendingExports.length || initialReadyExports.length || initialFailedExports.length" class="mb-6 space-y-2">
+    <div v-if="hasExportBanners" class="mb-4 space-y-2">
       <div
-        v-for="e in initialPendingExports"
+        v-for="e in pendingExports"
         :key="`p-${e.id}`"
-        class="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm"
+        class="card border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20"
       >
-        <div class="flex items-center justify-between">
-          <span class="font-medium">{{ e.report_name }} — generating…</span>
-          <span class="text-amber-700">{{ e.progress }}%</span>
+        <div class="mb-2 flex flex-wrap items-center gap-2">
+          <span class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{{ e.report_name }}</span>
+          <span class="badge b-amber capitalize">{{ e.status }}</span>
         </div>
-        <div class="mt-2 h-1.5 w-full rounded bg-amber-200">
-          <div class="h-1.5 rounded bg-amber-500" :style="{ width: `${e.progress}%` }" />
+        <div class="h-2 w-full rounded-full bg-neutral-200 dark:bg-neutral-700">
+          <div
+            class="h-2 rounded-full bg-amber-500 transition-all duration-500"
+            :style="{ width: `${e.progress}%` }"
+          />
         </div>
+        <p class="mt-1.5 text-xs text-neutral-500">
+          {{ e.processed.toLocaleString() }} / {{ e.total_rows.toLocaleString() }} rows · {{ e.progress }}% complete
+        </p>
       </div>
 
       <div
-        v-for="e in initialReadyExports"
+        v-for="e in readyExports"
         :key="`r-${e.id}`"
-        class="flex items-center justify-between rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm"
+        class="card flex flex-wrap items-center justify-between gap-3 border-emerald-300 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-900/20"
       >
-        <span class="font-medium">{{ e.report_name }} ready <span class="text-emerald-700">({{ e.file_size }})</span></span>
-        <span class="flex items-center gap-3">
-          <a v-if="e.download_url" :href="e.download_url" class="text-emerald-700 underline">Download</a>
-          <button type="button" class="text-sand-11 hover:underline" @click="dismiss(e.id)">Dismiss</button>
-        </span>
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{{ e.report_name }}</p>
+          <p class="text-xs text-neutral-500">
+            Ready · {{ e.file_size }}
+            <template v-if="e.created_at"> · Generated {{ e.created_at }}</template>
+          </p>
+          <p v-if="e.expires_in" class="mt-0.5 text-xs text-amber-700 dark:text-amber-400">
+            File auto-deletes in {{ e.expires_in }} — download now.
+          </p>
+        </div>
+        <div class="flex shrink-0 gap-2">
+          <a
+            v-if="e.download_url"
+            :href="e.download_url"
+            class="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+          >
+            Download CSV
+          </a>
+          <button
+            type="button"
+            class="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-700 transition hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            @click="dismiss(e.id)"
+          >
+            Dismiss
+          </button>
+        </div>
       </div>
 
       <div
-        v-for="e in initialFailedExports"
+        v-for="e in failedExports"
         :key="`f-${e.id}`"
-        class="flex items-center justify-between rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm"
+        class="card flex flex-wrap items-center justify-between gap-3 border-red-300 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20"
       >
-        <span class="font-medium text-red-800">{{ e.report_name }} failed — {{ e.error_message }}</span>
-        <button type="button" class="text-sand-11 hover:underline" @click="dismiss(e.id)">Dismiss</button>
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{{ e.report_name }}</p>
+          <p class="mt-0.5 text-xs text-red-700 dark:text-red-300">Generation failed</p>
+          <p v-if="e.error_message" class="mt-0.5 text-xs text-neutral-500">{{ e.error_message }}</p>
+        </div>
+        <button
+          type="button"
+          class="shrink-0 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-700 transition hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
+          @click="dismiss(e.id)"
+        >
+          Dismiss
+        </button>
       </div>
     </div>
 
-    <div class="grid gap-6 lg:grid-cols-[1fr_20rem]">
-      <!-- Report catalogue -->
-      <div class="space-y-6">
-        <div v-for="cat in reportCategories" :key="cat">
-          <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-sand-11">{{ cat }}</h2>
-          <div class="grid gap-3 sm:grid-cols-2">
-            <button
-              v-for="entry in entriesByCategory[cat]"
-              :key="entry.key"
-              type="button"
-              class="theme-panel rounded-lg p-4 text-left transition hover:border-blue-400 hover:shadow-sm"
-              :class="activeReport?.key === entry.key ? 'ring-2 ring-blue-500' : ''"
-              @click="selectReport(entry)"
-            >
-              <div class="flex items-center gap-2">
-                <span class="inline-flex h-8 w-8 items-center justify-center rounded" :class="entry.icon_bg">
-                  <span class="text-xs font-bold" :class="entry.icon_class">{{ entry.type[0] }}</span>
-                </span>
-                <span class="font-medium">{{ entry.name }}</span>
-                <span v-if="entry.module" class="ml-auto rounded bg-violet-100 px-2 py-0.5 text-xs text-violet-700">Module</span>
-              </div>
-              <p class="mt-2 text-xs text-sand-11">{{ entry.description }}</p>
-            </button>
-          </div>
+    <!-- Browse catalogue -->
+    <div class="card mb-4 overflow-hidden">
+      <div class="border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
+        <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Browse reports</h2>
+      </div>
+
+      <div class="grid grid-cols-2 items-end gap-2 p-3 lg:grid-cols-12">
+        <div class="relative col-span-2 lg:col-span-5">
+          <svg
+            class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            v-model="search"
+            type="search"
+            placeholder="Search reports…"
+            :class="[fieldClass, 'pl-8']"
+          />
+        </div>
+
+        <div class="col-span-1 lg:col-span-3">
+          <select v-model="filterCategory" :class="fieldClass" aria-label="Category">
+            <option value="">All categories</option>
+            <option v-for="cat in reportCategories" :key="cat" :value="cat">{{ cat }}</option>
+          </select>
+        </div>
+
+        <div class="col-span-1 lg:col-span-3">
+          <select v-model="filterType" :class="fieldClass" aria-label="Type">
+            <option value="">All types</option>
+            <option v-for="type in typeOptions" :key="type" :value="type">{{ type }}</option>
+          </select>
+        </div>
+
+        <div class="col-span-2 flex justify-end lg:col-span-1">
+          <button
+            v-if="hasBrowseFilters"
+            type="button"
+            class="theme-icon-btn btn-icon inline-flex h-9 w-9 items-center justify-center rounded-md text-neutral-600 transition hover:bg-neutral-50 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            title="Clear filters"
+            aria-label="Clear filters"
+            @click="clearBrowseFilters"
+          >
+            <svg class="btn-icon__svg" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
       </div>
 
-      <!-- Filters / actions -->
-      <aside class="h-fit theme-panel rounded-lg p-4">
-        <h2 class="mb-3 text-sm font-semibold">
-          {{ activeReport ? activeReport.name : 'Select a report' }}
-        </h2>
+      <div class="overflow-x-auto border-t border-neutral-200 dark:border-neutral-700">
+        <table class="encounters-table w-full min-w-[720px] text-sm">
+          <thead>
+            <tr class="staff-table-head">
+              <th class="px-4 py-2.5 text-left">Report</th>
+              <th class="px-4 py-2.5 text-left">Category</th>
+              <th class="px-4 py-2.5 text-left">Type</th>
+              <th class="encounters-table__actions px-4 py-2.5 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-neutral-100 dark:divide-white/[0.04]">
+            <tr
+              v-for="entry in filteredReports"
+              :key="entry.key"
+              class="transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/40"
+              :class="activeReport?.key === entry.key ? 'bg-blue-50/60 dark:bg-blue-900/10' : ''"
+            >
+              <td class="px-4 py-3">
+                <div class="flex items-start gap-2.5">
+                  <span
+                    class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded"
+                    :class="entry.icon_bg"
+                  >
+                    <span class="text-xs font-bold" :class="entry.icon_class">{{ entry.type[0] }}</span>
+                  </span>
+                  <div class="min-w-0">
+                    <p class="font-medium text-neutral-900 dark:text-neutral-100">{{ entry.name }}</p>
+                    <p class="mt-0.5 line-clamp-2 text-xs text-neutral-500">{{ entry.description }}</p>
+                  </div>
+                </div>
+              </td>
+              <td class="px-4 py-3 text-neutral-500">{{ entry.category }}</td>
+              <td class="px-4 py-3">
+                <span :class="typeBadgeClass(entry.type)">{{ entry.type }}</span>
+              </td>
+              <td class="encounters-table__actions px-4 py-3 text-right">
+                <button
+                  type="button"
+                  class="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+                  @click="selectReport(entry)"
+                >
+                  {{ entry.module ? 'Open' : 'Select' }}
+                </button>
+              </td>
+            </tr>
+            <tr v-if="!filteredReports.length">
+              <td colspan="4" class="px-4 py-12 text-center text-sm text-neutral-500">
+                <template v-if="hasBrowseFilters">
+                  No reports match the current filters.
+                  <button type="button" class="font-medium text-neutral-800 underline dark:text-neutral-200" @click="clearBrowseFilters">
+                    Clear filters
+                  </button>
+                </template>
+                <template v-else>No reports available.</template>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-        <template v-if="activeReport && !activeReport.module">
-          <label class="mb-2 block text-xs font-medium text-sand-11">Start date</label>
-          <input v-model="filters.start_date" type="date" class="theme-field mb-3 w-full rounded px-3 py-1.5 text-sm" />
+    <!-- Generate panel -->
+    <div
+      v-if="activeReport"
+      ref="generatePanel"
+      class="card overflow-hidden border-neutral-400 dark:border-neutral-500"
+    >
+      <div class="flex items-center justify-between border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
+        <div>
+          <h3 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{{ activeReport.name }}</h3>
+          <p class="text-xs text-neutral-500">{{ activeReport.category }} · {{ activeReport.type }}</p>
+        </div>
+        <button
+          type="button"
+          class="text-xl leading-none text-neutral-400 transition hover:text-neutral-600 dark:hover:text-neutral-300"
+          aria-label="Close"
+          @click="clearSelection"
+        >
+          &times;
+        </button>
+      </div>
 
-          <label class="mb-2 block text-xs font-medium text-sand-11">End date</label>
-          <input v-model="filters.end_date" type="date" class="theme-field mb-3 w-full rounded px-3 py-1.5 text-sm" />
+      <template v-if="activeReport.exportable">
+        <div class="p-4">
+          <div class="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+            <p class="text-xs leading-relaxed text-blue-900 dark:text-blue-200">
+              <strong class="font-semibold">{{ activeReport.name }}</strong><br />
+              {{ activeReport.description }}
+            </p>
+          </div>
 
-          <template v-if="isOpd">
-            <label class="mb-2 block text-xs font-medium text-sand-11">Attendant type</label>
-            <select v-model="filters.attendant_type" class="theme-field mb-3 w-full rounded px-3 py-1.5 text-sm">
-              <option value="">All</option>
-              <option value="first_attendant">First attendant</option>
-              <option value="re_attendant">Re-attendant</option>
-            </select>
-          </template>
+          <div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <label class="mb-1 block text-xs font-medium text-neutral-500">Start date</label>
+              <input v-model="filters.start_date" type="date" :class="fieldClass" />
+            </div>
+            <div>
+              <label class="mb-1 block text-xs font-medium text-neutral-500">End date</label>
+              <input v-model="filters.end_date" type="date" :class="fieldClass" />
+            </div>
+            <div v-if="isOpd">
+              <label class="mb-1 block text-xs font-medium text-neutral-500">Attendant</label>
+              <select v-model="filters.attendant_type" :class="fieldClass">
+                <option value="">All</option>
+                <option value="first_attendant">First attendant</option>
+                <option value="re_attendant">Re-attendant</option>
+              </select>
+            </div>
+          </div>
 
-          <div class="mt-2 space-y-2">
-            <button type="button" class="w-full rounded bg-blue-600 px-3 py-2 text-sm text-white" @click="preview">
-              Preview
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <button
+              type="button"
+              class="flex h-10 items-center justify-center rounded-lg bg-cyan-700 text-sm font-semibold text-white transition hover:bg-cyan-600"
+              @click="preview"
+            >
+              Preview report
             </button>
             <a
               :href="`/reports/download-csv?${toQueryString()}`"
-              class="theme-icon-btn block w-full rounded px-3 py-2 text-center text-sm hover:bg-sand-2"
+              class="flex h-10 items-center justify-center rounded-lg border border-neutral-300 text-sm font-semibold text-neutral-800 transition hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-100 dark:hover:bg-neutral-800"
             >
               Download CSV
             </a>
             <button
               type="button"
-              class="theme-icon-btn w-full rounded px-3 py-2 text-sm hover:bg-sand-2"
+              class="flex h-10 items-center justify-center rounded-lg bg-emerald-700 text-sm font-semibold text-white transition hover:bg-emerald-600"
               @click="queueExport"
             >
               Queue background export
             </button>
           </div>
-        </template>
 
-        <template v-else-if="activeReport && activeReport.module">
-          <p class="text-sm text-sand-11">This is an interactive module.</p>
+          <p class="mt-3 text-[11px] text-neutral-500">
+            CSV background exports are processed by the server queue. Progress updates automatically on this page.
+          </p>
+        </div>
+      </template>
+
+      <template v-else-if="activeReport.module">
+        <div class="p-4">
+          <div class="mb-4 rounded-xl border border-violet-200 bg-violet-50 p-4 dark:border-violet-800 dark:bg-violet-900/20">
+            <p class="text-xs leading-relaxed text-violet-900 dark:text-violet-200">{{ activeReport.description }}</p>
+          </div>
           <Link
-            :href="moduleRoutes[activeReport.key] ?? '/reports'"
-            class="mt-3 block w-full rounded bg-blue-600 px-3 py-2 text-center text-sm text-white"
+            v-if="moduleRoutes[activeReport.key]"
+            :href="moduleRoutes[activeReport.key]"
+            class="inline-flex rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
           >
             Open {{ activeReport.name }}
           </Link>
-        </template>
-
-        <p v-else class="text-sm text-sand-11">Pick a report from the catalogue to set filters and preview data.</p>
-      </aside>
+        </div>
+      </template>
     </div>
   </StaffLayout>
 </template>
