@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 
 const props = defineProps<{
@@ -24,6 +24,14 @@ const padSigned = ref(false)
 
 const form = useForm({
   signature_image: '',
+})
+
+const staffMeta = computed(() => {
+  const parts: string[] = []
+  if (props.staff_title?.trim()) parts.push(props.staff_title.trim())
+  if (props.staff_specialty?.trim()) parts.push(props.staff_specialty.trim())
+  if (props.staff_email?.trim()) parts.push(props.staff_email.trim())
+  return parts.join(' · ')
 })
 
 let ctx: CanvasRenderingContext2D | null = null
@@ -170,33 +178,22 @@ onBeforeUnmount(() => {
 <template>
   <div class="signature-capture-page">
     <div class="signature-capture-page__inner">
-      <header class="signature-capture-page__brand">
-        <div class="signature-capture-page__brand-icon" aria-hidden="true">✍</div>
-        <h1 class="signature-capture-page__brand-title">Staff Signature</h1>
-        <p class="signature-capture-page__brand-sub">
-          {{ props.staff_name }}
-          <span v-if="props.staff_specialty"> · {{ props.staff_specialty }}</span>
-        </p>
+      <header class="signature-capture-page__header">
+        <div class="signature-capture-page__header-icon" aria-hidden="true">✍</div>
+        <div class="signature-capture-page__header-text">
+          <p class="signature-capture-page__header-eyebrow">Staff Signature</p>
+          <h1 class="signature-capture-page__header-name">{{ props.staff_name }}</h1>
+          <p v-if="staffMeta" class="signature-capture-page__header-meta">{{ staffMeta }}</p>
+        </div>
       </header>
 
       <template v-if="props.saved">
         <div class="signature-capture-page__success">
           <div class="signature-capture-page__success-icon" aria-hidden="true">✓</div>
           <h2 class="signature-capture-page__success-title">Signature received</h2>
-          <p class="signature-capture-page__success-desc">
-            Thank you, <strong>{{ props.staff_name }}</strong>. Your signature has been recorded.
-          </p>
+          <p class="signature-capture-page__success-desc">Your signature has been recorded.</p>
 
-          <div v-if="props.signed_at" class="signature-capture-page__meta-card">
-            <div class="signature-capture-page__meta-row">
-              <span>Signed at</span>
-              <strong>{{ props.signed_at }}</strong>
-            </div>
-            <div v-if="props.staff_email" class="signature-capture-page__meta-row">
-              <span>Email</span>
-              <strong>{{ props.staff_email }}</strong>
-            </div>
-          </div>
+          <p v-if="props.signed_at" class="signature-capture-page__hint">Signed {{ props.signed_at }}</p>
 
           <div v-if="props.signature_url" class="signature-capture-page__signature-preview">
             <p class="signature-capture-page__signature-label">Your signature</p>
@@ -222,31 +219,11 @@ onBeforeUnmount(() => {
       </template>
 
       <template v-else>
-        <div class="signature-capture-page__info-card">
-          <div class="signature-capture-page__person">
-            <div class="signature-capture-page__person-icon" aria-hidden="true">👤</div>
-            <div>
-              <div class="signature-capture-page__person-name">{{ props.staff_name }}</div>
-              <div v-if="props.staff_email" class="signature-capture-page__person-meta">{{ props.staff_email }}</div>
-            </div>
-          </div>
-          <div class="signature-capture-page__info-grid">
-            <div v-if="props.staff_title" class="signature-capture-page__info-cell">
-              <span class="signature-capture-page__info-label">Title</span>
-              <span class="signature-capture-page__info-value">{{ props.staff_title }}</span>
-            </div>
-            <div v-if="props.staff_specialty" class="signature-capture-page__info-cell">
-              <span class="signature-capture-page__info-label">Specialty</span>
-              <span class="signature-capture-page__info-value">{{ props.staff_specialty }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="signature-capture-page__consent">
+        <p class="signature-capture-page__consent">
           By signing below, you confirm this is your official signature for prescriptions and hospital documents.
-        </div>
+        </p>
 
-        <label class="signature-capture-page__pad-label">Draw your signature below</label>
+        <label class="signature-capture-page__pad-label">Draw your signature</label>
         <div
           ref="wrapperRef"
           class="signature-capture-page__pad-wrap"
@@ -299,107 +276,69 @@ onBeforeUnmount(() => {
   max-width: 32rem;
 }
 
-.signature-capture-page__brand {
-  text-align: center;
-  margin-bottom: 2rem;
-}
-
-.signature-capture-page__brand-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 3.5rem;
-  height: 3.5rem;
-  margin-bottom: 0.75rem;
-  border-radius: 1rem;
-  background: #4f46e5;
-  color: #fff;
-  font-size: 1.5rem;
-  box-shadow: 0 10px 25px rgb(79 70 229 / 35%);
-}
-
-.signature-capture-page__brand-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #fff;
-}
-
-.signature-capture-page__brand-sub {
-  margin-top: 0.25rem;
-  font-size: 0.875rem;
-  color: #94a3b8;
-}
-
-.signature-capture-page__info-card {
-  margin-bottom: 1.25rem;
-  padding: 1.25rem;
-  border: 1px solid rgb(55 65 81 / 60%);
-  border-radius: 1rem;
-  background: rgb(31 41 55 / 60%);
-}
-
-.signature-capture-page__person {
+.signature-capture-page__header {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   margin-bottom: 1rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid rgb(55 65 81 / 55%);
+  border-radius: 0.875rem;
+  background: rgb(31 41 55 / 55%);
+  text-align: left;
 }
 
-.signature-capture-page__person-icon {
+.signature-capture-page__header-icon {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   width: 2.5rem;
   height: 2.5rem;
-  border-radius: 9999px;
-  background: rgb(79 70 229 / 30%);
-}
-
-.signature-capture-page__person-name {
-  font-weight: 600;
+  border-radius: 0.625rem;
+  background: #4f46e5;
   color: #fff;
+  font-size: 1.125rem;
+  box-shadow: 0 6px 16px rgb(79 70 229 / 30%);
 }
 
-.signature-capture-page__person-meta {
-  font-size: 0.75rem;
-  color: #94a3b8;
+.signature-capture-page__header-text {
+  min-width: 0;
 }
 
-.signature-capture-page__info-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
-.signature-capture-page__info-cell {
-  padding: 0.75rem;
-  border-radius: 0.5rem;
-  background: rgb(17 24 39 / 50%);
-}
-
-.signature-capture-page__info-label {
-  display: block;
-  margin-bottom: 0.125rem;
-  font-size: 0.6875rem;
+.signature-capture-page__header-eyebrow {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
   color: #64748b;
 }
 
-.signature-capture-page__info-value {
-  font-size: 0.875rem;
-  font-weight: 600;
+.signature-capture-page__header-name {
+  margin-top: 0.125rem;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.2;
   color: #fff;
 }
 
-.signature-capture-page__consent {
-  margin-bottom: 1.25rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid rgb(245 158 11 / 20%);
-  border-radius: 0.75rem;
-  background: rgb(245 158 11 / 5%);
+.signature-capture-page__header-meta {
+  margin-top: 0.125rem;
   font-size: 0.75rem;
-  line-height: 1.5;
+  line-height: 1.35;
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.signature-capture-page__consent {
+  margin-bottom: 1rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid rgb(245 158 11 / 20%);
+  border-radius: 0.625rem;
+  background: rgb(245 158 11 / 5%);
+  font-size: 0.6875rem;
+  line-height: 1.45;
   color: rgb(253 230 138 / 80%);
 }
 
@@ -501,7 +440,7 @@ onBeforeUnmount(() => {
 }
 
 .signature-capture-page__footer-note {
-  margin-top: 1.5rem;
+  margin-top: 1rem;
   text-align: center;
   font-size: 0.75rem;
   color: #475569;
@@ -516,9 +455,9 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 4rem;
-  height: 4rem;
-  margin-bottom: 1rem;
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: 0.75rem;
   border-radius: 9999px;
   background: rgb(34 197 94 / 10%);
   border: 2px solid rgb(34 197 94 / 30%);
@@ -528,46 +467,26 @@ onBeforeUnmount(() => {
 }
 
 .signature-capture-page__success-title {
-  font-size: 1.75rem;
+  font-size: 1.375rem;
   font-weight: 700;
   color: #fff;
 }
 
 .signature-capture-page__success-desc {
-  margin-top: 0.5rem;
-  font-size: 0.9375rem;
-  line-height: 1.5;
+  margin-top: 0.375rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
   color: #94a3b8;
+}
+
+.signature-capture-page__hint {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: #64748b;
 }
 
 .signature-capture-page__success-desc strong {
   color: #e2e8f0;
-}
-
-.signature-capture-page__meta-card {
-  margin: 1.5rem 0;
-  padding: 1.25rem;
-  border: 1px solid rgb(55 65 81 / 50%);
-  border-radius: 1rem;
-  background: rgb(31 41 55 / 60%);
-  text-align: left;
-}
-
-.signature-capture-page__meta-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  font-size: 0.875rem;
-  color: #64748b;
-}
-
-.signature-capture-page__meta-row + .signature-capture-page__meta-row {
-  margin-top: 0.75rem;
-}
-
-.signature-capture-page__meta-row strong {
-  color: #e2e8f0;
-  font-weight: 600;
 }
 
 .signature-capture-page__signature-preview {

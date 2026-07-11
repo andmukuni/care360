@@ -145,16 +145,6 @@ const statCards = [
   { key: 'calendarEvents', label: 'Calendar Events' },
 ] as const
 
-const summaryItems = [
-  { key: 'encountersStarted', label: 'Encounters started', color: 'bg-blue-500' },
-  { key: 'encountersClosed', label: 'Encounters closed', color: 'bg-green-500' },
-  { key: 'prescriptions', label: 'Prescriptions written', color: 'bg-purple-500' },
-  { key: 'dispenses', label: 'Dispenses performed', color: 'bg-orange-500' },
-  { key: 'labRecorded', label: 'Lab results recorded', color: 'bg-teal-500' },
-  { key: 'labVerified', label: 'Lab results verified', color: 'bg-indigo-500' },
-  { key: 'calendarEvents', label: 'Calendar events created', color: 'bg-rose-500' },
-] as const
-
 const dotClass: Record<string, string> = {
   blue: 'staff-profile__tl-dot--blue',
   green: 'staff-profile__tl-dot--green',
@@ -166,10 +156,6 @@ const dotClass: Record<string, string> = {
 }
 
 const initials = computed(() => props.user.raw_name.trim().charAt(0).toUpperCase() || 'U')
-
-const totalActions = computed(() =>
-  Object.values(props.stats).reduce((sum, value) => sum + Number(value ?? 0), 0)
-)
 
 const resolvedPhotoUrl = computed(() => {
   if (imageFailed.value || !props.user.profile_photo_url) return null
@@ -395,24 +381,6 @@ function goTimelinePage(nextPage: number) {
               :pending-invite="props.user.pending_signature_invite"
               :reset-endpoint="props.user.signature_reset_endpoint"
             />
-          </div>
-        </section>
-
-        <section class="staff-profile__card">
-          <header class="staff-profile__card-hd">
-            <span class="staff-profile__card-title">Activity Summary</span>
-          </header>
-          <div class="staff-profile__summary">
-            <div v-for="item in summaryItems" :key="item.key" class="staff-profile__summary-row">
-              <span class="staff-profile__summary-dot" :class="item.color" />
-              <span class="staff-profile__summary-label">{{ item.label }}</span>
-              <span class="staff-profile__summary-val">{{ props.stats[item.key] }}</span>
-            </div>
-            <div class="staff-profile__summary-row staff-profile__summary-row--total">
-              <span class="staff-profile__summary-dot bg-neutral-700" />
-              <span class="staff-profile__summary-label">Total Actions</span>
-              <span class="staff-profile__summary-val">{{ totalActions }}</span>
-            </div>
           </div>
         </section>
       </div>
