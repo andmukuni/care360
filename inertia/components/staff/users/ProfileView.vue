@@ -135,16 +135,6 @@ const recentPrescriptions = computed(() => props.recentPrescriptions ?? [])
 const recentLabResults = computed(() => props.recentLabResults ?? [])
 const recentDispenses = computed(() => props.recentDispenses ?? [])
 
-const statCards = [
-  { key: 'encountersStarted', label: 'Encounters Started' },
-  { key: 'encountersClosed', label: 'Encounters Closed' },
-  { key: 'prescriptions', label: 'Prescriptions' },
-  { key: 'dispenses', label: 'Dispenses' },
-  { key: 'labRecorded', label: 'Lab Recorded' },
-  { key: 'labVerified', label: 'Lab Verified' },
-  { key: 'calendarEvents', label: 'Calendar Events' },
-] as const
-
 const dotClass: Record<string, string> = {
   blue: 'staff-profile__tl-dot--blue',
   green: 'staff-profile__tl-dot--green',
@@ -276,6 +266,8 @@ function goTimelinePage(nextPage: number) {
               <span class="staff-profile__verified">Verified</span>
             </template>
             <span class="staff-profile__meta-dot">·</span>
+            <span>Updated {{ updatedRelative() }}</span>
+            <span class="staff-profile__meta-dot">·</span>
             <span>International Hospital Zambia</span>
           </div>
 
@@ -297,66 +289,10 @@ function goTimelinePage(nextPage: number) {
           </div>
         </div>
       </div>
-
-      <div class="staff-profile__stats">
-        <div v-for="card in statCards" :key="card.key" class="staff-profile__stat">
-          <div class="staff-profile__stat-val">{{ props.stats[card.key] }}</div>
-          <div class="staff-profile__stat-lbl">{{ card.label }}</div>
-        </div>
-      </div>
     </div>
 
     <div class="staff-profile__grid">
       <div class="staff-profile__sidebar">
-        <section class="staff-profile__card">
-          <header class="staff-profile__card-hd">
-            <span class="staff-profile__card-title">About</span>
-          </header>
-          <div class="staff-profile__about">
-            <div class="staff-profile__about-row">
-              <div>
-                <p class="staff-profile__field-label">Email</p>
-                <p class="staff-profile__field-value">{{ props.user.email }}</p>
-              </div>
-            </div>
-            <div v-if="props.user.title" class="staff-profile__about-row">
-              <div>
-                <p class="staff-profile__field-label">Title</p>
-                <p class="staff-profile__field-value">{{ props.user.title }}</p>
-              </div>
-            </div>
-            <div v-if="props.user.specialty" class="staff-profile__about-row">
-              <div>
-                <p class="staff-profile__field-label">Specialty</p>
-                <p class="staff-profile__field-value">{{ props.user.specialty }}</p>
-              </div>
-            </div>
-            <div v-if="props.user.created_at" class="staff-profile__about-row">
-              <div>
-                <p class="staff-profile__field-label">Member Since</p>
-                <p class="staff-profile__field-value">{{ props.user.created_at }}</p>
-              </div>
-            </div>
-            <div class="staff-profile__about-row">
-              <div>
-                <p class="staff-profile__field-label">Email Verified</p>
-                <p
-                  class="staff-profile__field-value"
-                  :class="props.user.email_verified_at ? 'staff-profile__verified' : 'staff-profile__muted'"
-                >
-                  {{ props.user.email_verified_at ?? 'Not verified' }}
-                </p>
-              </div>
-            </div>
-            <div class="staff-profile__about-row">
-              <div>
-                <p class="staff-profile__field-label">Last Updated</p>
-                <p class="staff-profile__field-value">{{ updatedRelative() }}</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
         <section v-if="props.user.bio" class="staff-profile__card">
           <header class="staff-profile__card-hd">
             <span class="staff-profile__card-title">Bio</span>
@@ -368,9 +304,6 @@ function goTimelinePage(nextPage: number) {
           v-if="props.user.can_manage_signature && props.user.signature_invite_endpoint"
           class="staff-profile__card staff-profile__card--signature"
         >
-          <header class="staff-profile__card-hd">
-            <span class="staff-profile__card-title">Signature</span>
-          </header>
           <div class="staff-profile__signature-panel">
             <SignatureSigningPanel
               compact
@@ -463,7 +396,7 @@ function goTimelinePage(nextPage: number) {
           <header class="staff-profile__card-hd">
             <span class="staff-profile__card-title">Encounters Started</span>
             <span class="staff-profile__card-count">
-              {{ props.stats.encountersStarted }} total · showing {{ recentEncounters.length }}
+              Showing {{ recentEncounters.length }}
             </span>
           </header>
           <p v-if="!recentEncounters.length" class="staff-profile__empty">No encounters started yet.</p>
@@ -507,7 +440,7 @@ function goTimelinePage(nextPage: number) {
           <header class="staff-profile__card-hd">
             <span class="staff-profile__card-title">Prescriptions Written</span>
             <span class="staff-profile__card-count">
-              {{ props.stats.prescriptions }} total · showing {{ recentPrescriptions.length }}
+              Showing {{ recentPrescriptions.length }}
             </span>
           </header>
           <p v-if="!recentPrescriptions.length" class="staff-profile__empty">No prescriptions written yet.</p>
@@ -549,7 +482,7 @@ function goTimelinePage(nextPage: number) {
           <header class="staff-profile__card-hd">
             <span class="staff-profile__card-title">Lab Results Recorded</span>
             <span class="staff-profile__card-count">
-              {{ props.stats.labRecorded }} total · showing {{ recentLabResults.length }}
+              Showing {{ recentLabResults.length }}
             </span>
           </header>
           <p v-if="!recentLabResults.length" class="staff-profile__empty">No lab results recorded yet.</p>
@@ -602,7 +535,7 @@ function goTimelinePage(nextPage: number) {
           <header class="staff-profile__card-hd">
             <span class="staff-profile__card-title">Pharmacy Dispenses</span>
             <span class="staff-profile__card-count">
-              {{ props.stats.dispenses }} total · showing {{ recentDispenses.length }}
+              Showing {{ recentDispenses.length }}
             </span>
           </header>
           <p v-if="!recentDispenses.length" class="staff-profile__empty">No dispenses performed yet.</p>
