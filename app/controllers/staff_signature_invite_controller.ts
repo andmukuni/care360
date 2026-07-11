@@ -7,6 +7,7 @@ import StaffSignatureInvite from '#models/staff_signature_invite'
 import { saveStaffSignatureFromDataUrl } from '#support/save_staff_signature'
 import { signatureInviteUrl } from '#support/signature_invite_url'
 import { publicStorageUrl } from '#support/public_storage_url'
+import { canManageUserSignature, clearStaffSignature } from '#support/staff_signature_access'
 
 const storeSignatureValidator = vine.compile(
   vine.object({
@@ -58,6 +59,16 @@ async function findInviteByToken(token: string): Promise<InviteContext | null> {
   }
 
   return { invite, user }
+}
+
+function hasStoredSignature(user: User): boolean {
+  return Boolean(publicStorageUrl(user.signaturePath))
+}
+
+function inviteUnavailable(context: InviteContext | null): boolean {
+  if (!context) return true
+  if (hasStoredSignature(context.user)) return true
+  return !context.invite.isPending()
 }
 
 function formatSignedAt(value: DateTime | null | undefined): string | null {
@@ -112,16 +123,14 @@ export default class StaffSignatureInviteController {
    */
   async show({ params, inertia }: HttpContext) {
     const context = await findInviteByToken(params.token)
-    if (!context) {
+    if (inviteUnavailable(context)) {
+      if (context && hasStoredSignature(context.user)) {
+        return inertia.render('signatures/capture', alreadySignedPayload(context.invite, context.user))
+      }
       return inertia.render('signatures/invalid')
     }
 
-    const { invite, user } = context
-    if (!invite.isPending() || publicStorageUrl(user.signaturePath)) {
-      return inertia.render('signatures/capture', alreadySignedPayload(invite, user))
-    }
-
-    return inertia.render('signatures/capture', capturePayload(invite, user))
+    return inertia.render('signatures/capture', capturePayload(context!.invite, context!.user))
   }
 
   /**
@@ -129,14 +138,14 @@ export default class StaffSignatureInviteController {
    */
   async store({ params, request, inertia }: HttpContext) {
     const context = await findInviteByToken(params.token)
-    if (!context) {
+    if (inviteUnavailable(context)) {
+      if (context && hasStoredSignature(context.user)) {
+        return inertia.render('signatures/capture', alreadySignedPayload(context.invite, context.user))
+      }
       return inertia.render('signatures/invalid')
     }
 
-    const { invite, user } = context
-    if (!invite.isPending() || publicStorageUrl(user.signaturePath)) {
-      return inertia.render('signatures/capture', alreadySignedPayload(invite, user))
-    }
+    const { invite, user } = context!
 
     const { signature_image: signatureImage } = await request.validateUsing(storeSignatureValidator)
     const relativePath = saveStaffSignatureFromDataUrl(signatureImage)
@@ -171,5 +180,31 @@ export default class StaffSignatureInviteController {
         signed_at: formatSignedAt(invite.completedAt),
       })
     )
+  }
+
+  /**
+   * DELETE /users/:user/signature — clear a staff member's saved signature (admin).
+   */
+  async destroyForUser({ auth, params, response, session }: HttpContext) {
+    const viewer = auth.use('web').user!
+    const targetUser = await User.findOrFail(params.user)
+
+    if (!(await canManageUserSignature(viewer, targetUser.id))) {
+      return response.abort('Forbidden', 403)
+    }
+
+    await clearStaffSignature(targetUser)
+    session.flash('success', 'Signature removed. Generate a new link when staff are ready to sign again.')
+    return response.redirect().back()
+  }
+
+  /**
+   * DELETE /profile/signature — clear the current user's saved signature.
+   */
+  async destroyForSelf({ auth, response, session }: HttpContext) {
+    const user = auth.use('web').user!
+    await clearStaffSignature(user)
+    session.flash('success', 'Signature removed. Generate a new link when you are ready to sign again.')
+    return response.redirect().back()
   }
 }

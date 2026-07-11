@@ -16,6 +16,7 @@ const props = withDefaults(
     signatureUrl?: string | null
     signedAt?: string | null
     pendingInvite?: PendingSignatureInvite | null
+    resetEndpoint?: string | null
     compact?: boolean
     showRefresh?: boolean
     reloadOnly?: string
@@ -24,6 +25,7 @@ const props = withDefaults(
     signatureUrl: null,
     signedAt: null,
     pendingInvite: null,
+    resetEndpoint: null,
     compact: false,
     showRefresh: true,
     reloadOnly: 'user',
@@ -42,6 +44,7 @@ const canNativeShare = ref(false)
 const sharingLink = ref(false)
 const linkJustGenerated = ref(false)
 const linkInputRef = ref<HTMLInputElement | null>(null)
+const resetting = ref(false)
 
 const isSigned = computed(() => Boolean(props.signatureUrl))
 const isAwaiting = computed(() => !isSigned.value && Boolean(signingLink.value))
@@ -125,6 +128,24 @@ function refreshSignatureStatus() {
   router.reload({ only: [props.reloadOnly] })
 }
 
+function resetSignature() {
+  if (!props.resetEndpoint || !isSigned.value) return
+
+  const staffName = props.staffName.trim() || 'this staff member'
+  const confirmed = window.confirm(
+    `Remove the saved signature for ${staffName}? They will need to sign again using a new link.`
+  )
+  if (!confirmed) return
+
+  resetting.value = true
+  router.delete(props.resetEndpoint, {
+    preserveScroll: true,
+    onFinish: () => {
+      resetting.value = false
+    },
+  })
+}
+
 onMounted(() => {
   canNativeShare.value = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
 })
@@ -154,6 +175,16 @@ onMounted(() => {
     </div>
 
     <div class="signature-panel__generate-wrap">
+      <ActionButton
+        v-if="isSigned && props.resetEndpoint"
+        type="button"
+        variant="danger"
+        :loading="resetting"
+        loading-text="Resetting…"
+        @click="resetSignature"
+      >
+        Reset signature
+      </ActionButton>
       <ActionButton
         type="button"
         variant="blue"

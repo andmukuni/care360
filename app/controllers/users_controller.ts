@@ -15,6 +15,7 @@ import CalendarEvent from '#models/calendar_event'
 import RbacService, { USER_MORPH_TYPE } from '#services/auth/rbac_service'
 import { publicStorageUrl } from '#support/public_storage_url'
 import { staffSignatureMeta } from '#support/staff_signature_meta'
+import { canManageUserSignature } from '#support/staff_signature_access'
 import { EncounterStageHelper } from '#enums/encounter_stage'
 import { EncounterStatusHelper } from '#enums/encounter_status'
 import type Patient from '#models/patient'
@@ -97,14 +98,6 @@ async function syncUserRoles(user: User, roleNames: string[]): Promise<void> {
   }
 
   RbacService.forget(user)
-}
-
-async function canManageUserSignature(user: User | undefined | null, targetUserId: number): Promise<boolean> {
-  if (!user) return false
-  if (user.id === targetUserId) return true
-  if (await user.isLegacyUserWithoutRbac()) return true
-  if (await user.hasAnyPermission(['users.write', 'settings.manage'])) return true
-  return user.hasRole('super-admin')
 }
 
 async function canManageRolesOnUsers(user: User | undefined | null): Promise<boolean> {
@@ -652,6 +645,11 @@ export default class UsersController {
         pending_signature_invite: signature.pending_signature_invite,
         can_manage_signature: canManageSignature,
         signature_invite_endpoint: canManageSignature ? signatureInviteEndpoint : null,
+        signature_reset_endpoint: canManageSignature
+          ? viewer?.id === user.id
+            ? '/profile/signature'
+            : `/users/${user.id}/signature`
+          : null,
       },
       stats: {
         encountersStarted,

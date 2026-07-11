@@ -23,6 +23,7 @@ interface ProfileUser {
   pending_signature_invite?: { url: string } | null
   can_manage_signature?: boolean
   signature_invite_endpoint?: string | null
+  signature_reset_endpoint?: string | null
 }
 
 interface Stats {
@@ -392,6 +393,7 @@ function goTimelinePage(nextPage: number) {
               :signature-url="props.user.signature_url"
               :signed-at="props.user.signature_signed_at"
               :pending-invite="props.user.pending_signature_invite"
+              :reset-endpoint="props.user.signature_reset_endpoint"
             />
           </div>
         </section>

@@ -80,6 +80,9 @@ router
     router
       .post('/profile/signature-invite', [StaffSignatureInviteController, 'createForSelf'])
       .as('profile.signature-invite')
+    router
+      .delete('/profile/signature', [StaffSignatureInviteController, 'destroyForSelf'])
+      .as('profile.signature.destroy')
 
     // ── Patients ───────────────────────────────────────────────────────────
     router.get('/patients', [PatientsController, 'index']).as('patients.index')
@@ -450,6 +453,9 @@ router
         router
           .post('/users/:user/signature-invite', [StaffSignatureInviteController, 'createForUser'])
           .as('users.signature-invite')
+        router
+          .delete('/users/:user/signature', [StaffSignatureInviteController, 'destroyForUser'])
+          .as('users.signature.destroy')
         router.put('/users/:user', [UsersController, 'update']).as('users.update')
         router.delete('/users/:user', [UsersController, 'destroy']).as('users.destroy')
       })

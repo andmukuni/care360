@@ -3561,6 +3561,9 @@ input.encounters-filter-field[type='date']::-webkit-calendar-picker-indicator {
 }
 .signature-panel__generate-wrap {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 .signature-panel__generate-wrap .action-btn {
   width: 100%;
