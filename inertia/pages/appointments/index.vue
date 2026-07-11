@@ -258,9 +258,29 @@ function submitQueue() {
               <span v-else class="queue-cell-sub">—</span>
             </td>
             <td class="queue-action-col">
-              <div class="queue-card-action">
-                <ActionButton variant="queue" @click.stop="openConfirm(row)">Confirm</ActionButton>
-                <ActionButton variant="outline" @click.stop="openDecline(row)">Decline</ActionButton>
+              <div class="queue-table-action-group">
+                <button
+                  type="button"
+                  class="queue-icon-btn queue-icon-btn--primary"
+                  title="Confirm appointment"
+                  aria-label="Confirm appointment"
+                  @click.stop="openConfirm(row)"
+                >
+                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  class="queue-icon-btn queue-icon-btn--danger"
+                  title="Decline appointment"
+                  aria-label="Decline appointment"
+                  @click.stop="openDecline(row)"
+                >
+                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
             </td>
           </tr>
@@ -328,18 +348,18 @@ function submitQueue() {
               <span class="queue-cell-main">{{ row.provider ?? '—' }}</span>
             </td>
             <td class="queue-action-col">
-              <ActionButton
+              <button
                 v-if="row.status === 'confirmed'"
-                variant="queue"
+                type="button"
+                class="queue-icon-btn queue-icon-btn--primary"
+                title="Queue patient"
+                aria-label="Queue patient"
                 @click.stop="openQueue(row)"
               >
-                <template #icon>
-                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                  </svg>
-                </template>
-                Queue patient
-              </ActionButton>
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                </svg>
+              </button>
             </td>
           </tr>
         </QueueTable>
@@ -406,18 +426,18 @@ function submitQueue() {
               <span class="queue-cell-main">{{ row.provider ?? '—' }}</span>
             </td>
             <td class="queue-action-col">
-              <ActionButton
+              <button
                 v-if="row.status === 'confirmed'"
-                variant="queue"
+                type="button"
+                class="queue-icon-btn queue-icon-btn--primary"
+                title="Queue patient"
+                aria-label="Queue patient"
                 @click.stop="openQueue(row)"
               >
-                <template #icon>
-                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                  </svg>
-                </template>
-                Queue patient
-              </ActionButton>
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                </svg>
+              </button>
             </td>
           </tr>
         </QueueTable>
