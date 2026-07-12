@@ -3,6 +3,8 @@ import { computed, reactive, ref } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
+import TableIconButton from '~/components/staff/TableIconButton.vue'
+import TableIconLink from '~/components/staff/TableIconLink.vue'
 
 interface Complaint {
   id: number
@@ -182,6 +184,22 @@ function statusLabel(status: string): string {
 }
 
 const showForm = ref(false)
+const viewingComplaint = ref<Complaint | null>(null)
+
+function formatPageLabel(url: string | null): string {
+  if (!url) return '—'
+  try {
+    const parsed = new URL(url)
+    const path = parsed.pathname === '/' ? '' : parsed.pathname
+    return `${parsed.hostname}${path}`
+  } catch {
+    return url
+  }
+}
+
+function openComplaint(row: Complaint) {
+  viewingComplaint.value = row
+}
 
 const form = useForm({
   title: '',
@@ -358,6 +376,7 @@ function submit() {
               <th class="px-4 py-2.5 text-left">Status</th>
               <th class="px-4 py-2.5 text-left">Submitted</th>
               <th class="px-4 py-2.5 text-left">Page</th>
+              <th class="encounters-table__actions px-4 py-2.5 text-right">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-neutral-100 dark:divide-white/[0.04]">
@@ -382,21 +401,26 @@ function submit() {
               <td class="px-4 py-2.5 text-xs text-neutral-500 dark:text-neutral-400">
                 {{ row.createdAtFormatted ?? '—' }}
               </td>
-              <td class="px-4 py-2.5">
-                <a
-                  v-if="row.pageUrl"
-                  :href="row.pageUrl"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="line-clamp-1 text-xs font-medium text-blue-700 hover:underline dark:text-blue-300"
-                >
-                  {{ row.pageUrl }}
-                </a>
-                <span v-else class="text-xs text-neutral-400">—</span>
+              <td class="px-4 py-2.5 text-xs text-neutral-500 dark:text-neutral-400">
+                <span v-if="row.pageUrl" class="line-clamp-1" :title="row.pageUrl">
+                  {{ formatPageLabel(row.pageUrl) }}
+                </span>
+                <span v-else>—</span>
+              </td>
+              <td class="encounters-table__actions px-4 py-2.5 text-right">
+                <div class="table-action-group">
+                  <TableIconButton variant="view" title="View report details" @click="openComplaint(row)" />
+                  <TableIconLink
+                    v-if="row.pageUrl"
+                    :href="row.pageUrl"
+                    variant="open"
+                    title="Open reported page"
+                  />
+                </div>
               </td>
             </tr>
             <tr v-if="!filteredComplaints.length">
-              <td colspan="5" class="px-4 py-12 text-center text-sm text-neutral-500">
+              <td colspan="6" class="px-4 py-12 text-center text-sm text-neutral-500">
                 <template v-if="hasFilters">
                   No reports match the current filters.
                   <button type="button" class="font-medium text-neutral-800 underline dark:text-neutral-200" @click="clearFilters">
@@ -413,6 +437,33 @@ function submit() {
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <div v-if="viewingComplaint" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div class="theme-panel max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg p-6">
+        <div class="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h2 class="text-base font-semibold text-neutral-900 dark:text-neutral-100">{{ viewingComplaint.title }}</h2>
+            <p class="mt-1 text-xs text-neutral-500">
+              Submitted {{ viewingComplaint.createdAtFormatted ?? '—' }}
+              <span v-if="viewingComplaint.resolvedAtFormatted"> · Resolved {{ viewingComplaint.resolvedAtFormatted }}</span>
+            </p>
+          </div>
+          <button type="button" class="theme-icon-btn rounded px-2 py-1 text-sm" @click="viewingComplaint = null">Close</button>
+        </div>
+        <div class="mb-4 flex flex-wrap gap-2">
+          <span :class="severityBadgeClass(viewingComplaint.severity)">{{ severityLabel(viewingComplaint.severity) }}</span>
+          <span :class="statusBadgeClass(viewingComplaint.status)">{{ statusLabel(viewingComplaint.status) }}</span>
+        </div>
+        <p class="whitespace-pre-wrap text-sm text-neutral-700 dark:text-neutral-300">{{ viewingComplaint.description }}</p>
+        <div v-if="viewingComplaint.pageUrl" class="mt-4">
+          <p class="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-500">Reported page</p>
+          <div class="table-action-group">
+            <TableIconLink :href="viewingComplaint.pageUrl" variant="open" title="Open reported page" />
+            <span class="text-xs text-neutral-500">{{ viewingComplaint.pageUrl }}</span>
+          </div>
+        </div>
       </div>
     </div>
 
