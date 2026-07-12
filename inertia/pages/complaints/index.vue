@@ -230,9 +230,14 @@ function submit() {
     <template #header><h1 class="text-lg font-semibold">Complaints</h1></template>
 
     <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
-      <p class="text-sm text-neutral-500 dark:text-neutral-400">
-        Report bugs and platform issues so the team can investigate and fix them.
-      </p>
+      <div class="max-w-3xl">
+        <p class="text-sm text-neutral-500 dark:text-neutral-400">
+          Report bugs and platform issues so the team can investigate and fix them.
+        </p>
+        <p class="mt-1.5 border-l-2 border-sky-400/70 pl-3 text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
+          Include steps to reproduce, what you expected, and the page URL. High-severity reports are prioritised.
+        </p>
+      </div>
       <button
         type="button"
         class="shrink-0 rounded-lg bg-neutral-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
@@ -240,13 +245,6 @@ function submit() {
       >
         Report an issue
       </button>
-    </div>
-
-    <div class="card mb-4 border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
-      <p class="text-[10px] font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">Platform feedback</p>
-      <p class="mt-1 text-sm text-blue-900 dark:text-blue-200">
-        Include steps to reproduce, what you expected, and the page URL where the issue occurred. High-severity reports are prioritised.
-      </p>
     </div>
 
     <!-- KPI strip -->
@@ -288,7 +286,7 @@ function submit() {
     <!-- Filters -->
     <form class="card mb-3 p-3" @submit.prevent>
       <div class="grid grid-cols-2 items-end gap-2 lg:grid-cols-12">
-        <div class="relative col-span-2 lg:col-span-5">
+        <div class="relative col-span-2 lg:col-span-4">
           <svg
             class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400"
             fill="none"
@@ -306,7 +304,7 @@ function submit() {
           />
         </div>
 
-        <div class="col-span-1 lg:col-span-3">
+        <div class="col-span-1 lg:col-span-2">
           <select v-model="filterForm.severity" :class="fieldClass" aria-label="Severity">
             <option value="">All severities</option>
             <option v-for="option in severityOptions" :key="option.value" :value="option.value">
@@ -315,7 +313,7 @@ function submit() {
           </select>
         </div>
 
-        <div class="col-span-1 lg:col-span-3">
+        <div class="col-span-1 lg:col-span-2">
           <select v-model="filterForm.status" :class="fieldClass" aria-label="Status">
             <option value="">All statuses</option>
             <option v-for="option in statusOptions" :key="option.value" :value="option.value">
@@ -324,7 +322,7 @@ function submit() {
           </select>
         </div>
 
-        <div class="col-span-2 flex justify-end lg:col-span-1">
+        <div class="col-span-2 flex items-center justify-end gap-1.5 lg:col-span-2">
           <button
             v-if="hasFilters"
             type="button"
@@ -335,6 +333,16 @@ function submit() {
           >
             <svg class="btn-icon__svg" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <button
+            type="submit"
+            class="btn-icon btn-icon--primary"
+            title="Apply filters"
+            aria-label="Apply filters"
+          >
+            <svg class="btn-icon__svg" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </button>
         </div>
