@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
+import TableIconButton from '~/components/staff/TableIconButton.vue'
+import TableIconLink from '~/components/staff/TableIconLink.vue'
 
 interface NotificationItem {
   id: string
@@ -78,24 +80,33 @@ function severityClass(item: NotificationItem): string {
             <a
               v-if="item.data.link"
               :href="item.data.link"
-              class="mt-1 inline-block text-sm text-blue-600 hover:underline"
+              class="mt-1 line-clamp-1 text-xs text-neutral-500"
             >
-              View
+              {{ item.data.link }}
             </a>
             <div class="mt-1 text-xs text-sand-11">{{ item.created_at_human }}</div>
           </div>
-          <div class="flex shrink-0 flex-col items-end gap-1">
-            <button
-              v-if="!item.read"
-              type="button"
-              class="text-xs text-blue-600 hover:underline"
-              @click="markRead(item)"
-            >
-              Mark read
-            </button>
-            <button type="button" class="text-xs text-red-600 hover:underline" @click="dismiss(item)">
-              Dismiss
-            </button>
+          <div class="flex shrink-0 flex-col items-end gap-1.5">
+            <div class="table-action-group">
+              <TableIconLink
+                v-if="item.data.link"
+                :href="item.data.link"
+                variant="open"
+                title="Open notification link"
+              />
+              <TableIconButton
+                v-if="!item.read"
+                variant="check"
+                title="Mark as read"
+                @click="markRead(item)"
+              />
+              <TableIconButton
+                variant="delete"
+                tone="danger"
+                title="Dismiss notification"
+                @click="dismiss(item)"
+              />
+            </div>
           </div>
         </div>
       </li>

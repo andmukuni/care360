@@ -3,6 +3,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { Link, router, useForm, usePage } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import TermDefinitionPopover from '~/components/dictionary/TermDefinitionPopover.vue'
+import TableIconButton from '~/components/staff/TableIconButton.vue'
 
 type Domain = 'diagnosis' | 'drug' | 'lab' | 'symptom'
 
@@ -254,13 +255,9 @@ const domainTone: Record<Domain, string> = {
                   {{ term.definition }}
                 </p>
               </div>
-              <div v-if="canManage" class="flex shrink-0 gap-2">
-                <button type="button" class="text-xs text-blue-600 hover:underline" @click.stop="openEdit(term)">
-                  Edit
-                </button>
-                <button type="button" class="text-xs text-red-600 hover:underline" @click.stop="destroyTerm(term)">
-                  Remove
-                </button>
+              <div v-if="canManage" class="table-action-group shrink-0">
+                <TableIconButton variant="edit" title="Edit term" @click.stop="openEdit(term)" />
+                <TableIconButton variant="delete" tone="danger" title="Remove term" @click.stop="destroyTerm(term)" />
               </div>
             </div>
           </li>

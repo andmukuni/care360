@@ -4,6 +4,7 @@ import { Link, router, useForm } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
 import TableIconButton from '~/components/staff/TableIconButton.vue'
+import TableIconLink from '~/components/staff/TableIconLink.vue'
 
 interface Service {
   id: number
@@ -431,6 +432,7 @@ function formatSource(source: string): string {
               <th class="px-4 py-2.5 text-left">Service</th>
               <th class="px-4 py-2.5 text-left">Source</th>
               <th class="px-4 py-2.5 text-left">Phone dialed</th>
+              <th class="encounters-table__actions px-4 py-2.5 text-right">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-neutral-100 dark:divide-white/[0.04]">
@@ -443,14 +445,7 @@ function formatSource(source: string): string {
                 {{ c.contactedAtFormatted ?? '—' }}
               </td>
               <td class="px-4 py-2.5">
-                <Link
-                  v-if="c.patientNumber"
-                  :href="`/patients/${c.patientNumber}`"
-                  class="font-medium text-neutral-900 hover:underline dark:text-neutral-100"
-                >
-                  {{ c.patientName }}
-                </Link>
-                <span v-else class="font-medium text-neutral-900 dark:text-neutral-100">{{ c.patientName }}</span>
+                <span class="font-medium text-neutral-900 dark:text-neutral-100">{{ c.patientName }}</span>
                 <div v-if="c.patientNumber" class="text-xs text-neutral-400">{{ c.patientNumber }}</div>
               </td>
               <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">{{ c.serviceName }}</td>
@@ -458,9 +453,19 @@ function formatSource(source: string): string {
                 <span class="badge b-gray capitalize">{{ formatSource(c.source) }}</span>
               </td>
               <td class="px-4 py-2.5 font-medium text-red-700 dark:text-red-400">{{ c.phoneDialed ?? '—' }}</td>
+              <td class="encounters-table__actions px-4 py-2.5 text-right">
+                <div class="table-action-group">
+                  <TableIconLink
+                    v-if="c.patientNumber"
+                    :href="`/patients/${c.patientNumber}`"
+                    variant="view"
+                    title="View patient"
+                  />
+                </div>
+              </td>
             </tr>
             <tr v-if="!recentContacts.length">
-              <td colspan="5" class="px-4 py-12 text-center text-sm text-neutral-500">No calls logged yet.</td>
+              <td colspan="6" class="px-4 py-12 text-center text-sm text-neutral-500">No calls logged yet.</td>
             </tr>
           </tbody>
         </table>

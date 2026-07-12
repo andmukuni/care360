@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { router } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import DataTable from '~/components/staff/DataTable.vue'
+import TableIconButton from '~/components/staff/TableIconButton.vue'
 
 interface Lead {
   id: number
@@ -43,7 +44,7 @@ function setStatus(lead: Lead, status: string) {
 
     <DataTable :columns="columns" :rows="leads">
       <template #cell:companyName="{ row }">
-        <button type="button" class="text-blue-600 hover:underline" @click="detail = row">{{ row.companyName }}</button>
+        <span class="font-medium text-neutral-900 dark:text-neutral-100">{{ row.companyName }}</span>
       </template>
       <template #cell:status="{ row }">
         <select
@@ -55,6 +56,11 @@ function setStatus(lead: Lead, status: string) {
           <option value="reviewed">Reviewed</option>
           <option value="contacted">Contacted</option>
         </select>
+      </template>
+      <template #actions="{ row }">
+        <div class="table-action-group">
+          <TableIconButton variant="view" title="View lead details" @click="detail = row" />
+        </div>
       </template>
     </DataTable>
 
