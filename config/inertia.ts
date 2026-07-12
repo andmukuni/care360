@@ -24,7 +24,9 @@ const inertiaConfig = defineConfig({
       }
     },
     permissions: (ctx) => ((ctx as any).authPermissionNames ?? []),
-    roles: (ctx) => ((ctx as any).authRoleNames ?? []),
+    // Named authRoles (not roles) so page props like access-control role catalogs
+    // cannot override the signed-in user's role names and break the shell UI.
+    authRoles: (ctx) => ((ctx as any).authRoleNames ?? []),
     flash: (ctx) => ({
       success: ctx.session?.flashMessages.get('success') ?? null,
       error: ctx.session?.flashMessages.get('error') ?? null,

@@ -45,6 +45,7 @@ export default class FeaturedDoctorsController {
         sessionFee: d.sessionFee !== null ? Number(d.sessionFee) : null,
         photoUrl: d.photoUrl,
         photoPath: d.photoPath,
+        resolvedPhotoUrl: d.photoPath ? `/storage/${d.photoPath}` : (d.photoUrl ?? null),
         sortOrder: d.sortOrder,
         isActive: d.isActive,
       })),

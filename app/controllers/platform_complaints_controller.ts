@@ -36,7 +36,9 @@ export default class PlatformComplaintsController {
         severity: c.severity,
         status: c.status,
         createdAt: c.createdAt ? c.createdAt.toISO() : null,
+        createdAtFormatted: c.createdAt ? c.createdAt.toFormat('dd LLL yyyy HH:mm') : null,
         resolvedAt: c.resolvedAt ? c.resolvedAt.toISO() : null,
+        resolvedAtFormatted: c.resolvedAt ? c.resolvedAt.toFormat('dd LLL yyyy HH:mm') : null,
       })),
     })
   }

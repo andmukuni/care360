@@ -18,6 +18,8 @@ export default class RateCardController {
     const qs = request.qs()
     const search = qs.search ? String(qs.search).trim() : ''
     const activityType = qs.activity_type ? String(qs.activity_type) : ''
+    const category = qs.category ? String(qs.category) : ''
+    const status = qs.status ? String(qs.status) : ''
     const page = Math.max(1, Number(qs.page ?? 1))
 
     const services = await RateCardService.query()
@@ -34,6 +36,11 @@ export default class RateCardController {
       .if(activityType !== '' && ACTIVITY_TYPES.includes(activityType as (typeof ACTIVITY_TYPES)[number]), (q) =>
         q.where('activityType', activityType)
       )
+      .if(category !== '' && CATEGORIES.includes(category as (typeof CATEGORIES)[number]), (q) =>
+        q.where('category', category)
+      )
+      .if(status === 'active', (q) => q.where('isActive', true))
+      .if(status === 'inactive', (q) => q.where('isActive', false))
       .orderBy('activityType')
       .orderBy('name')
       .paginate(page, 50)
@@ -54,7 +61,7 @@ export default class RateCardController {
         data: services.all().map((s) => this.serialize(s)),
         meta: services.getMeta(),
       },
-      filters: { search, activityType },
+      filters: { search, activityType, category, status },
       activityTypes: ACTIVITY_TYPES,
       categories: CATEGORIES,
       visitTypes: VISIT_TYPES,

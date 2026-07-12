@@ -57,7 +57,7 @@ const SETTINGS_ICON =
 
 export function useStaffNav() {
   const page = usePage()
-  const roles = computed(() => (page.props.roles as string[]) ?? [])
+  const roles = computed(() => (page.props.authRoles as string[]) ?? [])
   const permissions = computed(() => (page.props.permissions as string[]) ?? [])
   const navBadges = computed(
     () =>

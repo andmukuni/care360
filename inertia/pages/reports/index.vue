@@ -198,6 +198,63 @@ const hasExportBanners = computed(
   () => pendingExports.value.length > 0 || readyExports.value.length > 0 || failedExports.value.length > 0
 )
 
+const kpiCards = computed(() => [
+  {
+    key: 'total',
+    label: 'Total reports',
+    value: String(props.reportCatalogue.length),
+    meta: 'Available in catalogue',
+    tone: 'sky',
+  },
+  {
+    key: 'categories',
+    label: 'Categories',
+    value: String(props.reportCategories.length),
+    meta: 'Clinical and operations',
+    tone: 'violet',
+  },
+  {
+    key: 'last',
+    label: 'Last generated',
+    value: props.lastGenerated ?? 'None',
+    meta: props.lastGeneratedLabel,
+    tone: 'teal',
+  },
+  {
+    key: 'exports',
+    label: 'Background exports',
+    value: pendingExports.value.length > 0 ? String(pendingExports.value.length) : 'Idle',
+    meta:
+      pendingExports.value.length > 0
+        ? `${pendingExports.value.length} export${pendingExports.value.length === 1 ? '' : 's'} in progress`
+        : 'Large CSVs run in the background. Progress updates here every few seconds.',
+    tone: 'amber',
+  },
+])
+
+const kpiCardClass: Record<string, string> = {
+  sky: 'border-sky-200/80 bg-gradient-to-br from-sky-50/90 via-white to-white dark:border-sky-900/50 dark:from-sky-950/35 dark:via-neutral-950 dark:to-neutral-950',
+  violet:
+    'border-violet-200/80 bg-gradient-to-br from-violet-50/80 via-white to-white dark:border-violet-900/50 dark:from-violet-950/30 dark:via-neutral-950 dark:to-neutral-950',
+  teal: 'border-teal-200/80 bg-gradient-to-br from-teal-50/80 via-white to-white dark:border-teal-900/50 dark:from-teal-950/30 dark:via-neutral-950 dark:to-neutral-950',
+  amber:
+    'border-amber-200/80 bg-gradient-to-br from-amber-50/70 via-white to-white dark:border-amber-900/50 dark:from-amber-950/25 dark:via-neutral-950 dark:to-neutral-950',
+}
+
+const kpiIconClass: Record<string, string> = {
+  sky: 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300',
+  violet: 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300',
+  teal: 'bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-300',
+  amber: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
+}
+
+const kpiValueClass: Record<string, string> = {
+  sky: 'text-slate-900 dark:text-neutral-100',
+  violet: 'text-violet-800 dark:text-violet-300',
+  teal: 'text-teal-800 dark:text-teal-300',
+  amber: 'text-amber-800 dark:text-amber-300',
+}
+
 onMounted(() => {
   pollExports()
   pollTimer = setInterval(pollExports, 5000)
@@ -232,24 +289,37 @@ watch(
 
     <!-- KPI strip -->
     <div class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <div class="card p-4">
-        <p class="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Total reports</p>
-        <p class="mt-1 text-2xl font-bold text-neutral-900 dark:text-neutral-100">{{ reportCatalogue.length }}</p>
-      </div>
-      <div class="card p-4">
-        <p class="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Categories</p>
-        <p class="mt-1 text-2xl font-bold text-neutral-900 dark:text-neutral-100">{{ reportCategories.length }}</p>
-      </div>
-      <div class="card p-4">
-        <p class="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Last generated</p>
-        <p class="mt-1 text-2xl font-bold text-neutral-900 dark:text-neutral-100">{{ lastGenerated ?? 'None' }}</p>
-        <p class="mt-1 text-xs text-neutral-500">{{ lastGeneratedLabel }}</p>
-      </div>
-      <div class="card p-4">
-        <p class="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Background exports</p>
-        <p class="mt-2 text-xs leading-relaxed text-neutral-600 dark:text-neutral-400">
-          Large CSVs run in the background. Progress updates here every few seconds — you can navigate away safely.
-        </p>
+      <div
+        v-for="card in kpiCards"
+        :key="card.key"
+        class="rounded-xl border p-4 shadow-sm"
+        :class="kpiCardClass[card.tone]"
+      >
+        <div class="mb-2 flex items-center gap-2.5">
+          <span
+            class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+            :class="kpiIconClass[card.tone]"
+            aria-hidden="true"
+          >
+            <svg v-if="card.key === 'total'" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 17v-6h6v6m2 4H7a2 2 0 01-2-2V7l5-5 5 5v12a2 2 0 01-2 2z" />
+            </svg>
+            <svg v-else-if="card.key === 'categories'" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            <svg v-else-if="card.key === 'last'" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4" />
+            </svg>
+          </span>
+          <p class="text-[10px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+            {{ card.label }}
+          </p>
+        </div>
+        <p class="text-2xl font-bold leading-none" :class="kpiValueClass[card.tone]">{{ card.value }}</p>
+        <p class="mt-2 text-xs leading-relaxed text-neutral-600 dark:text-neutral-400">{{ card.meta }}</p>
       </div>
     </div>
 

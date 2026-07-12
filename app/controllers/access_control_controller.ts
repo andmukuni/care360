@@ -75,6 +75,47 @@ const rolesValidator = vine.compile(
   })
 )
 
+function buildUserRoleKpis(users: { roles: string[] }[]) {
+  let withRoles = 0
+  for (const user of users) {
+    if (user.roles.length > 0) withRoles++
+  }
+
+  return {
+    total: users.length,
+    withRoles,
+    withoutRoles: users.length - withRoles,
+  }
+}
+
+async function loadStaffUsersWithRoles(): Promise<
+  { id: number; name: string; email: string; roles: string[] }[]
+> {
+  const users = await User.query().orderBy('name').select('id', 'name', 'email')
+
+  const assignmentRows = await db
+    .from('model_has_roles')
+    .join('roles', 'roles.id', 'model_has_roles.role_id')
+    .where('model_has_roles.model_type', USER_MORPH_TYPE)
+    .select('model_has_roles.model_id as user_id', 'roles.name as role_name')
+    .orderBy('roles.name')
+
+  const rolesByUserId = new Map<number, string[]>()
+  for (const row of assignmentRows) {
+    const userId = Number(row.user_id)
+    const list = rolesByUserId.get(userId) ?? []
+    list.push(String(row.role_name))
+    rolesByUserId.set(userId, list)
+  }
+
+  return users.map((user) => ({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    roles: rolesByUserId.get(user.id) ?? [],
+  }))
+}
+
 export default class AccessControlController {
   async index({ inertia }: HttpContext) {
     const roles = await Role.query()
@@ -84,9 +125,9 @@ export default class AccessControlController {
     const userCountRows = await db
       .from('model_has_roles')
       .where('model_type', USER_MORPH_TYPE)
-      .groupBy('role_id')
       .select('role_id')
       .count('* as total')
+      .groupBy('role_id')
     const userCounts = new Map<number, number>()
     for (const row of userCountRows) {
       userCounts.set(Number(row.role_id), Number(row.total))
@@ -99,45 +140,51 @@ export default class AccessControlController {
       ;(permissionGroups[key] ??= []).push({ id: p.id, name: p.name })
     }
 
-    const users = await User.query()
-      .preload('roles', (q) => q.wherePivot('model_type', USER_MORPH_TYPE).select('id', 'name'))
-      .orderBy('name')
-      .select('id', 'name', 'email')
-
-    return inertia.render('access-control/index', {
-      roles: roles.map((r) => ({
+    const rolePermissions: Record<number, string[]> = {}
+    const roleRows = roles.map((r) => {
+      const permissionNames = r.permissions.map((p) => p.name)
+      rolePermissions[r.id] = permissionNames
+      return {
         id: r.id,
         name: r.name,
-        permissions: r.permissions.map((p) => p.name),
-        permissions_count: r.permissions.length,
+        permissions_count: permissionNames.length,
         users_count: userCounts.get(r.id) ?? 0,
-      })),
+        is_protected: r.name === 'super-admin',
+      }
+    })
+
+    const assignedStaffRow = await db
+      .from('model_has_roles')
+      .where('model_type', USER_MORPH_TYPE)
+      .countDistinct('model_id as total')
+      .first()
+    const assignedStaff = Number(assignedStaffRow?.total ?? 0)
+
+    return inertia.render('access-control/index', {
+      roleRows,
+      rolePermissions,
       permissionGroups,
-      users: users.map((u) => ({
-        id: u.id,
-        name: u.name,
-        email: u.email,
-        roles: u.roles.map((r) => r.name),
-      })),
+      stats: {
+        roles: roleRows.length,
+        permissions: permissions.length,
+        permissionGroups: Object.keys(permissionGroups).length,
+        assignedStaff,
+      },
     })
   }
 
   async userRoles({ inertia }: HttpContext) {
     const roles = await Role.query().orderBy('name').select('id', 'name')
-
-    const users = await User.query()
-      .preload('roles', (q) => q.wherePivot('model_type', USER_MORPH_TYPE).select('id', 'name'))
-      .orderBy('name')
-      .select('id', 'name', 'email')
+    const users = await loadStaffUsersWithRoles()
+    const kpis = buildUserRoleKpis(users)
 
     return inertia.render('access-control/user-roles', {
-      roles: roles.map((r) => ({ id: r.id, name: r.name })),
-      users: users.map((u) => ({
-        id: u.id,
-        name: u.name,
-        email: u.email,
-        roles: u.roles.map((r) => r.name),
-      })),
+      assignableRoles: roles.map((r) => ({ id: r.id, name: r.name })),
+      users,
+      kpis: {
+        ...kpis,
+        roleCount: roles.length,
+      },
     })
   }
 

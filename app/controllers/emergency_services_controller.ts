@@ -85,6 +85,7 @@ export default class EmergencyServicesController {
         source: c.source,
         phoneDialed: c.phoneDialed,
         contactedAt: c.contactedAt ? c.contactedAt.toISO() : null,
+        contactedAtFormatted: c.contactedAt ? c.contactedAt.toFormat('dd LLL yyyy HH:mm') : null,
       })),
     })
   }

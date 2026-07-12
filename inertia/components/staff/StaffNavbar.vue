@@ -11,7 +11,7 @@ defineEmits<{
 
 const page = usePage()
 const user = computed(() => (page.props as any).currentUser)
-const roles = computed(() => ((page.props as any).roles as string[]) ?? [])
+const roles = computed(() => ((page.props as any).authRoles as string[]) ?? [])
 const { canManageSettings } = useStaffNav()
 
 const dropdownOpen = ref(false)
