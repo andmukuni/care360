@@ -2,6 +2,8 @@
 import { Link, router } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import DataTable from '~/components/staff/DataTable.vue'
+import TableIconLink from '~/components/staff/TableIconLink.vue'
+import TableIconButton from '~/components/staff/TableIconButton.vue'
 
 defineProps<{
   wards: {
@@ -52,10 +54,10 @@ function destroy(id: number) {
         </span>
       </template>
       <template #actions="{ row }">
-        <Link :href="`/wards/${row.id}/edit`" class="text-blue-600 hover:underline">Edit</Link>
-        <button type="button" class="ml-3 text-red-600 hover:underline" @click="destroy(row.id)">
-          Delete
-        </button>
+        <div class="table-action-group">
+          <TableIconLink :href="`/wards/${row.id}/edit`" title="Edit ward" variant="edit" />
+          <TableIconButton variant="delete" tone="danger" title="Delete ward" @click="destroy(row.id)" />
+        </div>
       </template>
     </DataTable>
   </StaffLayout>

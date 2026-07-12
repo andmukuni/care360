@@ -2,6 +2,8 @@
 import { Link, router } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import DataTable from '~/components/staff/DataTable.vue'
+import TableIconLink from '~/components/staff/TableIconLink.vue'
+import TableIconButton from '~/components/staff/TableIconButton.vue'
 
 defineProps<{
   forms: {
@@ -53,15 +55,16 @@ function destroy(id: number) {
         <span :class="row.isActive ? 'text-green-700' : 'text-sand-11'">{{ row.isActive ? 'Yes' : 'No' }}</span>
       </template>
       <template #actions="{ row }">
-        <Link :href="`/test-types/forms/${row.id}/edit`" class="text-blue-600 hover:underline">Edit</Link>
-        <button
-          v-if="!row.isSystem"
-          type="button"
-          class="ml-3 text-red-600 hover:underline"
-          @click="destroy(row.id)"
-        >
-          Delete
-        </button>
+        <div class="table-action-group">
+          <TableIconLink :href="`/test-types/forms/${row.id}/edit`" title="Edit result form" variant="edit" />
+          <TableIconButton
+            v-if="!row.isSystem"
+            variant="delete"
+            tone="danger"
+            title="Delete result form"
+            @click="destroy(row.id)"
+          />
+        </div>
       </template>
     </DataTable>
   </StaffLayout>

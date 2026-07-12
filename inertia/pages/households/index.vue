@@ -3,6 +3,7 @@ import { computed, reactive, watch } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import DataTable from '~/components/staff/DataTable.vue'
+import TableIconLink from '~/components/staff/TableIconLink.vue'
 
 interface HouseholdRow {
   householdId: string
@@ -441,13 +442,8 @@ function extractAll() {
       </template>
 
       <template #actions="{ row }">
-        <div class="flex items-center justify-end gap-0.5">
-          <Link :href="`/households/${row.householdId}`" class="users-page__icon-btn" title="View household">
-            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-            </svg>
-          </Link>
+        <div class="table-action-group">
+          <TableIconLink :href="`/households/${row.householdId}`" title="View household" variant="view" />
         </div>
       </template>
     </DataTable>

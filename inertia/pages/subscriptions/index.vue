@@ -3,6 +3,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { Link, router, useForm } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
+import TableIconButton from '~/components/staff/TableIconButton.vue'
 
 interface Subscription {
   id: number
@@ -328,32 +329,31 @@ function cancel(sub: Subscription) {
                 {{ row.enrolledAtFormatted ?? '—' }}
               </td>
               <td class="encounters-table__actions px-4 py-2.5">
-                <div class="flex flex-wrap items-center justify-end gap-2">
-                  <span v-if="row.hasOutstanding" class="inline-flex items-center gap-1.5">
-                    <select
-                      v-model="payMethods[row.id]"
-                      class="rounded-lg border border-neutral-300 px-2 py-1 text-xs dark:border-neutral-600"
-                    >
-                      <option value="cash">Cash</option>
-                      <option value="card">Card</option>
-                      <option value="mobile_money">Mobile Money</option>
-                    </select>
-                    <button
-                      type="button"
-                      class="rounded-lg border border-neutral-300 px-2.5 py-1.5 text-xs font-semibold text-green-700 transition hover:bg-neutral-50 dark:border-neutral-600 dark:text-green-400 dark:hover:bg-neutral-800"
-                      @click="pay(row)"
-                    >
-                      Pay ZMW {{ row.outstandingAmount.toFixed(2) }}
-                    </button>
-                  </span>
-                  <button
-                    v-if="row.status !== 'cancelled'"
-                    type="button"
-                    class="rounded-lg border border-neutral-300 px-2.5 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-neutral-50 dark:border-neutral-600 dark:text-red-400 dark:hover:bg-neutral-800"
-                    @click="cancel(row)"
+                <div class="table-action-group">
+                  <select
+                    v-if="row.hasOutstanding"
+                    v-model="payMethods[row.id]"
+                    class="rounded-lg border border-neutral-300 px-2 py-1 text-xs dark:border-neutral-600"
+                    aria-label="Payment method"
                   >
-                    Cancel
-                  </button>
+                    <option value="cash">Cash</option>
+                    <option value="card">Card</option>
+                    <option value="mobile_money">Mobile Money</option>
+                  </select>
+                  <TableIconButton
+                    v-if="row.hasOutstanding"
+                    variant="pay"
+                    tone="primary"
+                    :title="`Pay ZMW ${row.outstandingAmount.toFixed(2)}`"
+                    @click="pay(row)"
+                  />
+                  <TableIconButton
+                    v-if="row.status !== 'cancelled'"
+                    variant="cancel"
+                    tone="danger"
+                    title="Cancel subscription"
+                    @click="cancel(row)"
+                  />
                 </div>
               </td>
             </tr>

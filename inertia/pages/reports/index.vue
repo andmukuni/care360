@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
+import TableIconButton from '~/components/staff/TableIconButton.vue'
 
 interface CatalogueEntry {
   id: string
@@ -499,13 +500,14 @@ watch(
                 <span :class="typeBadgeClass(entry.type)">{{ entry.type }}</span>
               </td>
               <td class="encounters-table__actions px-4 py-3 text-right">
-                <button
-                  type="button"
-                  class="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
-                  @click="selectReport(entry)"
-                >
-                  {{ entry.module ? 'Open' : 'Select' }}
-                </button>
+                <div class="table-action-group">
+                  <TableIconButton
+                    :variant="entry.module ? 'open' : 'select'"
+                    :title="entry.module ? `Open ${entry.name}` : `Select ${entry.name}`"
+                    tone="primary"
+                    @click="selectReport(entry)"
+                  />
+                </div>
               </td>
             </tr>
             <tr v-if="!filteredReports.length">

@@ -2,6 +2,7 @@
 import { computed, reactive, watch } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
+import TableIconButton from '~/components/staff/TableIconButton.vue'
 
 interface Transaction {
   id: number
@@ -272,23 +273,20 @@ function retry(t: Transaction) {
                 {{ row.createdAtFormatted ?? '—' }}
               </td>
               <td class="encounters-table__actions px-4 py-2.5">
-                <div class="flex items-center justify-end gap-2">
-                  <button
+                <div class="table-action-group">
+                  <TableIconButton
                     v-if="openStatuses.includes(row.status)"
-                    type="button"
-                    class="rounded-lg border border-neutral-300 px-2.5 py-1.5 text-xs font-semibold text-neutral-700 transition hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                    variant="refresh"
+                    title="Check payment status"
                     @click="checkStatus(row)"
-                  >
-                    Check status
-                  </button>
-                  <button
+                  />
+                  <TableIconButton
                     v-if="row.status === 'failed'"
-                    type="button"
-                    class="rounded-lg bg-neutral-900 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+                    variant="retry"
+                    tone="primary"
+                    title="Retry payment"
                     @click="retry(row)"
-                  >
-                    Retry
-                  </button>
+                  />
                 </div>
               </td>
             </tr>

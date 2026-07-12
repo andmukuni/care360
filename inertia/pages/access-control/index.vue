@@ -3,6 +3,7 @@ import { computed, reactive, ref } from 'vue'
 import { Link, router, useForm } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
+import TableIconButton from '~/components/staff/TableIconButton.vue'
 
 interface RoleRow {
   id: number
@@ -357,21 +358,20 @@ function roleBadgeClass(role: RoleRow): string {
                 {{ role.users_count }}
               </td>
               <td class="encounters-table__actions px-4 py-2.5 text-right">
-                <button
-                  type="button"
-                  class="text-sm font-medium text-blue-700 hover:underline dark:text-blue-300"
-                  @click="openPerms(role)"
-                >
-                  Permissions
-                </button>
-                <button
-                  v-if="!role.is_protected"
-                  type="button"
-                  class="ml-3 text-sm font-medium text-red-600 hover:underline"
-                  @click="destroyRole(role)"
-                >
-                  Delete
-                </button>
+                <div class="table-action-group">
+                  <TableIconButton
+                    variant="permissions"
+                    :title="`Permissions for ${role.name}`"
+                    @click="openPerms(role)"
+                  />
+                  <TableIconButton
+                    v-if="!role.is_protected"
+                    variant="delete"
+                    tone="danger"
+                    :title="`Delete role ${role.name}`"
+                    @click="destroyRole(role)"
+                  />
+                </div>
               </td>
             </tr>
             <tr v-if="!filteredRoles.length">

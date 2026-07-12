@@ -2,6 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
+import TableIconButton from '~/components/staff/TableIconButton.vue'
 
 interface RateCardRow {
   id: number
@@ -480,13 +481,9 @@ function pageHref(page: number) {
                   </span>
                 </td>
                 <td class="encounters-table__actions px-4 py-2.5 text-right">
-                  <button
-                    type="button"
-                    class="rounded-lg border border-neutral-300 px-2.5 py-1.5 text-xs font-semibold text-neutral-700 transition hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
-                    @click="startEdit(row)"
-                  >
-                    Edit
-                  </button>
+                  <div class="table-action-group">
+                    <TableIconButton variant="edit" title="Edit service" @click="startEdit(row)" />
+                  </div>
                 </td>
               </tr>
             </template>

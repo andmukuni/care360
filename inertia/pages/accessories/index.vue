@@ -2,6 +2,8 @@
 import { Link, router } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import DataTable from '~/components/staff/DataTable.vue'
+import TableIconLink from '~/components/staff/TableIconLink.vue'
+import TableIconButton from '~/components/staff/TableIconButton.vue'
 
 defineProps<{
   accessories: {
@@ -62,11 +64,16 @@ function destroy(id: number) {
         <span v-else>—</span>
       </template>
       <template #actions="{ row }">
-        <Link :href="`/accessories/${row.id}/edit`" class="text-blue-600 hover:underline">Edit</Link>
-        <button v-if="row.bedId" type="button" class="ml-3 text-amber-700 hover:underline" @click="detach(row.id)">
-          Detach
-        </button>
-        <button type="button" class="ml-3 text-red-600 hover:underline" @click="destroy(row.id)">Delete</button>
+        <div class="table-action-group">
+          <TableIconLink :href="`/accessories/${row.id}/edit`" title="Edit accessory" variant="edit" />
+          <TableIconButton
+            v-if="row.bedId"
+            variant="cancel"
+            title="Detach from bed"
+            @click="detach(row.id)"
+          />
+          <TableIconButton variant="delete" tone="danger" title="Delete accessory" @click="destroy(row.id)" />
+        </div>
       </template>
     </DataTable>
   </StaffLayout>

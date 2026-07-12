@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { router, useForm } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import DataTable from '~/components/staff/DataTable.vue'
+import TableIconButton from '~/components/staff/TableIconButton.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
 
 interface Tip {
@@ -95,8 +96,10 @@ function destroy(t: Tip) {
         <span :class="row.isActive ? 'text-green-700' : 'text-sand-11'">{{ row.isActive ? 'Yes' : 'No' }}</span>
       </template>
       <template #actions="{ row }">
-        <button type="button" class="text-blue-600 hover:underline" @click="openEdit(row)">Edit</button>
-        <button type="button" class="ml-3 text-red-600 hover:underline" @click="destroy(row)">Delete</button>
+        <div class="table-action-group">
+          <TableIconButton variant="edit" title="Edit tip" @click="openEdit(row)" />
+          <TableIconButton variant="delete" tone="danger" title="Delete tip" @click="destroy(row)" />
+        </div>
       </template>
     </DataTable>
 

@@ -3,6 +3,7 @@ import { computed, reactive, ref } from 'vue'
 import { Link, useForm } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
+import TableIconButton from '~/components/staff/TableIconButton.vue'
 
 interface RoleOption {
   id: number
@@ -337,13 +338,9 @@ function submit() {
                 </div>
               </td>
               <td class="encounters-table__actions px-4 py-2.5 text-right">
-                <button
-                  type="button"
-                  class="text-sm font-medium text-blue-700 hover:underline dark:text-blue-300"
-                  @click="open(user)"
-                >
-                  Edit roles
-                </button>
+                <div class="table-action-group">
+                  <TableIconButton variant="roles" title="Edit roles" @click="open(user)" />
+                </div>
               </td>
             </tr>
             <tr v-if="!filteredUsers.length">

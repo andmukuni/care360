@@ -2,6 +2,8 @@
 import { Link, router } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import DataTable from '~/components/staff/DataTable.vue'
+import TableIconLink from '~/components/staff/TableIconLink.vue'
+import TableIconButton from '~/components/staff/TableIconButton.vue'
 
 defineProps<{
   rows: {
@@ -58,9 +60,9 @@ function destroy(id: number) {
         <span>{{ row.is_active ? 'Yes' : 'No' }}</span>
       </template>
       <template #actions="{ row }">
-        <div class="flex justify-end gap-2">
-          <Link :href="`/test-types/possible-results/${row.id}/edit`" class="text-sm text-blue-600 hover:underline">Edit</Link>
-          <button type="button" class="text-sm text-red-600 hover:underline" @click="destroy(row.id)">Delete</button>
+        <div class="table-action-group">
+          <TableIconLink :href="`/test-types/possible-results/${row.id}/edit`" title="Edit rule" variant="edit" />
+          <TableIconButton variant="delete" tone="danger" title="Delete rule" @click="destroy(row.id)" />
         </div>
       </template>
     </DataTable>

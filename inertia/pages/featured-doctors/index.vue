@@ -3,6 +3,7 @@ import { computed, reactive, ref } from 'vue'
 import { router, useForm } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
+import TableIconButton from '~/components/staff/TableIconButton.vue'
 
 interface Doctor {
   id: number
@@ -418,21 +419,9 @@ function doctorInitials(name: string): string {
                 </span>
               </td>
               <td class="encounters-table__actions px-4 py-2.5">
-                <div class="flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    class="rounded-lg border border-neutral-300 px-2.5 py-1.5 text-xs font-semibold text-neutral-700 transition hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
-                    @click="openEdit(row)"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    class="rounded-lg border border-neutral-300 px-2.5 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-neutral-50 dark:border-neutral-600 dark:text-red-400 dark:hover:bg-neutral-800"
-                    @click="destroy(row)"
-                  >
-                    Delete
-                  </button>
+                <div class="table-action-group">
+                  <TableIconButton variant="edit" title="Edit doctor" @click="openEdit(row)" />
+                  <TableIconButton variant="delete" tone="danger" title="Delete doctor" @click="destroy(row)" />
                 </div>
               </td>
             </tr>

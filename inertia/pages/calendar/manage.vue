@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import DataTable from '~/components/staff/DataTable.vue'
+import TableIconButton from '~/components/staff/TableIconButton.vue'
 
 interface ManagedEvent {
   id: number
@@ -84,7 +85,9 @@ function destroy(ev: ManagedEvent) {
       <template #cell:location="{ row }">{{ row.location ?? '—' }}</template>
       <template #cell:creator="{ row }">{{ row.creator ?? '—' }}</template>
       <template #actions="{ row }">
-        <button type="button" class="text-red-600 hover:underline" @click="destroy(row)">Delete</button>
+        <div class="table-action-group">
+          <TableIconButton variant="delete" tone="danger" title="Delete event" @click="destroy(row)" />
+        </div>
       </template>
     </DataTable>
   </StaffLayout>
