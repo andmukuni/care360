@@ -21,7 +21,7 @@ export default class MedicalDictionaryController {
     const page = Math.max(1, Number(qs.page ?? 1))
     const perPage = 40
 
-    const base = MedicalDictionaryTerm.query()
+    const filters = MedicalDictionaryTerm.query()
       .where('domain', domain)
       .if(search !== '', (q) => {
         const like = `%${search}%`
@@ -34,11 +34,15 @@ export default class MedicalDictionaryController {
             .orWhereILike('definition', like)
         })
       })
-      .orderBy('label')
 
-    const totalRow = await base.clone().count('* as total').first()
+    // Count without ORDER BY — Postgres rejects aggregates ordered by non-grouped columns (42803).
+    const totalRow = await filters.clone().count('* as total').first()
     const total = Number((totalRow as any)?.$extras?.total ?? (totalRow as any)?.total ?? 0)
-    const terms = await base.offset((page - 1) * perPage).limit(perPage)
+    const terms = await filters
+      .clone()
+      .orderBy('label')
+      .offset((page - 1) * perPage)
+      .limit(perPage)
 
     const domainCounts: Record<string, number> = {}
     for (const d of DOMAINS) {
