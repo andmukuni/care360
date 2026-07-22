@@ -2,6 +2,7 @@
 import { computed, reactive } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import PortalLayout from '~/layouts/PortalLayout.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 interface Plan {
   id: number
@@ -69,9 +70,9 @@ function isCurrentPlan(plan: Plan): boolean {
 function subscribe(plan: Plan) {
   router.post(`/portal/memberships/${plan.id}/subscribe`, { ...selectionFor(plan.id) })
 }
-function cancel() {
+async function cancel() {
   if (!props.current) return
-  if (!confirm('Cancel your membership?')) return
+  if (!(await confirmDialog('Cancel your membership?'))) return
   router.post(`/portal/memberships/subscriptions/${props.current.id}/cancel`)
 }
 </script>

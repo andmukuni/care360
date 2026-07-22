@@ -1,5 +1,6 @@
 import { nextTick, onMounted, onUnmounted, reactive } from 'vue'
 import { useForm } from '@inertiajs/vue3'
+import { confirmDialog } from '~/composables/useConfirm'
 
 export type SearchTab = 'barcode' | 'name' | 'nrc' | 'phone' | 'patient_no'
 
@@ -656,7 +657,7 @@ export function useRegistrationDesk(options: UseRegistrationDeskOptions) {
     form.priority_level = 'normal'
   }
 
-  function submitStartEncounter() {
+  async function submitStartEncounter() {
     if (desk.selectedPatient?.is_deceased) {
       alert('This patient is marked as deceased. New encounters cannot be started.')
       return
@@ -667,7 +668,7 @@ export function useRegistrationDesk(options: UseRegistrationDeskOptions) {
       !desk.selectedPatient.is_deceased &&
       desk.selectedPatient.status === 'inactive'
     ) {
-      if (!confirm('This patient is inactive. Start an encounter anyway?')) return
+      if (!(await confirmDialog('This patient is inactive. Start an encounter anyway?'))) return
       form.confirm_inactive_patient = true
     }
 

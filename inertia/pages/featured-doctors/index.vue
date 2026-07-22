@@ -4,6 +4,7 @@ import { router, useForm } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
 import TableIconButton from '~/components/staff/TableIconButton.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 interface Doctor {
   id: number
@@ -201,10 +202,9 @@ function submit() {
   }
 }
 
-function destroy(d: Doctor) {
-  if (confirm(`Delete ${d.name}?`)) {
-    router.delete(`/featured-doctors/${d.id}`, { preserveScroll: true })
-  }
+async function destroy(d: Doctor) {
+  if (!(await confirmDialog(`Delete ${d.name}?`))) return
+  router.delete(`/featured-doctors/${d.id}`, { preserveScroll: true })
 }
 
 function doctorInitials(name: string): string {

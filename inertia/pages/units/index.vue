@@ -4,6 +4,7 @@ import StaffLayout from '~/layouts/StaffLayout.vue'
 import DataTable from '~/components/staff/DataTable.vue'
 import TableIconLink from '~/components/staff/TableIconLink.vue'
 import TableIconButton from '~/components/staff/TableIconButton.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 defineProps<{
   units: { id: number; name: string; form: string | null; strength: string | null }[]
@@ -16,10 +17,9 @@ const columns = [
   { key: 'strength', label: 'Strength' },
 ]
 
-function destroy(id: number) {
-  if (confirm('Delete this unit?')) {
-    router.delete(`/units/${id}`)
-  }
+async function destroy(id: number) {
+  if (!(await confirmDialog('Delete this unit?'))) return
+  router.delete(`/units/${id}`)
 }
 </script>
 

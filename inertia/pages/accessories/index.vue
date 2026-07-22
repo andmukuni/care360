@@ -4,6 +4,7 @@ import StaffLayout from '~/layouts/StaffLayout.vue'
 import DataTable from '~/components/staff/DataTable.vue'
 import TableIconLink from '~/components/staff/TableIconLink.vue'
 import TableIconButton from '~/components/staff/TableIconButton.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 defineProps<{
   accessories: {
@@ -32,16 +33,14 @@ const columns = [
   { key: 'bedNumber', label: 'Bed' },
 ]
 
-function detach(id: number) {
-  if (confirm('Detach this accessory to storage?')) {
-    router.post(`/accessories/${id}/detach`)
-  }
+async function detach(id: number) {
+  if (!(await confirmDialog('Detach this accessory to storage?'))) return
+  router.post(`/accessories/${id}/detach`)
 }
 
-function destroy(id: number) {
-  if (confirm('Delete this accessory?')) {
-    router.delete(`/accessories/${id}`)
-  }
+async function destroy(id: number) {
+  if (!(await confirmDialog('Delete this accessory?'))) return
+  router.delete(`/accessories/${id}`)
 }
 </script>
 

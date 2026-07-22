@@ -5,6 +5,7 @@ import StaffLayout from '~/layouts/StaffLayout.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
 import TableIconButton from '~/components/staff/TableIconButton.vue'
 import { getPlanThemeByTier } from '~/constants/membershipPlanThemes'
+import { confirmDialog } from '~/composables/useConfirm'
 
 interface Plan {
   id: number
@@ -214,10 +215,9 @@ function submit() {
   }
 }
 
-function destroy(plan: Plan) {
-  if (confirm(`Delete plan “${plan.name}”?`)) {
-    router.delete(`/memberships/${plan.id}`, { preserveScroll: true })
-  }
+async function destroy(plan: Plan) {
+  if (!(await confirmDialog(`Delete plan “${plan.name}”?`))) return
+  router.delete(`/memberships/${plan.id}`, { preserveScroll: true })
 }
 </script>
 

@@ -4,6 +4,7 @@ import { Link, router, useForm, usePage } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import TermDefinitionPopover from '~/components/dictionary/TermDefinitionPopover.vue'
 import TableIconButton from '~/components/staff/TableIconButton.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 type Domain = 'diagnosis' | 'drug' | 'lab' | 'symptom'
 
@@ -123,13 +124,13 @@ function submitEdit() {
   })
 }
 
-function destroyTerm(term: Term) {
-  if (!confirm(`Remove or deactivate “${term.label}”?`)) return
+async function destroyTerm(term: Term) {
+  if (!(await confirmDialog(`Remove or deactivate “${term.label}”?`))) return
   router.delete(`/dictionary/${term.id}`)
 }
 
-function syncLibrary() {
-  if (!confirm('Re-sync dictionary from ICD-11, NTG, medications, and lab catalogs? Manual definitions are preserved.')) {
+async function syncLibrary() {
+  if (!(await confirmDialog('Re-sync dictionary from ICD-11, NTG, medications, and lab catalogs? Manual definitions are preserved.'))) {
     return
   }
   router.post('/dictionary/sync')

@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import TableIconLink from '~/components/staff/TableIconLink.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 type BedRow = {
   id: number
@@ -87,11 +88,11 @@ function wingPillClass(wing: string | null) {
   return 'beds-wing-pill'
 }
 
-function discharge(bed: BedRow) {
+async function discharge(bed: BedRow) {
   if (
-    !confirm(
+    !(await confirmDialog(
       `Discharge ${bed.patientName || 'this patient'} from bed ${bed.bedNumber}? The bed will become available.`
-    )
+    ))
   ) {
     return
   }
@@ -108,10 +109,9 @@ function discharge(bed: BedRow) {
   )
 }
 
-function destroyWard() {
-  if (confirm('Delete this ward?')) {
-    router.delete(`/wards/${props.ward.id}`)
-  }
+async function destroyWard() {
+  if (!(await confirmDialog('Delete this ward?'))) return
+  router.delete(`/wards/${props.ward.id}`)
 }
 </script>
 

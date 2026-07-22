@@ -4,6 +4,7 @@ import { router } from '@inertiajs/vue3'
 import ActionButton from '~/components/ui/ActionButton.vue'
 import { readXsrfToken } from '~/support/xsrf'
 import { copyTextToClipboard } from '~/support/copy_text'
+import { confirmDialog } from '~/composables/useConfirm'
 
 interface PendingSignatureInvite {
   url: string
@@ -128,11 +129,11 @@ function refreshSignatureStatus() {
   router.reload({ only: [props.reloadOnly] })
 }
 
-function resetSignature() {
+async function resetSignature() {
   if (!props.resetEndpoint || !isSigned.value) return
 
   const staffName = props.staffName.trim() || 'this staff member'
-  const confirmed = window.confirm(
+  const confirmed = await confirmDialog(
     `Remove the saved signature for ${staffName}? They will need to sign again using a new link.`
   )
   if (!confirmed) return

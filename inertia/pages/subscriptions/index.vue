@@ -4,6 +4,7 @@ import { Link, router, useForm } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
 import TableIconButton from '~/components/staff/TableIconButton.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 interface Subscription {
   id: number
@@ -172,10 +173,9 @@ function pay(sub: Subscription) {
   router.post(`/subscriptions/${sub.id}/pay`, { payment_method: payMethods.value[sub.id] || 'cash' }, { preserveScroll: true })
 }
 
-function cancel(sub: Subscription) {
-  if (confirm('Cancel this wellness fund account?')) {
-    router.post(`/subscriptions/${sub.id}/cancel`, {}, { preserveScroll: true })
-  }
+async function cancel(sub: Subscription) {
+  if (!(await confirmDialog('Cancel this wellness fund account?'))) return
+  router.post(`/subscriptions/${sub.id}/cancel`, {}, { preserveScroll: true })
 }
 </script>
 

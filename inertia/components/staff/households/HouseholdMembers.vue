@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import { Link, router, useForm } from '@inertiajs/vue3'
 import ActionButton from '~/components/ui/ActionButton.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 interface Member {
   patientId: string
@@ -106,15 +107,13 @@ function submitTransfer() {
   })
 }
 
-function setHead(m: Member) {
-  if (confirm(`Set ${m.fullName} as head of house?`)) {
-    router.post(`/households/${props.householdId}/members/${m.patientId}/set-head`, {}, { preserveScroll: true })
-  }
+async function setHead(m: Member) {
+  if (!(await confirmDialog(`Set ${m.fullName} as head of house?`))) return
+  router.post(`/households/${props.householdId}/members/${m.patientId}/set-head`, {}, { preserveScroll: true })
 }
-function removeMember(m: Member) {
-  if (confirm(`Remove ${m.fullName} from this household?`)) {
-    router.delete(`/households/${props.householdId}/members/${m.patientId}`, { preserveScroll: true })
-  }
+async function removeMember(m: Member) {
+  if (!(await confirmDialog(`Remove ${m.fullName} from this household?`))) return
+  router.delete(`/households/${props.householdId}/members/${m.patientId}`, { preserveScroll: true })
 }
 
 async function runPatientSearch() {

@@ -6,6 +6,7 @@ import QueueTable from '~/components/staff/queue/QueueTable.vue'
 import QueueEmptyState from '~/components/staff/queue/QueueEmptyState.vue'
 import QueuePatientCell from '~/components/staff/queue/QueuePatientCell.vue'
 import { useAsyncAction } from '~/composables/useAsyncAction'
+import { confirmDialog } from '~/composables/useConfirm'
 
 interface Registration {
   id: number
@@ -37,15 +38,15 @@ function openPatient(patientNumber: string, event: MouseEvent) {
   router.visit(`/patients/${patientNumber}`)
 }
 
-function approve(r: Registration) {
-  if (!confirm(`Approve portal access for ${r.fullName}?`)) return
+async function approve(r: Registration) {
+  if (!(await confirmDialog(`Approve portal access for ${r.fullName}?`))) return
   runFor(`${r.id}-approve`, ({ done }) => {
     router.post(`/portal-registrations/${r.patientNumber}/approve`, {}, { onFinish: done })
   })
 }
 
-function decline(r: Registration) {
-  if (!confirm(`Decline ${r.fullName}'s portal sign-up? Their portal password will be cleared.`)) return
+async function decline(r: Registration) {
+  if (!(await confirmDialog(`Decline ${r.fullName}'s portal sign-up? Their portal password will be cleared.`))) return
   runFor(`${r.id}-decline`, ({ done }) => {
     router.post(`/portal-registrations/${r.patientNumber}/decline`, {}, { onFinish: done })
   })

@@ -3,6 +3,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import TableIconButton from '~/components/staff/TableIconButton.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 interface RateCardRow {
   id: number
@@ -198,8 +199,8 @@ function saveEdit(row: RateCardRow, form: HTMLFormElement) {
   )
 }
 
-function syncCatalog() {
-  if (!confirm('Sync rate card from consultations, lab tests, medications, and treatment room? Existing prices will be kept.')) {
+async function syncCatalog() {
+  if (!(await confirmDialog('Sync rate card from consultations, lab tests, medications, and treatment room? Existing prices will be kept.'))) {
     return
   }
   router.post('/rate-card/sync')

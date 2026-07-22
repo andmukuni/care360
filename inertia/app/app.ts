@@ -10,8 +10,10 @@ import { resolvePageComponent } from '@adonisjs/inertia/helpers'
 import { readXsrfToken } from '~/support/xsrf'
 import NavigationSpinner from '~/components/ui/NavigationSpinner.vue'
 import ToastContainer from '~/components/ui/ToastContainer.vue'
+import ConfirmDialog from '~/components/ui/ConfirmDialog.vue'
 import { initNavigationLoading } from '~/composables/useNavigationLoading'
 import { hasBlockingAutosaveState } from '~/composables/useAutosaveRegistry'
+import { confirmDialog } from '~/composables/useConfirm'
 import { installFlashToasts, processInitialFlash } from '~/support/flash_toasts'
 
 const CLINIC_BRANDING_KEY = 'hms-clinic-branding'
@@ -39,6 +41,8 @@ function persistClinicBranding(page: { props?: Record<string, unknown> } | undef
 installFlashToasts()
 initNavigationLoading()
 
+let allowLeaveWithUnsaved = false
+
 router.on('before', (event) => {
   const token = readXsrfToken()
   if (token) {
@@ -49,11 +53,23 @@ router.on('before', (event) => {
   }
 
   if (!hasBlockingAutosaveState()) return
+  if (allowLeaveWithUnsaved) {
+    allowLeaveWithUnsaved = false
+    return
+  }
 
-  const leave = window.confirm(
-    'You have unsaved changes that have not been saved. Leave this page anyway?'
-  )
-  if (!leave) event.preventDefault()
+  event.preventDefault()
+  const visit = event.detail.visit
+  void confirmDialog({
+    title: 'Unsaved changes',
+    message: 'You have unsaved changes that have not been saved. Leave this page anyway?',
+    confirmLabel: 'Leave page',
+    variant: 'danger',
+  }).then((ok) => {
+    if (!ok) return
+    allowLeaveWithUnsaved = true
+    router.visit(visit.url, visit)
+  })
 })
 
 router.on('success', (event) => {
@@ -78,7 +94,9 @@ createInertiaApp({
     processInitialFlash(props.initialPage)
     persistClinicBranding(props.initialPage)
 
-    createApp({ render: () => [h(App, props), h(NavigationSpinner), h(ToastContainer)] })
+    createApp({
+      render: () => [h(App, props), h(NavigationSpinner), h(ToastContainer), h(ConfirmDialog)],
+    })
       .use(plugin)
       .mount(el)
 

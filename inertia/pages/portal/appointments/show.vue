@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { Link, useForm } from '@inertiajs/vue3'
 import PortalLayout from '~/layouts/PortalLayout.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 const props = defineProps<{
   guardian: Record<string, any>
@@ -40,8 +41,8 @@ const today = new Date().toISOString().substring(0, 10)
 function submitReschedule() {
   rescheduleForm.put(`/portal/appointments/${a.value.id}`)
 }
-function submitCancel() {
-  if (!confirm('Cancel this appointment?')) return
+async function submitCancel() {
+  if (!(await confirmDialog('Cancel this appointment?'))) return
   cancelForm.post(`/portal/appointments/${a.value.id}/cancel`)
 }
 </script>

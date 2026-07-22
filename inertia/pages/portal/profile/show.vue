@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { Link, router, useForm } from '@inertiajs/vue3'
 import PortalLayout from '~/layouts/PortalLayout.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 const props = defineProps<{
   patient: Record<string, any>
@@ -67,10 +68,9 @@ function onPhotoChange(event: Event) {
     photoForm.post('/portal/profile/photo', { forceFormData: true })
   }
 }
-function removePhoto() {
-  if (confirm('Remove your profile photo?')) {
-    router.delete('/portal/profile/photo')
-  }
+async function removePhoto() {
+  if (!(await confirmDialog('Remove your profile photo?'))) return
+  router.delete('/portal/profile/photo')
 }
 </script>
 

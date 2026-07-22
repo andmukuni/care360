@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { Link, router, useForm } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 interface CalendarEventItem {
   id: number
@@ -115,14 +116,13 @@ function submit() {
 // ── Detail ───────────────────────────────────────────────────────────────
 const detailEvent = ref<CalendarEventItem | null>(null)
 
-function destroy(ev: CalendarEventItem) {
-  if (confirm('Delete this event?')) {
-    router.delete(`/calendar/events/${ev.id}`, {
-      onSuccess: () => {
-        detailEvent.value = null
-      },
-    })
-  }
+async function destroy(ev: CalendarEventItem) {
+  if (!(await confirmDialog('Delete this event?'))) return
+  router.delete(`/calendar/events/${ev.id}`, {
+    onSuccess: () => {
+      detailEvent.value = null
+    },
+  })
 }
 </script>
 

@@ -10,6 +10,7 @@ import AppointmentTabs, { type AppointmentTab } from '~/components/staff/queue/A
 import QueueAppointmentCell from '~/components/staff/queue/QueueAppointmentCell.vue'
 import QueuePatientCell from '~/components/staff/queue/QueuePatientCell.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 interface Patient {
   id: number
@@ -138,9 +139,9 @@ function openDecline(a: Appointment) {
   declineForm.clearErrors()
   declineForm.staff_notes = ''
 }
-function submitDecline() {
+async function submitDecline() {
   if (!declineTarget.value) return
-  if (!window.confirm('Decline this appointment request?')) return
+  if (!(await confirmDialog('Decline this appointment request?'))) return
   declineForm.put(`/appointments/${declineTarget.value.id}/decline`, {
     onSuccess: () => (declineTarget.value = null),
   })

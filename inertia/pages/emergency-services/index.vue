@@ -5,6 +5,7 @@ import StaffLayout from '~/layouts/StaffLayout.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
 import TableIconButton from '~/components/staff/TableIconButton.vue'
 import TableIconLink from '~/components/staff/TableIconLink.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 interface Service {
   id: number
@@ -209,10 +210,9 @@ function submit() {
   }
 }
 
-function destroy(s: Service) {
-  if (confirm(`Remove ${s.name}?`)) {
-    router.delete(`/emergency-services/${s.id}`, { preserveScroll: true })
-  }
+async function destroy(s: Service) {
+  if (!(await confirmDialog(`Remove ${s.name}?`))) return
+  router.delete(`/emergency-services/${s.id}`, { preserveScroll: true })
 }
 
 function formatSource(source: string): string {

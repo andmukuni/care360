@@ -4,6 +4,7 @@ import StaffLayout from '~/layouts/StaffLayout.vue'
 import DataTable from '~/components/staff/DataTable.vue'
 import TableIconLink from '~/components/staff/TableIconLink.vue'
 import TableIconButton from '~/components/staff/TableIconButton.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 defineProps<{
   specimenTypes: {
@@ -28,10 +29,9 @@ const columns = [
   { key: 'isActive', label: 'Active' },
 ]
 
-function destroy(id: number) {
-  if (confirm('Delete this sample type?')) {
-    router.delete(`/lab/specimen-types/${id}`)
-  }
+async function destroy(id: number) {
+  if (!(await confirmDialog('Delete this sample type?'))) return
+  router.delete(`/lab/specimen-types/${id}`)
 }
 </script>
 

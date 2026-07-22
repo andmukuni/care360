@@ -4,6 +4,7 @@ import { Link, router } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import DataTable from '~/components/staff/DataTable.vue'
 import TableIconButton from '~/components/staff/TableIconButton.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 interface ManagedEvent {
   id: number
@@ -44,10 +45,9 @@ function applyFilter() {
   router.get('/calendar/manage', { year: props.year, month: props.month, type: typeFilter.value }, { preserveState: true })
 }
 
-function destroy(ev: ManagedEvent) {
-  if (confirm('Delete this event?')) {
-    router.delete(`/calendar/events/${ev.id}`)
-  }
+async function destroy(ev: ManagedEvent) {
+  if (!(await confirmDialog('Delete this event?'))) return
+  router.delete(`/calendar/events/${ev.id}`)
 }
 </script>
 

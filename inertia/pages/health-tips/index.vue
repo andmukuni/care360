@@ -5,6 +5,7 @@ import StaffLayout from '~/layouts/StaffLayout.vue'
 import DataTable from '~/components/staff/DataTable.vue'
 import TableIconButton from '~/components/staff/TableIconButton.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 interface Tip {
   id: number
@@ -64,10 +65,9 @@ function submit() {
   }
 }
 
-function destroy(t: Tip) {
-  if (confirm(`Delete “${t.title}”?`)) {
-    router.delete(`/health-tips/${t.id}`)
-  }
+async function destroy(t: Tip) {
+  if (!(await confirmDialog(`Delete “${t.title}”?`))) return
+  router.delete(`/health-tips/${t.id}`)
 }
 </script>
 

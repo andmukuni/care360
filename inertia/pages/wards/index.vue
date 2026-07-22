@@ -4,6 +4,7 @@ import { Link, router } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import TableIconLink from '~/components/staff/TableIconLink.vue'
 import TableIconButton from '~/components/staff/TableIconButton.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 type WardRow = {
   id: number
@@ -88,10 +89,9 @@ function clearFilters() {
   go({ wing: '', search: '', active: 'all' })
 }
 
-function destroy(id: number) {
-  if (confirm('Delete this ward?')) {
-    router.delete(`/wards/${id}`)
-  }
+async function destroy(id: number) {
+  if (!(await confirmDialog('Delete this ward?'))) return
+  router.delete(`/wards/${id}`)
 }
 
 function wingPillClass(wing: string | null) {

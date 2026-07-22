@@ -3,6 +3,7 @@ import { Link, router, useForm } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import DataTable from '~/components/staff/DataTable.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 const props = defineProps<{
   bed: {
@@ -53,10 +54,9 @@ function submitMove() {
   moveForm.patch(`/beds/${props.bed.id}/move`)
 }
 
-function discharge() {
-  if (confirm('Discharge this bed?')) {
-    router.post(`/beds/${props.bed.id}/discharge`)
-  }
+async function discharge() {
+  if (!(await confirmDialog('Discharge this bed?'))) return
+  router.post(`/beds/${props.bed.id}/discharge`)
 }
 
 const assignmentColumns = [

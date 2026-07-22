@@ -4,6 +4,7 @@ import { Link, router } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import TableIconLink from '~/components/staff/TableIconLink.vue'
 import TableIconButton from '~/components/staff/TableIconButton.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 type BedRow = {
   id: number
@@ -153,10 +154,9 @@ function wingPillClass(wing: string | null) {
   return 'beds-wing-pill'
 }
 
-function destroy(id: number) {
-  if (confirm('Delete this bed?')) {
-    router.delete(`/beds/${id}`)
-  }
+async function destroy(id: number) {
+  if (!(await confirmDialog('Delete this bed?'))) return
+  router.delete(`/beds/${id}`)
 }
 
 const hasActiveFilters = computed(

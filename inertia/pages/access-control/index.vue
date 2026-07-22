@@ -4,6 +4,7 @@ import { Link, router, useForm } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
 import TableIconButton from '~/components/staff/TableIconButton.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 interface RoleRow {
   id: number
@@ -171,11 +172,10 @@ function submitPerms() {
   })
 }
 
-function destroyRole(role: RoleRow) {
+async function destroyRole(role: RoleRow) {
   if (role.is_protected) return
-  if (confirm(`Delete role "${role.name}"?`)) {
-    router.delete(`/access-control/roles/${role.id}`)
-  }
+  if (!(await confirmDialog(`Delete role "${role.name}"?`))) return
+  router.delete(`/access-control/roles/${role.id}`)
 }
 
 function roleBadgeClass(role: RoleRow): string {

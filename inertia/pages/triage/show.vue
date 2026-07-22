@@ -16,6 +16,7 @@ import { useAsyncAction } from '~/composables/useAsyncAction'
 import { useAutosave } from '~/composables/useAutosave'
 import { useQueueFooterHint } from '~/composables/useQueueFooterHint'
 import { flushAutosavesBeforeAction } from '~/composables/useFlushAutosave'
+import { confirmDialog } from '~/composables/useConfirm'
 import { formatApiErrors } from '~/support/api_errors'
 import { readXsrfToken } from '~/support/xsrf'
 import {
@@ -613,8 +614,8 @@ function applyDischargeResult() {
   currentBed.value = null
 }
 
-function confirmDischarge() {
-  if (!confirm('Discharge this patient and free the bed?')) return
+async function confirmDischarge() {
+  if (!(await confirmDialog('Discharge this patient and free the bed?'))) return
   runDischarge(async () => {
     const res = await fetch(`/triage/${props.encounter.id}/discharge`, {
       method: 'POST',
@@ -751,8 +752,8 @@ async function addMedication() {
   })
 }
 
-function removeMedication(id: number) {
-  if (!confirm('Remove this medication?')) return
+async function removeMedication(id: number) {
+  if (!(await confirmDialog('Remove this medication?'))) return
   runRemoveMed(id, async () => {
     try {
       const res = await fetch(`/triage/startup-medications/${id}`, {

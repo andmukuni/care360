@@ -26,6 +26,7 @@ import { usePrescriptionCart, type PrescriptionCartItem } from '~/composables/us
 import { useLabCart, type LabCartItem } from '~/composables/useLabCart'
 import { useQueueFooterHint } from '~/composables/useQueueFooterHint'
 import { flushAutosavesBeforeAction } from '~/composables/useFlushAutosave'
+import { confirmDialog } from '~/composables/useConfirm'
 import { formatApiErrors } from '~/support/api_errors'
 import { formatDiagnosisLabel } from '~/support/screening/screening_json_fields'
 import { readXsrfToken } from '~/support/xsrf'
@@ -826,11 +827,11 @@ async function complete() {
   })
 }
 
-function setPharmacyDisposition() {
+async function setPharmacyDisposition() {
   if (
     form.lab_requested &&
     (labCart.value.length > 0 || (props.labRequest?.items?.length ?? 0) > 0) &&
-    !confirm('Switching to Pharmacy will not queue lab tests. Continue?')
+    !(await confirmDialog('Switching to Pharmacy will not queue lab tests. Continue?'))
   ) {
     return
   }
@@ -891,8 +892,8 @@ function cancelReturnTriage() {
   returnTriageNotes.value = ''
 }
 
-function decision(url: string, message: string) {
-  if (!confirm(message)) return
+async function decision(url: string, message: string) {
+  if (!(await confirmDialog(message))) return
   runDecision(url, ({ done }) => {
     router.post(url, {}, { onFinish: done })
   })
@@ -1073,8 +1074,8 @@ function selectedBedLabel() {
   return null
 }
 
-function confirmDischarge() {
-  if (!confirm('Discharge this patient and free the bed?')) return
+async function confirmDischarge() {
+  if (!(await confirmDialog('Discharge this patient and free the bed?'))) return
   runDischarge(async () => {
     const res = await fetch(`/screening/${props.encounter.id}/discharge`, {
       method: 'POST',
@@ -1190,8 +1191,8 @@ async function submitStartupMed(mode: 'add' | 'recommend') {
   })
 }
 
-function removeMedication(id: number) {
-  if (!confirm('Remove this medication?')) return
+async function removeMedication(id: number) {
+  if (!(await confirmDialog('Remove this medication?'))) return
   runRemoveMed(id, async () => {
     try {
       const res = await fetch(`/triage/startup-medications/${id}`, {

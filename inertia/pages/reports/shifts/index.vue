@@ -3,6 +3,7 @@ import { reactive } from 'vue'
 import { Link, router, useForm } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 interface RosterAssignment {
   id: number
@@ -67,10 +68,9 @@ function submit() {
   })
 }
 
-function removeAssignment(id: number) {
-  if (confirm('Remove this assignment?')) {
-    router.delete(`/reports/shifts/roster/${id}`, { preserveScroll: true })
-  }
+async function removeAssignment(id: number) {
+  if (!(await confirmDialog('Remove this assignment?'))) return
+  router.delete(`/reports/shifts/roster/${id}`, { preserveScroll: true })
 }
 
 function prefill() {

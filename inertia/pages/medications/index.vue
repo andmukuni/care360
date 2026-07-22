@@ -4,6 +4,7 @@ import StaffLayout from '~/layouts/StaffLayout.vue'
 import DataTable from '~/components/staff/DataTable.vue'
 import TableIconLink from '~/components/staff/TableIconLink.vue'
 import TableIconButton from '~/components/staff/TableIconButton.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 defineProps<{
   medications: {
@@ -32,10 +33,9 @@ const columns = [
   { key: 'isActive', label: 'Active' },
 ]
 
-function destroy(id: number) {
-  if (confirm('Delete this medication?')) {
-    router.delete(`/medications/${id}`)
-  }
+async function destroy(id: number) {
+  if (!(await confirmDialog('Delete this medication?'))) return
+  router.delete(`/medications/${id}`)
 }
 </script>
 

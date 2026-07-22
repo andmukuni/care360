@@ -15,6 +15,7 @@ import QueuePatientCell from '~/components/staff/queue/QueuePatientCell.vue'
 import QueueInlineCell from '~/components/staff/queue/QueueInlineCell.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
 import { useAsyncAction } from '~/composables/useAsyncAction'
+import { confirmDialog } from '~/composables/useConfirm'
 import { useStageQueue, type QueuePaginatorMeta } from '~/composables/useStageQueue'
 
 type Row = {
@@ -114,7 +115,7 @@ function closedListUrl(page: number) {
   return `/pharmacy/queue?${params.toString()}`
 }
 
-function submitReopen(row: ClosedRow, stage: { value: string; label: string }) {
+async function submitReopen(row: ClosedRow, stage: { value: string; label: string }) {
   if (!row.can_reopen) return
   const draft = reopenDraft(row)
   const reason = draft.reason.trim()
@@ -123,9 +124,9 @@ function submitReopen(row: ClosedRow, stage: { value: string; label: string }) {
     return
   }
   if (
-    !window.confirm(
+    !(await confirmDialog(
       `Reopen encounter ${row.encounter_number} and queue the patient to ${stage.label}?`
-    )
+    ))
   ) {
     return
   }

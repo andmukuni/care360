@@ -4,6 +4,7 @@ import StaffLayout from '~/layouts/StaffLayout.vue'
 import DataTable from '~/components/staff/DataTable.vue'
 import TableIconLink from '~/components/staff/TableIconLink.vue'
 import TableIconButton from '~/components/staff/TableIconButton.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 defineProps<{
   rows: {
@@ -32,10 +33,9 @@ const columns = [
   { key: 'is_active', label: 'Active' },
 ]
 
-function destroy(id: number) {
-  if (confirm('Delete this possible result rule?')) {
-    router.delete(`/test-types/possible-results/${id}`)
-  }
+async function destroy(id: number) {
+  if (!(await confirmDialog('Delete this possible result rule?'))) return
+  router.delete(`/test-types/possible-results/${id}`)
 }
 </script>
 

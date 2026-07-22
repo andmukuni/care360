@@ -1,4 +1,5 @@
 import { flushAllAutosaves } from '~/composables/useAutosaveRegistry'
+import { confirmDialog } from '~/composables/useConfirm'
 
 type FlushOptions = {
   /**
@@ -22,5 +23,5 @@ export async function flushAutosavesBeforeAction(options: FlushOptions = {}): Pr
     return false
   }
 
-  return window.confirm(`${message}\n\nContinue anyway with the data in this form?`)
+  return await confirmDialog(`${message}\n\nContinue anyway with the data in this form?`)
 }

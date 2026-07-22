@@ -4,6 +4,7 @@ import { Link, router } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import DataTable from '~/components/staff/DataTable.vue'
 import TableIconLink from '~/components/staff/TableIconLink.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 interface HouseholdRow {
   householdId: string
@@ -260,14 +261,15 @@ function paymentClass(status: string): string {
   return status.toLowerCase() === 'active' ? 'bg-teal-50 text-teal-700' : 'bg-sand-3 text-sand-11'
 }
 
-function extractAll() {
+async function extractAll() {
   if (
-    confirm(
+    !(await confirmDialog(
       'Extract head-of-house patients for all households? This runs synchronously and may take a while.'
-    )
+    ))
   ) {
-    router.post('/households/extract-head-patients', {}, { preserveScroll: true })
+    return
   }
+  router.post('/households/extract-head-patients', {}, { preserveScroll: true })
 }
 </script>
 
