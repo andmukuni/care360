@@ -15,13 +15,6 @@ import { useLiveQueueRefresh } from '~/composables/useLiveQueueRefresh'
 import { resolveMembershipCardTheme } from '~/constants/membershipPlanThemes'
 
 const props = defineProps<{
-  isRegistrationClerk: boolean
-  registrationDeskKpis: {
-    patientsToday: number
-    householdsToday: number
-    activeDeskEncounters: number
-    queuedToTriageToday: number
-  }
   activeEncounters: {
     data: {
       id: number
@@ -52,7 +45,7 @@ const desk = useRegistrationDesk({
 
 useLiveQueueRefresh({
   stages: ['registration'],
-  only: ['activeEncounters', 'registrationDeskKpis'],
+  only: ['activeEncounters'],
 })
 
 const showEncounterModal = ref(false)
@@ -106,10 +99,6 @@ function onAddVillageClick() {
   setTimeout(() => desk.newVillageInput?.focus(), 0)
 }
 
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat().format(value)
-}
-
 function priorityLabel(level: string | null): string {
   if (!level) return ''
   return level.charAt(0).toUpperCase() + level.slice(1)
@@ -146,25 +135,6 @@ function priorityLabel(level: string | null): string {
           </button>
         </div>
       </header>
-
-      <div v-if="isRegistrationClerk" class="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <div class="queue-stat">
-          <span class="queue-stat-label">Patients Today</span>
-          <span class="queue-stat-value">{{ formatNumber(registrationDeskKpis.patientsToday) }}</span>
-        </div>
-        <div class="queue-stat">
-          <span class="queue-stat-label">Households Today</span>
-          <span class="queue-stat-value">{{ formatNumber(registrationDeskKpis.householdsToday) }}</span>
-        </div>
-        <div class="queue-stat">
-          <span class="queue-stat-label">At Registration Desk</span>
-          <span class="queue-stat-value">{{ formatNumber(registrationDeskKpis.activeDeskEncounters) }}</span>
-        </div>
-        <div class="queue-stat">
-          <span class="queue-stat-label">Queued to Triage Today</span>
-          <span class="queue-stat-value">{{ formatNumber(registrationDeskKpis.queuedToTriageToday) }}</span>
-        </div>
-      </div>
 
       <div class="grid grid-cols-1 gap-5 xl:grid-cols-3 xl:items-start">
         <!-- Find Patient -->

@@ -1,6 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
-import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import Encounter from '#models/encounter'
 import { EncounterStage, EncounterStageHelper } from '#enums/encounter_stage'
@@ -45,10 +44,7 @@ async function listVillageNames(): Promise<string[]> {
  */
 export default class RegistrationController {
   // GET /registration
-  async index({ inertia, request, authRoleNames }: HttpContext) {
-    const roleNames = authRoleNames ?? []
-    const isRegistrationClerk = roleNames.includes('registration-clerk')
-
+  async index({ inertia, request }: HttpContext) {
     const page = Math.max(1, Number(request.qs().page ?? 1))
     const [cachedDesk, villages] = await Promise.all([
       QueueCache.getOrSet(registrationDeskPageKey(page), EncounterStage.Registration, async () => {
@@ -80,51 +76,7 @@ export default class RegistrationController {
       listVillageNames(),
     ])
 
-    const registrationDeskKpis = {
-      patientsToday: 0,
-      householdsToday: 0,
-      activeDeskEncounters: 0,
-      queuedToTriageToday: 0,
-    }
-
-    if (isRegistrationClerk) {
-      const today = DateTime.now().toISODate()!
-
-      const [patientsToday, householdsToday, activeDeskEncounters, queuedToTriageToday] =
-        await Promise.all([
-          db
-            .from('patients')
-            .whereRaw('DATE(COALESCE(source_created_at, created_at)) = ?', [today])
-            .count('* as total')
-            .then((rows) => Number(rows[0]?.total ?? 0)),
-          db
-            .from('households')
-            .whereRaw('DATE(COALESCE(source_created_at, created_at)) = ?', [today])
-            .count('* as total')
-            .then((rows) => Number(rows[0]?.total ?? 0)),
-          db
-            .from('encounters')
-            .where('current_stage', EncounterStage.Registration)
-            .whereIn('current_status', [EncounterStatus.Started, EncounterStatus.InProgress])
-            .count('* as total')
-            .then((rows) => Number(rows[0]?.total ?? 0)),
-          db
-            .from('encounters')
-            .where('current_stage', EncounterStage.Triage)
-            .whereRaw('DATE(updated_at) = ?', [today])
-            .count('* as total')
-            .then((rows) => Number(rows[0]?.total ?? 0)),
-        ])
-
-      registrationDeskKpis.patientsToday = patientsToday
-      registrationDeskKpis.householdsToday = householdsToday
-      registrationDeskKpis.activeDeskEncounters = activeDeskEncounters
-      registrationDeskKpis.queuedToTriageToday = queuedToTriageToday
-    }
-
     return inertia.render('registration/index', {
-      isRegistrationClerk,
-      registrationDeskKpis,
       activeEncounters: cachedDesk,
       villages,
       visitTypes: VISIT_TYPES,
