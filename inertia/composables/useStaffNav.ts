@@ -286,17 +286,29 @@ export function useStaffNav() {
       filtered = filtered.filter((s) => s.href !== '/encounters')
     }
     if (isRegistrationClerk.value) {
-      filtered.sort((a, b) => (a.href === '/registration' ? -1 : b.href === '/registration' ? 1 : 0))
+      // Read-only preview of every stage queue (waiting + in progress).
+      // Clerks keep full registration tools; other stages are queue links only.
+      const previewQueueHrefs = new Set([
+        '/registration',
+        '/triage/queue',
+        '/screening/queue',
+        '/lab/queue',
+        '/screening-review/queue',
+        '/pharmacy/queue',
+        '/treatment-room/queue',
+      ])
+      filtered = stages.filter((s) => previewQueueHrefs.has(s.href))
       filtered = filtered.map((s) => {
         if (s.href === '/registration') {
           const children = registrationClerkChildren.value
           return {
             ...s,
-            label: 'Registration',
             children: children.length ? children : undefined,
           }
         }
-        return s
+        // Hide management sub-pages (vitals, entries, prescriptions, etc.)
+        const { children: _children, ...queueOnly } = s
+        return queueOnly
       })
     }
     return filtered
@@ -574,7 +586,7 @@ export function useStaffNav() {
     if (cycleStages.value.length || isRegistrationClerk.value) {
       sections.push({
         id: 'encounter-cycle',
-        label: isRegistrationClerk.value ? 'Registration' : 'Encounter Cycle',
+        label: 'Encounter Cycle',
         items: cycleStages.value,
       })
     }

@@ -110,7 +110,14 @@ function routeChipClass(route: string | null) {
               </td>
               <td><div class="queue-cell-sub">{{ row.transition_notes || '—' }}</div></td>
               <td class="queue-action-col">
-                <QueueReceiveButton theme="treatment" label="Receive" :processing="receivingId === row.id" @click="receive('/treatment-room/:id/receive', row.id)" />
+                <span v-if="isRegistrationClerk" class="queue-readonly">Read only</span>
+                <QueueReceiveButton
+                  v-else
+                  theme="treatment"
+                  label="Receive"
+                  :processing="receivingId === row.id"
+                  @click="receive('/treatment-room/:id/receive', row.id)"
+                />
               </td>
             </tr>
           </QueueTable>
@@ -123,7 +130,11 @@ function routeChipClass(route: string | null) {
       </div>
 
       <div v-show="tab === 'progress'" class="space-y-3">
-        <QueueEmptyState v-if="inProgress.data.length === 0" title="Nothing in progress" description="Receive a patient to begin treatment room documentation." />
+        <QueueEmptyState
+          v-if="inProgress.data.length === 0"
+          title="Nothing in progress"
+          :description="isRegistrationClerk ? 'No patients are currently in treatment room.' : 'Receive a patient to begin treatment room documentation.'"
+        />
         <template v-else>
           <QueueTable theme="treatment">
             <template #head>
@@ -165,7 +176,8 @@ function routeChipClass(route: string | null) {
               </td>
               <td><div class="queue-cell-sub font-medium">{{ row.received_by_name ?? '—' }}</div></td>
               <td class="queue-action-col">
-                <QueueRecordButton v-if="row.can_manage" :href="`/treatment-room/${row.id}`" label="Open" theme="treatment" />
+                <span v-if="isRegistrationClerk" class="queue-readonly">Read only</span>
+                <QueueRecordButton v-else-if="row.can_manage" :href="`/treatment-room/${row.id}`" label="Open" theme="treatment" />
                 <span v-else class="queue-assigned">Assigned to {{ row.received_by_name || 'another user' }}</span>
               </td>
             </tr>
