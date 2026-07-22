@@ -31,7 +31,7 @@ type Row = {
 type Paginator = { data: Row[]; meta: QueuePaginatorMeta }
 
 const props = defineProps<{
-  isRegistrationClerk: boolean
+  isQueuePreview: boolean
   queued: Paginator
   inProgress: Paginator
 }>()
@@ -62,7 +62,7 @@ function routeChipClass(route: string | null) {
       :in-progress-total="inProgress.meta.total"
       waiting-label="Awaiting reception"
       theme="treatment"
-      :is-registration-clerk="isRegistrationClerk"
+      :is-queue-preview="isQueuePreview"
       @update:tab="tab = $event"
     >
       <div v-show="tab === 'waiting'" class="space-y-3">
@@ -87,7 +87,7 @@ function routeChipClass(route: string | null) {
                   :extra="`Sent by ${row.sent_by_name}`"
                   :priority="row.priority"
                   :encounter-id="row.id"
-                  :can-change-priority="!isRegistrationClerk"
+                  :can-change-priority="!isQueuePreview"
                 />
               </td>
               <td>
@@ -112,7 +112,7 @@ function routeChipClass(route: string | null) {
               </td>
               <td><div class="queue-cell-sub">{{ row.transition_notes || '—' }}</div></td>
               <td class="queue-action-col">
-                <span v-if="isRegistrationClerk" class="queue-readonly">Read only</span>
+                <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
                 <QueueReceiveButton
                   v-else
                   theme="treatment"
@@ -135,7 +135,7 @@ function routeChipClass(route: string | null) {
         <QueueEmptyState
           v-if="inProgress.data.length === 0"
           title="Nothing in progress"
-          :description="isRegistrationClerk ? 'No patients are currently in treatment room.' : 'Receive a patient to begin treatment room documentation.'"
+          :description="isQueuePreview ? 'No patients are currently in treatment room.' : 'Receive a patient to begin treatment room documentation.'"
         />
         <template v-else>
           <QueueTable theme="treatment">
@@ -156,7 +156,7 @@ function routeChipClass(route: string | null) {
                   :time-relative="row.updated_at_relative"
                   :priority="row.priority"
                   :encounter-id="row.id"
-                  :can-change-priority="!isRegistrationClerk"
+                  :can-change-priority="!isQueuePreview"
                 />
               </td>
               <td>
@@ -180,7 +180,7 @@ function routeChipClass(route: string | null) {
               </td>
               <td><div class="queue-cell-sub font-medium">{{ row.received_by_name ?? '—' }}</div></td>
               <td class="queue-action-col">
-                <span v-if="isRegistrationClerk" class="queue-readonly">Read only</span>
+                <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
                 <QueueRecordButton v-else-if="row.can_manage" :href="`/treatment-room/${row.id}`" label="Open" theme="treatment" />
                 <span v-else class="queue-assigned">Assigned to {{ row.received_by_name || 'another user' }}</span>
               </td>

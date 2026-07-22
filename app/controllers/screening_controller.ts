@@ -35,7 +35,7 @@ import {
 } from '#validators/staff/screening'
 import {
   applyScreeningCategoryFilter,
-  isRegistrationClerk,
+  isQueuePreviewForStage,
   paginateScreeningCategoryQueue,
   parseQueuePages,
   screeningQueueRow,
@@ -172,7 +172,7 @@ export default class ScreeningController {
     const cat = request.qs().cat === 'pediatric' ? 'pediatric' : 'adult'
     const { queuedPage, progressPage } = parseQueuePages(request)
     const currentUserId = auth.use('web').user?.id ?? null
-    const registrationClerk = await isRegistrationClerk(auth)
+    const isQueuePreview = await isQueuePreviewForStage(auth, EncounterStage.Screening)
 
     const [adultQueues, pediatricQueues] = await Promise.all([
       paginateScreeningCategoryQueue({
@@ -191,7 +191,7 @@ export default class ScreeningController {
 
     return inertia.render('screening/queue', {
       cat,
-      isRegistrationClerk: registrationClerk,
+      isQueuePreview,
       counts: {
         adult: adultQueues.queueTotal,
         pediatric: pediatricQueues.queueTotal,

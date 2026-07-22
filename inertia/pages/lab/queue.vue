@@ -30,7 +30,7 @@ type Row = {
 type Paginator = { data: Row[]; meta: QueuePaginatorMeta }
 
 const props = defineProps<{
-  isRegistrationClerk: boolean
+  isQueuePreview: boolean
   queued: Paginator
   inProgress: Paginator
 }>()
@@ -62,7 +62,7 @@ function labRequestSegments(row: Row) {
       :tab="tab"
       :queued-total="queued.meta.total"
       :in-progress-total="inProgress.meta.total"
-      :is-registration-clerk="isRegistrationClerk"
+      :is-queue-preview="isQueuePreview"
       @update:tab="tab = $event"
     >
       <div v-show="tab === 'waiting'" class="space-y-3">
@@ -86,7 +86,7 @@ function labRequestSegments(row: Row) {
                   :time-relative="row.updated_at_relative"
                   :priority="row.priority"
                   :encounter-id="row.id"
-                  :can-change-priority="!isRegistrationClerk"
+                  :can-change-priority="!isQueuePreview"
                 />
               </td>
               <td>
@@ -106,7 +106,7 @@ function labRequestSegments(row: Row) {
               </td>
               <td><div class="queue-cell-sub font-medium">{{ row.queued_by_name ?? 'Unknown user' }}</div></td>
               <td class="queue-action-col">
-                <span v-if="isRegistrationClerk" class="queue-readonly">Read only</span>
+                <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
                 <QueueReceiveButton v-else :processing="receivingId === row.id" @click="receive('/lab/:id/receive', row.id)" />
               </td>
             </tr>
@@ -123,7 +123,7 @@ function labRequestSegments(row: Row) {
         <QueueEmptyState
           v-if="inProgress.data.length === 0"
           title="Nothing in progress"
-          :description="isRegistrationClerk ? 'No patients are currently in lab.' : 'Receive a patient from the waiting queue to begin.'"
+          :description="isQueuePreview ? 'No patients are currently in lab.' : 'Receive a patient from the waiting queue to begin.'"
         />
         <template v-else>
           <QueueTable>
@@ -144,7 +144,7 @@ function labRequestSegments(row: Row) {
                   :time-relative="row.updated_at_relative"
                   :priority="row.priority"
                   :encounter-id="row.id"
-                  :can-change-priority="!isRegistrationClerk"
+                  :can-change-priority="!isQueuePreview"
                 />
               </td>
               <td>
@@ -160,7 +160,7 @@ function labRequestSegments(row: Row) {
               </td>
               <td><div class="queue-cell-sub font-medium">{{ row.received_by_name || 'Unknown user' }}</div></td>
               <td class="queue-action-col">
-                <span v-if="isRegistrationClerk" class="queue-readonly">Read only</span>
+                <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
                 <QueueRecordButton v-else-if="row.can_manage" :href="`/lab/${row.id}`" label="Record" />
                 <span v-else class="queue-assigned">Assigned to {{ row.received_by_name || 'another user' }}</span>
               </td>

@@ -50,7 +50,7 @@ type ClosedRow = {
 type Paginator<T> = { data: T[]; meta: QueuePaginatorMeta }
 
 const props = defineProps<{
-  isRegistrationClerk: boolean
+  isQueuePreview: boolean
   closedSearch: string
   reopenStages: { value: string; label: string }[]
   queued: Paginator<Row>
@@ -188,7 +188,7 @@ onMounted(() => {
       waiting-label="Awaiting dispensing"
       partially-dispensed-label="Partially dispensed"
       closed-label="Closed today / reopen"
-      :is-registration-clerk="isRegistrationClerk"
+      :is-queue-preview="isQueuePreview"
       @update:tab="tab = $event"
     >
       <div v-show="tab === 'waiting'" class="space-y-3">
@@ -213,7 +213,7 @@ onMounted(() => {
                   :time-relative="row.updated_at_relative"
                   :priority="row.priority"
                   :encounter-id="row.id"
-                  :can-change-priority="!isRegistrationClerk"
+                  :can-change-priority="!isQueuePreview"
                 />
               </td>
               <td>
@@ -225,7 +225,7 @@ onMounted(() => {
               </td>
               <td><div class="queue-cell-sub font-medium">{{ row.sent_by_name }}</div></td>
               <td class="queue-action-col">
-                <span v-if="isRegistrationClerk" class="queue-readonly">Read only</span>
+                <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
                 <QueueReceiveButton v-else :processing="receivingId === row.id" @click="receive('/pharmacy/:id/receive', row.id)" />
               </td>
             </tr>
@@ -260,7 +260,7 @@ onMounted(() => {
                   :time-relative="row.updated_at_relative"
                   :priority="row.priority"
                   :encounter-id="row.id"
-                  :can-change-priority="!isRegistrationClerk"
+                  :can-change-priority="!isQueuePreview"
                 />
               </td>
               <td>
@@ -272,7 +272,7 @@ onMounted(() => {
               </td>
               <td><div class="queue-cell-sub font-medium">{{ row.received_by_name || 'Unknown user' }}</div></td>
               <td class="queue-action-col">
-                <span v-if="isRegistrationClerk" class="queue-readonly">Read only</span>
+                <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
                 <QueueRecordButton v-else-if="row.can_manage" :href="`/pharmacy/${row.id}`" label="Open" />
                 <span v-else class="queue-assigned">Assigned to {{ row.received_by_name || 'another user' }}</span>
               </td>
@@ -313,7 +313,7 @@ onMounted(() => {
                   :time-relative="row.updated_at_relative"
                   :priority="row.priority"
                   :encounter-id="row.id"
-                  :can-change-priority="!isRegistrationClerk"
+                  :can-change-priority="!isQueuePreview"
                 />
               </td>
               <td>
@@ -326,7 +326,7 @@ onMounted(() => {
               <td><div class="queue-cell-sub font-medium">{{ row.location_label ?? 'Pharmacy' }}</div></td>
               <td><div class="queue-cell-sub font-medium">{{ row.received_by_name || 'Unknown user' }}</div></td>
               <td class="queue-action-col">
-                <span v-if="isRegistrationClerk" class="queue-readonly">Read only</span>
+                <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
                 <QueueRecordButton v-else :href="`/pharmacy/${row.id}`" label="Open" />
               </td>
             </tr>
@@ -407,7 +407,7 @@ onMounted(() => {
                 />
               </td>
               <td class="queue-action-col">
-                <span v-if="isRegistrationClerk" class="queue-readonly">Read only</span>
+                <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
                 <div v-else class="flex flex-col items-end gap-1.5">
                   <input
                     v-model="reopenDraft(row).reason"

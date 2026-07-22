@@ -1,5 +1,6 @@
 import { computed } from 'vue'
 import { usePage } from '@inertiajs/vue3'
+import { resolveRoleNav, STAGE_QUEUE_HREFS } from '~/support/role_nav_profiles'
 
 export interface NavItem {
   href: string
@@ -73,8 +74,10 @@ export function useStaffNav() {
 
   const currentPath = computed(() => page.url.split('?')[0])
 
-  const isRegistrationClerk = computed(() => roles.value.includes('registration-clerk'))
-  const isWardNurse = computed(() => roles.value.includes('ward-nurse'))
+  const roleNav = computed(() => resolveRoleNav(roles.value))
+  const isRegistrationClerk = computed(() => roleNav.value.isRegistrationClerk)
+  const isWardNurse = computed(() => roleNav.value.isWardNurse)
+  const previewOtherQueues = computed(() => roleNav.value.previewOtherQueues)
   const isLegacyUserWithoutRbac = computed(
     () => roles.value.length === 0 && permissions.value.length === 0
   )
@@ -118,7 +121,7 @@ export function useStaffNav() {
     return section.items.some((item) => itemIsHighlighted(item))
   }
 
-  const canSeeDashboard = computed(() => !isRegistrationClerk.value)
+  const canSeeDashboard = computed(() => !roleNav.value.hideDashboard)
 
   const registrationClerkChildren = computed((): NavItem[] => {
     const children: NavItem[] = []
@@ -285,32 +288,45 @@ export function useStaffNav() {
     if (isWardNurse.value) {
       filtered = filtered.filter((s) => s.href !== '/encounters')
     }
-    if (isRegistrationClerk.value) {
-      // Read-only preview of every stage queue (waiting + in progress).
-      // Clerks keep full registration tools; other stages are queue links only.
-      const previewQueueHrefs = new Set([
-        '/registration',
-        '/triage/queue',
-        '/screening/queue',
-        '/lab/queue',
-        '/screening-review/queue',
-        '/pharmacy/queue',
-        '/treatment-room/queue',
-      ])
-      filtered = stages.filter((s) => previewQueueHrefs.has(s.href))
-      filtered = filtered.map((s) => {
-        if (s.href === '/registration') {
+
+    if (previewOtherQueues.value) {
+      // Focused primary stages keep management children; every other stage is
+      // shown as a queue-only preview link (registration clerks nest records).
+      const previewHrefSet = new Set<string>(STAGE_QUEUE_HREFS)
+      const primaryHrefs = roleNav.value.primaryQueueHrefs
+
+      const byHref = new Map(stages.map((s) => [s.href, s]))
+      const ordered: CycleNavItem[] = []
+
+      // Keep All Encounters when the user can see it (and is not ward-nurse).
+      const allEncounters = filtered.find((s) => s.href === '/encounters')
+      if (allEncounters) ordered.push(allEncounters)
+
+      for (const href of STAGE_QUEUE_HREFS) {
+        const stage = byHref.get(href)
+        if (!stage || !previewHrefSet.has(href)) continue
+
+        if (href === '/registration' && isRegistrationClerk.value) {
           const children = registrationClerkChildren.value
-          return {
-            ...s,
+          ordered.push({
+            ...stage,
             children: children.length ? children : undefined,
-          }
+          })
+          continue
         }
-        // Hide management sub-pages (vitals, entries, prescriptions, etc.)
-        const { children: _children, ...queueOnly } = s
-        return queueOnly
-      })
+
+        if (primaryHrefs.has(href)) {
+          ordered.push(stage)
+          continue
+        }
+
+        const { children: _children, ...queueOnly } = stage
+        ordered.push(queueOnly)
+      }
+
+      filtered = ordered
     }
+
     return filtered
   })
 
@@ -587,14 +603,14 @@ export function useStaffNav() {
   })
 
   const dashboardNavItem = computed((): NavItem | null => {
-    if (!canSeeDashboard.value || isWardNurse.value) return null
+    if (!canSeeDashboard.value) return null
     return DASHBOARD_ITEM
   })
 
   const navSections = computed((): NavSection[] => {
     const sections: NavSection[] = []
 
-    if (cycleStages.value.length || isRegistrationClerk.value) {
+    if (cycleStages.value.length || previewOtherQueues.value) {
       sections.push({
         id: 'encounter-cycle',
         label: 'Encounter Cycle',
@@ -648,6 +664,8 @@ export function useStaffNav() {
     dashboardNavItem,
     isRegistrationClerk,
     isWardNurse,
+    previewOtherQueues,
+    roleNav,
     cycleStages,
     navSections,
     settingsNavItem,

@@ -24,7 +24,7 @@ import {
 import {
   closedEncounterRow,
   initialScreeningRecord,
-  isRegistrationClerk,
+  isQueuePreviewForStage,
   latestStageTransition,
   paginateCachedClosedEncounters,
   paginateCachedPharmacyQueue,
@@ -58,7 +58,7 @@ export default class PharmacyController {
     )
     const closedSearch = String(request.qs().closed_search ?? '').trim()
     const currentUserId = auth.use('web').user?.id ?? null
-    const registrationClerk = await isRegistrationClerk(auth)
+    const isQueuePreview = await isQueuePreviewForStage(auth, EncounterStage.Pharmacy)
 
     const pharmacyPreload = (query: any) => {
       query.preload('screeningRecords')
@@ -85,7 +85,7 @@ export default class PharmacyController {
     })
 
     return inertia.render('pharmacy/queue', {
-      isRegistrationClerk: registrationClerk,
+      isQueuePreview,
       closedSearch,
       reopenStages: EncounterStageHelper.activeStages().map((stage) => ({
         value: stage,

@@ -39,7 +39,7 @@ type Row = {
 type Paginator = { data: Row[]; meta: QueuePaginatorMeta }
 
 const props = defineProps<{
-  isRegistrationClerk: boolean
+  isQueuePreview: boolean
   queued: Paginator
   inProgress: Paginator
 }>()
@@ -82,7 +82,7 @@ function attributionSegments(row: Row) {
       :tab="tab"
       :queued-total="queued.meta.total"
       :in-progress-total="inProgress.meta.total"
-      :is-registration-clerk="isRegistrationClerk"
+      :is-queue-preview="isQueuePreview"
       @update:tab="tab = $event"
     >
       <div v-show="tab === 'waiting'" class="space-y-3">
@@ -106,7 +106,7 @@ function attributionSegments(row: Row) {
                   :time-relative="row.updated_at_relative"
                   :priority="row.priority"
                   :encounter-id="row.id"
-                  :can-change-priority="!isRegistrationClerk"
+                  :can-change-priority="!isQueuePreview"
                 >
                   <ReturnedChip v-if="row.is_returned_loopback" />
                 </QueueEncounterCell>
@@ -126,7 +126,7 @@ function attributionSegments(row: Row) {
                 <QueueInlineCell :segments="attributionSegments(row)" :emphasize-first="false" />
               </td>
               <td class="queue-action-col">
-                <span v-if="isRegistrationClerk" class="queue-readonly">Read only</span>
+                <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
                 <QueueReceiveButton v-else :processing="receivingId === row.id" @click="receive('/screening-review/:id/receive', row.id)" />
               </td>
             </tr>
@@ -160,7 +160,7 @@ function attributionSegments(row: Row) {
                   :time-relative="row.updated_at_relative"
                   :priority="row.priority"
                   :encounter-id="row.id"
-                  :can-change-priority="!isRegistrationClerk"
+                  :can-change-priority="!isQueuePreview"
                 />
               </td>
               <td>
@@ -179,7 +179,7 @@ function attributionSegments(row: Row) {
               </td>
               <td><div class="queue-cell-sub font-medium">{{ row.received_by_name || 'Unknown user' }}</div></td>
               <td class="queue-action-col">
-                <span v-if="isRegistrationClerk" class="queue-readonly">Read only</span>
+                <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
                 <QueueRecordButton v-else-if="row.can_manage" :href="`/screening-review/${row.id}`" label="Review" />
                 <span v-else class="queue-assigned">Assigned to {{ row.received_by_name || 'another user' }}</span>
               </td>

@@ -19,7 +19,7 @@ import {
   screeningReviewDraftValidator,
 } from '#validators/staff/screening_review'
 import {
-  isRegistrationClerk,
+  isQueuePreviewForStage,
   latestStageTransition,
   paginateCachedStageQueue,
   parseQueuePages,
@@ -39,7 +39,7 @@ export default class ScreeningReviewController {
   async queue({ inertia, request, auth }: HttpContext) {
     const { queuedPage, progressPage } = parseQueuePages(request)
     const currentUserId = auth.use('web').user?.id ?? null
-    const registrationClerk = await isRegistrationClerk(auth)
+    const isQueuePreview = await isQueuePreviewForStage(auth, EncounterStage.ScreeningReview)
 
     const { queued, inProgress } = await paginateCachedStageQueue({
       stage: EncounterStage.ScreeningReview,
@@ -61,7 +61,7 @@ export default class ScreeningReviewController {
     })
 
     return inertia.render('screening-review/queue', {
-      isRegistrationClerk: registrationClerk,
+      isQueuePreview,
       queued,
       inProgress,
     })

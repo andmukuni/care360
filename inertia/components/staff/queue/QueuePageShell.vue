@@ -16,7 +16,7 @@ defineProps<{
   partiallyDispensedLabel?: string
   closedLabel?: string
   theme?: 'default' | 'treatment'
-  isRegistrationClerk?: boolean
+  isQueuePreview?: boolean
   showLiveIndicator?: boolean
 }>()
 
@@ -38,10 +38,10 @@ defineEmits<{
     </header>
 
     <div
-      v-if="isRegistrationClerk"
+      v-if="isQueuePreview"
       class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100"
     >
-      Registration clerk access is read-only on this queue. Receive and record actions are disabled.
+      Preview access is read-only on this queue. Receive and record actions are disabled.
     </div>
 
     <slot v-if="$slots.categories" name="categories" />

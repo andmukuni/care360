@@ -5,14 +5,14 @@ import { DateTime } from 'luxon'
 import User from '#models/user'
 import DashboardController from '#controllers/dashboard_controller'
 import RbacService from '#services/auth/rbac_service'
+import { landingPathForRoles } from '#support/staff/role_nav_profiles'
 
 /**
  * Staff authentication. Ported from App\Http\Controllers\AuthController.
  *
  * Handles the login page render, credential login (HTML + JSON), logout and the
- * lightweight session watchdog ping. Role-based landing mirrors the Laravel
- * behaviour: registration clerks land on registration, ward nurses on beds,
- * everyone else on the dashboard.
+ * lightweight session watchdog ping. Role-based landing uses role nav profiles
+ * (clinical roles land on their primary queue / beds; others on the dashboard).
  */
 const loginValidator = vine.compile(
   vine.object({
@@ -23,21 +23,11 @@ const loginValidator = vine.compile(
 
 export default class AuthController {
   /**
-   * Where an authenticated staff user should land based on their role.
-   * (Targets for other roles live in later migration phases.)
+   * Where an authenticated staff user should land based on their role profile.
    */
   private async landingPathForUser(user: User | null): Promise<string> {
     const roleNames = user ? await user.getRoleNames() : []
-
-    if (roleNames.includes('registration-clerk')) {
-      return '/registration'
-    }
-
-    if (roleNames.includes('ward-nurse')) {
-      return '/beds'
-    }
-
-    return '/dashboard'
+    return landingPathForRoles(roleNames)
   }
 
   private wantsJson({ request }: HttpContext): boolean {

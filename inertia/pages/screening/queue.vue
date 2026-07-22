@@ -36,7 +36,7 @@ type Category = 'adult' | 'pediatric'
 
 const props = defineProps<{
   cat: Category
-  isRegistrationClerk: boolean
+  isQueuePreview: boolean
   counts: { adult: number; pediatric: number }
   queues: Record<Category, { queued: Paginator; inProgress: Paginator }>
 }>()
@@ -126,7 +126,7 @@ onMounted(() => {
       :tab="tab"
       :queued-total="queued.meta.total"
       :in-progress-total="inProgress.meta.total"
-      :is-registration-clerk="isRegistrationClerk"
+      :is-queue-preview="isQueuePreview"
       @update:tab="tab = $event"
     >
       <template #categories>
@@ -184,7 +184,7 @@ onMounted(() => {
                   :time-relative="row.updated_at_relative"
                   :priority="row.priority"
                   :encounter-id="row.id"
-                  :can-change-priority="!isRegistrationClerk"
+                  :can-change-priority="!isQueuePreview"
                 >
                   <ReturnedChip v-if="row.is_returned_from_pharmacy" />
                 </QueueEncounterCell>
@@ -209,7 +209,7 @@ onMounted(() => {
                 </div>
               </td>
               <td class="queue-action-col">
-                <span v-if="isRegistrationClerk" class="queue-readonly">Read only</span>
+                <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
                 <QueueReceiveButton v-else :processing="receivingId === row.id" @click="receive('/screening/:id/receive', row.id)" />
               </td>
             </tr>
@@ -265,7 +265,7 @@ onMounted(() => {
                   :time-relative="row.updated_at_relative"
                   :priority="row.priority"
                   :encounter-id="row.id"
-                  :can-change-priority="!isRegistrationClerk"
+                  :can-change-priority="!isQueuePreview"
                 >
                   <ReturnedChip v-if="row.is_returned_from_pharmacy" />
                 </QueueEncounterCell>
@@ -284,7 +284,7 @@ onMounted(() => {
                 </div>
               </td>
               <td class="queue-action-col">
-                <span v-if="isRegistrationClerk" class="queue-readonly">Read only</span>
+                <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
                 <QueueRecordButton v-else-if="row.can_manage" :href="`/screening/${row.id}`" label="Continue" />
                 <span v-else class="queue-assigned">Assigned to another user</span>
               </td>

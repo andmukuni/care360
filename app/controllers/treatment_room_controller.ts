@@ -11,7 +11,7 @@ import { serializePrescriptionItem } from '#support/encounter/prescription_item_
 import { closeEncounterValidator } from '#validators/staff/pharmacy'
 import {
   initialScreeningRecord,
-  isRegistrationClerk,
+  isQueuePreviewForStage,
   latestStageTransition,
   paginateCachedStageQueue,
   parseQueuePages,
@@ -30,7 +30,7 @@ export default class TreatmentRoomController {
   async queue({ inertia, request, auth }: HttpContext) {
     const { queuedPage, progressPage } = parseQueuePages(request)
     const currentUserId = auth.use('web').user?.id ?? null
-    const registrationClerk = await isRegistrationClerk(auth)
+    const isQueuePreview = await isQueuePreviewForStage(auth, EncounterStage.TreatmentRoom)
 
     const { queued, inProgress } = await paginateCachedStageQueue({
       stage: EncounterStage.TreatmentRoom,
@@ -51,7 +51,7 @@ export default class TreatmentRoomController {
     })
 
     return inertia.render('treatment-room/queue', {
-      isRegistrationClerk: registrationClerk,
+      isQueuePreview,
       queued,
       inProgress,
     })

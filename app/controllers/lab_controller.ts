@@ -22,7 +22,7 @@ import {
   labCompleteValidator,
 } from '#validators/staff/lab'
 import {
-  isRegistrationClerk,
+  isQueuePreviewForStage,
   labQueueRow,
   latestStageTransition,
   paginateCachedStageQueue,
@@ -61,7 +61,7 @@ export default class LabController {
   async queue({ inertia, request, auth }: HttpContext) {
     const { queuedPage, progressPage } = parseQueuePages(request)
     const currentUserId = auth.use('web').user?.id ?? null
-    const registrationClerk = await isRegistrationClerk(auth)
+    const isQueuePreview = await isQueuePreviewForStage(auth, EncounterStage.Lab)
 
     const { queued, inProgress } = await paginateCachedStageQueue({
       stage: EncounterStage.Lab,
@@ -77,7 +77,7 @@ export default class LabController {
     })
 
     return inertia.render('lab/queue', {
-      isRegistrationClerk: registrationClerk,
+      isQueuePreview,
       queued,
       inProgress,
     })

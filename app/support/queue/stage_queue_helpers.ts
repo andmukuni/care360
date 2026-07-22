@@ -189,6 +189,37 @@ export async function isRegistrationClerk(auth: HttpContext['auth']): Promise<bo
   return roleNames.includes('registration-clerk')
 }
 
+/** Stage → receive permission used to decide queue preview (read-only) mode. */
+const STAGE_RECEIVE_PERMISSION: Partial<Record<EncounterStage, string>> = {
+  [EncounterStage.Triage]: 'triage.receive',
+  [EncounterStage.Screening]: 'screening.receive',
+  [EncounterStage.Lab]: 'lab.receive',
+  [EncounterStage.ScreeningReview]: 'screening-review.receive',
+  [EncounterStage.Pharmacy]: 'pharmacy.receive',
+  [EncounterStage.TreatmentRoom]: 'treatment-room.receive',
+}
+
+/**
+ * True when the user may view the stage queue but cannot receive/manage it.
+ * Registration clerks are always preview on non-registration clinical queues.
+ */
+export async function isQueuePreviewForStage(
+  auth: HttpContext['auth'],
+  stage: EncounterStage
+): Promise<boolean> {
+  const user = auth.use('web').user ?? null
+  if (!user) return true
+
+  if (await isRegistrationClerk(auth) && stage !== EncounterStage.Registration) {
+    return true
+  }
+
+  const receivePerm = STAGE_RECEIVE_PERMISSION[stage]
+  if (!receivePerm) return false
+
+  return !(await user.hasPermission(receivePerm))
+}
+
 export function latestStageTransition(
   transitions: EncounterQueueTransition[] | undefined,
   stage: EncounterStage,

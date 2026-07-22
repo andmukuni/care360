@@ -4,28 +4,26 @@ import { DateTime } from 'luxon'
 import Encounter from '#models/encounter'
 import { EncounterStage } from '#enums/encounter_stage'
 import DashboardInsightFlashes from '#support/dashboard_insight_flashes'
+import { resolveRoleNav } from '#support/staff/role_nav_profiles'
 
 /**
  * Staff dashboard. Ported from App\Http\Controllers\AuthController::dashboard.
  *
- * Role-based redirects (ward-nurse -> beds, registration-clerk -> registration)
- * mirror the Laravel behaviour, then the KPI/encounter-cycle payload is built
- * for the Inertia dashboard page.
+ * Focused clinical roles redirect to their profile landing path; everyone else
+ * gets the KPI/encounter-cycle dashboard payload.
  */
 export default class DashboardController {
   async index(ctx: HttpContext) {
     const { auth, response, inertia } = ctx
     const user = auth.use('web').user ?? null
     const roleNames = user ? await user.getRoleNames() : []
+    const roleNav = resolveRoleNav(roleNames)
 
-    if (roleNames.includes('ward-nurse')) {
-      return response.redirect('/beds')
+    if (roleNav.hideDashboard && roleNav.landingPath !== '/dashboard') {
+      return response.redirect(roleNav.landingPath)
     }
 
-    const isRegistrationClerk = roleNames.includes('registration-clerk')
-    if (isRegistrationClerk) {
-      return response.redirect('/registration')
-    }
+    const isRegistrationClerk = roleNav.isRegistrationClerk
 
     const [{ count: totalPatients }] = await db.from('patients').count('* as count')
     const [{ count: totalHouseholds }] = await db.from('households').count('* as count')

@@ -26,7 +26,7 @@ import { errors as vineErrors } from '@vinejs/vine'
 import { queueUserBadge } from '#support/queue/queue_user_badge'
 import QueueCache from '#services/cache/queue_cache'
 import { stageQueuePageKey } from '#services/cache/queue_cache_keys'
-import { patchQueueCanManage } from '#support/queue/stage_queue_helpers'
+import { isQueuePreviewForStage, patchQueueCanManage } from '#support/queue/stage_queue_helpers'
 
 /**
  * Triage workbench. Ported from App\Http\Controllers\TriageController.
@@ -124,9 +124,8 @@ export default class TriageController {
   // GET /triage/queue
   async queue({ inertia, request, auth }: HttpContext) {
     const user = auth.use('web').user ?? null
-    const roleNames = user ? await user.getRoleNames() : []
-    const isRegistrationClerk = roleNames.includes('registration-clerk')
     const currentUserId = user?.id ?? null
+    const isQueuePreview = await isQueuePreviewForStage(auth, EncounterStage.Triage)
 
     const queuedPage = Math.max(1, Number(request.qs().queued_page ?? 1))
     const progressPage = Math.max(1, Number(request.qs().progress_page ?? 1))
@@ -169,7 +168,7 @@ export default class TriageController {
     })
 
     return inertia.render('triage/queue', {
-      isRegistrationClerk,
+      isQueuePreview,
       queued: patchQueueCanManage(cached.queued, currentUserId),
       inProgress: patchQueueCanManage(cached.inProgress, currentUserId),
     })
