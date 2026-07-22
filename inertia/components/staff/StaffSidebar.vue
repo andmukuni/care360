@@ -158,7 +158,7 @@ watch(
 <template>
   <aside
     id="sidebar"
-    class="fixed lg:static inset-y-0 left-0 z-40 w-80 flex flex-col flex-shrink-0 border-r border-neutral-300 overflow-hidden transition-transform duration-300 ease-in-out"
+    class="fixed lg:static inset-y-0 left-0 z-40 w-80 flex flex-col flex-shrink-0 border-r border-[#163456] bg-[#0b1f3a] text-white overflow-hidden transition-transform duration-300 ease-in-out"
     :class="open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
   >
     <div class="staff-sidebar__header">
@@ -173,7 +173,7 @@ watch(
         </div>
         <button
           type="button"
-          class="lg:hidden shrink-0 text-neutral-500 transition hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200"
+          class="lg:hidden shrink-0 text-white/70 transition hover:text-white"
           @click="emit('close')"
         >
           <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -241,7 +241,7 @@ watch(
     </div>
 
     <div class="staff-sidebar__footer staff-sidebar__footer--copyright">
-      <p class="text-xs text-neutral-500 dark:text-neutral-400 text-center">&copy; {{ new Date().getFullYear() }} {{ clinicName }}</p>
+      <p class="text-xs text-white/65 text-center">&copy; {{ new Date().getFullYear() }} {{ clinicName }}</p>
     </div>
   </aside>
 </template>

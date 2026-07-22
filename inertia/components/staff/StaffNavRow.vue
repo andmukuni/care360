@@ -41,7 +41,7 @@ const loading = computed(() => isNavigatingTo(props.item.href))
       <Spinner
         v-if="loading && item.icon"
         :size="compact ? 'xs' : 'sm'"
-        :class="highlighted ? activeText : 'text-neutral-500'"
+        :class="highlighted ? activeText : 'text-white/65'"
         aria-hidden="true"
       />
       <svg
@@ -49,7 +49,7 @@ const loading = computed(() => isNavigatingTo(props.item.href))
         class="flex-shrink-0"
         :class="[
           compact ? 'h-[18px] w-[18px]' : 'h-5 w-5',
-          highlighted ? activeText : 'text-neutral-500 group-hover:text-neutral-800',
+          highlighted ? activeText : 'text-white/65 group-hover:text-white',
         ]"
         fill="none"
         stroke="currentColor"
@@ -68,11 +68,11 @@ const loading = computed(() => isNavigatingTo(props.item.href))
     </Link>
     <span
       v-else
-      class="staff-nav-row__link text-neutral-500"
+      class="staff-nav-row__link text-white/65"
     >
       <svg
         v-if="item.icon"
-        class="flex-shrink-0"
+        class="flex-shrink-0 text-white/65"
         :class="compact ? 'h-[18px] w-[18px]' : 'h-5 w-5'"
         fill="none"
         stroke="currentColor"
@@ -89,8 +89,8 @@ const loading = computed(() => isNavigatingTo(props.item.href))
       class="sidebar-nav-chevron mr-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded transition"
       :class="
         flyoutOpen
-          ? 'bg-neutral-200 text-neutral-800'
-          : 'text-neutral-400 hover:bg-neutral-300 hover:text-neutral-800'
+          ? 'bg-white/15 text-white'
+          : 'text-white/65 hover:bg-white/12 hover:text-white'
       "
       :aria-expanded="flyoutOpen ? 'true' : 'false'"
       aria-label="Open submenu"

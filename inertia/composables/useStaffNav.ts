@@ -24,15 +24,15 @@ export interface NavSection {
 }
 
 const STAGE_ACTIVE_TEXT: Record<string, string> = {
-  dashboard: 'text-orange-700',
-  all: 'text-orange-700',
-  registration: 'text-sky-700',
-  triage: 'text-amber-700',
-  screening: 'text-violet-700',
-  lab: 'text-cyan-700',
-  screening_review: 'text-rose-700',
-  pharmacy: 'text-emerald-700',
-  treatment_room: 'text-sky-700',
+  dashboard: 'text-white',
+  all: 'text-white',
+  registration: 'text-white',
+  triage: 'text-white',
+  screening: 'text-white',
+  lab: 'text-white',
+  screening_review: 'text-white',
+  pharmacy: 'text-white',
+  treatment_room: 'text-white',
 }
 
 const STAGE_BADGE_COLORS: Record<string, string> = {
@@ -613,7 +613,7 @@ export function useStaffNav() {
     return sections
   })
 
-  const defaultActiveText = 'text-orange-700'
+  const defaultActiveText = 'text-white'
 
   function activeTextForStage(stage: string | null | undefined): string {
     return STAGE_ACTIVE_TEXT[stage ?? 'all'] ?? defaultActiveText
