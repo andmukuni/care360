@@ -86,6 +86,8 @@ function routeChipClass(route: string | null) {
                   :time-relative="row.updated_at_relative"
                   :extra="`Sent by ${row.sent_by_name}`"
                   :priority="row.priority"
+                  :encounter-id="row.id"
+                  :can-change-priority="!isRegistrationClerk"
                 />
               </td>
               <td>
@@ -153,6 +155,8 @@ function routeChipClass(route: string | null) {
                   time-prefix="In progress"
                   :time-relative="row.updated_at_relative"
                   :priority="row.priority"
+                  :encounter-id="row.id"
+                  :can-change-priority="!isRegistrationClerk"
                 />
               </td>
               <td>

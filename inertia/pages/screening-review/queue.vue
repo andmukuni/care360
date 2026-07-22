@@ -105,6 +105,8 @@ function attributionSegments(row: Row) {
                   time-prefix="Queued"
                   :time-relative="row.updated_at_relative"
                   :priority="row.priority"
+                  :encounter-id="row.id"
+                  :can-change-priority="!isRegistrationClerk"
                 >
                   <ReturnedChip v-if="row.is_returned_loopback" />
                 </QueueEncounterCell>
@@ -157,6 +159,8 @@ function attributionSegments(row: Row) {
                   time-prefix="In progress"
                   :time-relative="row.updated_at_relative"
                   :priority="row.priority"
+                  :encounter-id="row.id"
+                  :can-change-priority="!isRegistrationClerk"
                 />
               </td>
               <td>

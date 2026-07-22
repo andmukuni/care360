@@ -211,6 +211,8 @@ onMounted(() => {
                   time-prefix="Queued"
                   :time-relative="row.updated_at_relative"
                   :priority="row.priority"
+                  :encounter-id="row.id"
+                  :can-change-priority="!isRegistrationClerk"
                 />
               </td>
               <td>
@@ -256,6 +258,8 @@ onMounted(() => {
                   time-prefix="In progress"
                   :time-relative="row.updated_at_relative"
                   :priority="row.priority"
+                  :encounter-id="row.id"
+                  :can-change-priority="!isRegistrationClerk"
                 />
               </td>
               <td>
@@ -307,6 +311,8 @@ onMounted(() => {
                   time-prefix="Partially dispensed"
                   :time-relative="row.updated_at_relative"
                   :priority="row.priority"
+                  :encounter-id="row.id"
+                  :can-change-priority="!isRegistrationClerk"
                 />
               </td>
               <td>

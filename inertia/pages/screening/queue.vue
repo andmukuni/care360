@@ -183,6 +183,8 @@ onMounted(() => {
                   time-prefix="Arrived"
                   :time-relative="row.updated_at_relative"
                   :priority="row.priority"
+                  :encounter-id="row.id"
+                  :can-change-priority="!isRegistrationClerk"
                 >
                   <ReturnedChip v-if="row.is_returned_from_pharmacy" />
                 </QueueEncounterCell>
@@ -262,6 +264,8 @@ onMounted(() => {
                   time-prefix="In progress"
                   :time-relative="row.updated_at_relative"
                   :priority="row.priority"
+                  :encounter-id="row.id"
+                  :can-change-priority="!isRegistrationClerk"
                 >
                   <ReturnedChip v-if="row.is_returned_from_pharmacy" />
                 </QueueEncounterCell>

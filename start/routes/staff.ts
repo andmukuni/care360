@@ -365,6 +365,14 @@ router
     router.get('/encounters/:encounter', [EncountersController, 'show']).as('encounters.show').use(perm('encounter.view-own|encounter.view-all'))
     router.post('/encounters/:encounter/reopen', [EncountersController, 'reopen']).as('encounters.reopen').use(perm('encounters.reopen'))
     router.post('/encounters/:encounter/reopen-to-stage', [EncountersController, 'reopenToStage']).as('encounters.reopen-to-stage').use(perm('encounters.reopen|pharmacy.close-encounter'))
+    router
+      .patch('/encounters/:encounter/priority', [EncountersController, 'updatePriority'])
+      .as('encounters.priority.update')
+      .use(
+        perm(
+          'triage.view-queue|screening.view-queue|lab.view-queue|screening-review.view-queue|pharmacy.view-queue|treatment-room.view-queue|registration.create-encounter'
+        )
+      )
 
     // ── Reports ──────────────────────────────────────────────────────────────
     router

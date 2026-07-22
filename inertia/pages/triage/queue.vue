@@ -108,6 +108,8 @@ function receive(id: number) {
                   time-prefix="Queued"
                   :time-relative="row.updated_at_relative"
                   :priority="row.priority"
+                  :encounter-id="row.id"
+                  :can-change-priority="!isRegistrationClerk"
                 />
               </td>
               <td>
@@ -166,6 +168,8 @@ function receive(id: number) {
                   time-prefix="Received"
                   :time-relative="row.updated_at_relative"
                   :priority="row.priority"
+                  :encounter-id="row.id"
+                  :can-change-priority="!isRegistrationClerk"
                 />
               </td>
               <td>

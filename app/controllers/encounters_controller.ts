@@ -7,6 +7,10 @@ import { EncounterDetailService } from '#services/encounter/encounter_detail_ser
 import { EncounterShowSerializer } from '#services/encounter/encounter_show_serializer'
 import ReopenEncounterAction from '#actions/encounter/reopen_encounter_action'
 import ReopenEncounterToStageAction from '#actions/encounter/reopen_encounter_to_stage_action'
+import UpdateEncounterPriorityAction, {
+  ENCOUNTER_PRIORITY_LEVELS,
+} from '#actions/encounter/update_encounter_priority_action'
+import { isRegistrationClerk } from '#support/queue/stage_queue_helpers'
 import { loadClinicalSuggestions } from '#support/clinical/load_clinical_suggestions'
 import type { StageScope } from '#support/clinical/clinical_suggestion_types'
 
@@ -110,6 +114,41 @@ export default class EncountersController {
     session.flash(
       'success',
       `Encounter ${encounter.encounterNumber} reopened and queued to ${EncounterStageHelper.label(targetStage)}.`
+    )
+    return response.redirect().back()
+  }
+
+  // PATCH /encounters/:encounter/priority
+  async updatePriority({ params, request, response, session, auth }: HttpContext) {
+    const encounter = await Encounter.findOrFail(params.encounter)
+    const user = auth.getUserOrFail()
+
+    // Clerks may adjust priority only while the visit is still at registration.
+    if (
+      (await isRegistrationClerk(auth)) &&
+      encounter.currentStage !== EncounterStage.Registration
+    ) {
+      session.flash('error', 'Registration clerks can only change priority at the registration desk.')
+      return response.redirect().back()
+    }
+    const data = await request.validateUsing(
+      vine.compile(
+        vine.object({
+          priority_level: vine.enum([...ENCOUNTER_PRIORITY_LEVELS]),
+        })
+      )
+    )
+
+    try {
+      await new UpdateEncounterPriorityAction().handle(encounter, data.priority_level, user.id)
+    } catch (error) {
+      session.flash('error', error instanceof Error ? error.message : 'Unable to update priority.')
+      return response.redirect().back()
+    }
+
+    session.flash(
+      'success',
+      `Priority for ${encounter.encounterNumber} set to ${data.priority_level}.`
     )
     return response.redirect().back()
   }

@@ -9,6 +9,7 @@ import RegistrationPatientMeta from '~/components/registration/RegistrationPatie
 import RegistrationActiveEncounterBadge from '~/components/registration/RegistrationActiveEncounterBadge.vue'
 import QueueEmptyState from '~/components/staff/queue/QueueEmptyState.vue'
 import QueueLiveIndicator from '~/components/staff/queue/QueueLiveIndicator.vue'
+import QueuePrioritySelect from '~/components/staff/queue/QueuePrioritySelect.vue'
 import PatientMembershipMiniCard from '~/components/billing/PatientMembershipMiniCard.vue'
 import { useRegistrationDesk, type PatientSearchResult } from '~/composables/useRegistrationDesk'
 import { useLiveQueueRefresh } from '~/composables/useLiveQueueRefresh'
@@ -99,10 +100,6 @@ function onAddVillageClick() {
   setTimeout(() => desk.newVillageInput?.focus(), 0)
 }
 
-function priorityLabel(level: string | null): string {
-  if (!level) return ''
-  return level.charAt(0).toUpperCase() + level.slice(1)
-}
 </script>
 
 <template>
@@ -409,9 +406,7 @@ function priorityLabel(level: string | null): string {
                   <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2">
                       <p class="truncate text-sm font-semibold text-neutral-900 dark:text-neutral-100">{{ enc.patient_name }}</p>
-                      <span v-if="enc.priority_level && enc.priority_level !== 'normal'" class="badge shrink-0 text-[10px]" :class="`badge-${enc.priority_level}`">
-                        {{ priorityLabel(enc.priority_level) }}
-                      </span>
+                      <QueuePrioritySelect :encounter-id="enc.id" :priority="enc.priority_level" />
                     </div>
                     <p class="mt-0.5 truncate text-xs text-neutral-500">
                       {{ enc.encounter_number }}
