@@ -939,15 +939,13 @@ html:has(.auth-layout) {
   flex-shrink: 0;
   height: var(--staff-header-height);
   box-sizing: border-box;
-  background: linear-gradient(180deg, #123056 0%, #0b1f3a 72%);
+  background: #0b1f3a;
   border-bottom: 1px solid var(--sidebar-border, #163456);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  box-shadow: none;
 }
 
 .staff-sidebar__header-accent {
-  flex-shrink: 0;
-  height: var(--staff-header-accent-height);
-  background: linear-gradient(90deg, #1d4ed8 0%, #2563eb 42%, #38bdf8 100%);
+  display: none;
 }
 
 .staff-sidebar__header-inner {
@@ -961,9 +959,9 @@ html:has(.auth-layout) {
 }
 
 .dark .staff-sidebar__header {
-  background: linear-gradient(180deg, #123056 0%, #0b1f3a 72%);
+  background: #0b1f3a;
   border-bottom-color: #163456;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  box-shadow: none;
 }
 
 .dark .staff-navbar {

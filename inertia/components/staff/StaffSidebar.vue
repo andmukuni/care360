@@ -162,7 +162,6 @@ watch(
     :class="open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
   >
     <div class="staff-sidebar__header">
-      <div class="staff-sidebar__header-accent" aria-hidden="true" />
       <div class="staff-sidebar__header-inner">
         <div class="flex min-w-0 items-center gap-3">
           <AppLogo size="md" class="flex-shrink-0" />
