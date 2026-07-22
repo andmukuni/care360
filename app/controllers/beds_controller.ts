@@ -412,7 +412,7 @@ export default class BedsController {
     if (bed.status !== 'occupied') {
       session.flashErrors({ discharge: 'Bed is not currently occupied.' })
       session.flashAll()
-      return response.redirect().toPath(`/beds/${bed.id}`)
+      return response.redirect().back()
     }
 
     const previousEncounterId = bed.encounterId
@@ -429,6 +429,6 @@ export default class BedsController {
     await closeOpenAssignments(bed.id, auth.user?.id ?? null)
 
     session.flash('success', `Bed ${bed.bedNumber} discharged successfully.`)
-    return response.redirect().toPath(`/beds/${bed.id}`)
+    return response.redirect().back()
   }
 }

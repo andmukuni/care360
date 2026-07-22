@@ -5,10 +5,8 @@ import Ward from '#models/ward'
 /**
  * Wards CRUD. Ported from App\Http\Controllers\WardController.
  *
- * The Laravel version served its list through a jQuery DataTables JSON endpoint
- * (`datatable`); here `index` returns the full ordered row set and the Inertia
- * page renders it with the shared client-side DataTable. `bedsData` is kept as a
- * JSON endpoint (consumed by the screening admit modal).
+ * Index/show now expose occupancy summaries so the board UI can manage beds
+ * (including discharge) from the ward context.
  */
 const WINGS = ['Male', 'Female', 'Paediatric'] as const
 const TYPES = [
@@ -23,19 +21,65 @@ const TYPES = [
 ] as const
 
 export default class WardsController {
-  async index({ inertia }: HttpContext) {
-    const wards = await Ward.query().withCount('beds').orderBy('wing').orderBy('name')
+  async index({ request, inertia }: HttpContext) {
+    const qs = request.qs()
+    const wing = qs.wing ? String(qs.wing) : null
+    const search = String(qs.q ?? '').trim()
+    const activeOnly = String(qs.active ?? 'all')
 
-    return inertia.render('wards/index', {
-      wards: wards.map((w) => ({
+    const wards = await Ward.query()
+      .preload('beds', (q) => q.orderBy('bedNumber'))
+      .if(wing, (q) => q.where('wing', wing!))
+      .if(search !== '', (q) =>
+        q.where((sub) => {
+          sub
+            .whereILike('name', `%${search}%`)
+            .orWhereILike('location', `%${search}%`)
+            .orWhereILike('type', `%${search}%`)
+        })
+      )
+      .if(activeOnly === 'active', (q) => q.where('isActive', true))
+      .if(activeOnly === 'inactive', (q) => q.where('isActive', false))
+      .orderBy('wing')
+      .orderBy('name')
+
+    const mapped = wards.map((w) => {
+      const beds = w.beds ?? []
+      const count = (status: string) => beds.filter((b) => b.status === status).length
+      return {
         id: w.id,
         name: w.name,
         wing: w.wing,
         type: w.type,
         location: w.location,
-        bedsCount: Number(w.$extras.beds_count ?? 0),
+        notes: w.notes,
+        bedsCount: beds.length,
+        availableBedsCount: count('available'),
+        occupiedBedsCount: count('occupied'),
+        reservedBedsCount: count('reserved'),
+        maintenanceBedsCount: count('maintenance'),
         isActive: w.isActive,
-      })),
+      }
+    })
+
+    const totals = mapped.reduce(
+      (acc, ward) => {
+        acc.wards += 1
+        acc.beds += ward.bedsCount
+        acc.available += ward.availableBedsCount
+        acc.occupied += ward.occupiedBedsCount
+        acc.reserved += ward.reservedBedsCount
+        acc.maintenance += ward.maintenanceBedsCount
+        return acc
+      },
+      { wards: 0, beds: 0, available: 0, occupied: 0, reserved: 0, maintenance: 0 }
+    )
+
+    return inertia.render('wards/index', {
+      wards: mapped,
+      wings: WINGS,
+      filters: { wing, search, active: activeOnly },
+      totals,
     })
   }
 
@@ -103,6 +147,7 @@ export default class WardsController {
         bedNumber: b.bedNumber,
         status: b.status,
         patientName: b.patientName,
+        admittedAt: b.admittedAt ? b.admittedAt.toFormat('dd LLL yyyy HH:mm') : null,
         isActive: b.isActive,
       })),
     })
@@ -157,7 +202,7 @@ export default class WardsController {
     await ward.save()
 
     session.flash('success', 'Ward updated successfully.')
-    return response.redirect().toPath('/wards')
+    return response.redirect().toPath(`/wards/${ward.id}`)
   }
 
   async destroy({ params, response, session }: HttpContext) {
