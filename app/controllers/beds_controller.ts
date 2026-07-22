@@ -178,17 +178,16 @@ export default class BedsController {
       )
       .firstOrFail()
 
-    const siblings = await Bed.query()
-      .where('wardId', bed.wardId)
-      .whereNot('id', bed.id)
-      .orderBy('bedNumber')
-      .limit(8)
+    const wardBeds = await Bed.query().where('wardId', bed.wardId).orderBy('bedNumber')
 
     const allWardsWithBeds = await Ward.query()
       .where('isActive', true)
       .preload('beds', (q) => q.orderBy('bedNumber'))
       .orderBy('wing')
       .orderBy('name')
+
+    const patientName =
+      bed.encounter?.patient?.fullName ?? bed.patientName ?? null
 
     return inertia.render('beds/show', {
       bed: {
@@ -198,12 +197,19 @@ export default class BedsController {
         wardName: bed.ward?.name ?? null,
         wing: bed.ward?.wing ?? null,
         status: bed.status,
-        patientName: bed.patientName,
+        encounterId: bed.encounterId,
+        patientName,
         admittedAt: bed.admittedAt ? bed.admittedAt.toFormat('dd LLL yyyy HH:mm') : null,
         dischargedAt: bed.dischargedAt ? bed.dischargedAt.toFormat('dd LLL yyyy HH:mm') : null,
         notes: bed.notes,
         isActive: bed.isActive,
-        patient: bed.encounter?.patient ? { fullName: bed.encounter.patient.fullName } : null,
+        patient: bed.encounter?.patient
+          ? {
+              id: bed.encounter.patient.id,
+              patientId: bed.encounter.patient.patientId,
+              fullName: bed.encounter.patient.fullName,
+            }
+          : null,
         accessories: bed.bedAccessories.map((a) => ({
           id: a.id,
           name: a.name,
@@ -220,10 +226,12 @@ export default class BedsController {
           dischargedBy: a.dischargedByUser?.name ?? null,
         })),
       },
-      siblings: siblings.map((b) => ({
+      wardBeds: wardBeds.map((b) => ({
         id: b.id,
         bedNumber: b.bedNumber,
         status: b.status,
+        patientName: b.patientName,
+        isCurrent: b.id === bed.id,
       })),
       allWardsWithBeds: allWardsWithBeds.map((w) => ({
         id: w.id,
