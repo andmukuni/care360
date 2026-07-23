@@ -553,4 +553,4 @@ router
       })
       .use(perm('settings.manage'))
   })
-  .use([middleware.auth(), middleware.resolveStaffRbac()])
+  .use([middleware.auth(), middleware.resolveStaffRbac(), middleware.ensurePasswordDecision()])

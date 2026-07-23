@@ -15,6 +15,7 @@ import router from '@adonisjs/core/services/router'
 import { middleware } from '#start/kernel'
 
 const AuthController = () => import('#controllers/auth_controller')
+const PasswordWelcomeController = () => import('#controllers/password_welcome_controller')
 const PatientAuthController = () => import('#controllers/portal/patient_auth_controller')
 
 /**
@@ -27,9 +28,20 @@ router
 
     router.post('/logout', [AuthController, 'logout']).as('logout').use(middleware.auth())
 
+    router
+      .group(() => {
+        router.get('/password/welcome', [PasswordWelcomeController, 'show']).as('password.welcome')
+        router.post('/password/welcome/keep', [PasswordWelcomeController, 'keep']).as('password.welcome.keep')
+        router
+          .post('/password/welcome/change', [PasswordWelcomeController, 'change'])
+          .as('password.welcome.change')
+      })
+      .use(middleware.auth())
+
     router.get('/dashboard', [AuthController, 'dashboard']).as('dashboard').use([
       middleware.auth(),
       middleware.resolveStaffRbac(),
+      middleware.ensurePasswordDecision(),
     ])
 
     // Lightweight session watchdog ping / keepalive (session-timeout modal).

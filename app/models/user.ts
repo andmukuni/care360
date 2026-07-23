@@ -88,6 +88,13 @@ export default class User extends compose(BaseModel, AuthFinder) {
   @column({ serializeAs: null })
   declare password: string
 
+  /**
+   * When true, staff must visit the post-login password choice page
+   * (change to a new password, or explicitly keep the current one).
+   */
+  @column()
+  declare mustChangePassword: boolean
+
   @column({ serializeAs: null })
   declare rememberToken: string | null
 

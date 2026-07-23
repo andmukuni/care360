@@ -26,6 +26,9 @@ export default class AuthController {
    * Where an authenticated staff user should land based on their role profile.
    */
   private async landingPathForUser(user: User | null): Promise<string> {
+    if (user?.mustChangePassword) {
+      return '/password/welcome'
+    }
     const roleNames = user ? await user.getRoleNames() : []
     return landingPathForRoles(roleNames)
   }
@@ -104,6 +107,10 @@ export default class AuthController {
     }
 
     session.flash('success', 'Login successful!')
+
+    if (user.mustChangePassword) {
+      return response.redirect('/password/welcome')
+    }
 
     return response.redirect(await this.landingPathForUser(user))
   }
