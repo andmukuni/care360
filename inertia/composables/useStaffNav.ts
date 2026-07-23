@@ -97,8 +97,30 @@ export function useStaffNav() {
     return patterns.some((m) => path === m || path.startsWith(`${m}/`))
   }
 
+  /** Stage key → queue href used for primary-role badge gating. */
+  const STAGE_QUEUE_HREF_BY_KEY: Record<string, string> = {
+    registration: '/registration',
+    triage: '/triage/queue',
+    screening: '/screening/queue',
+    lab: '/lab/queue',
+    screening_review: '/screening-review/queue',
+    pharmacy: '/pharmacy/queue',
+    treatment_room: '/treatment-room/queue',
+  }
+
+  /**
+   * Queue badge counts are role-scoped: focused clinical roles only see
+   * badges on their primary stage(s). Preview queues stay count-free.
+   * Admins / broad roles (no nav profile match) still see all stage badges.
+   */
   function stageBadge(stage: string | null | undefined): number {
     if (!stage) return 0
+
+    if (roleNav.value.matchedRoles.length > 0) {
+      const href = STAGE_QUEUE_HREF_BY_KEY[stage]
+      if (!href || !roleNav.value.primaryQueueHrefs.has(href)) return 0
+    }
+
     return stageCounts.value[stage] ?? 0
   }
 
@@ -359,7 +381,6 @@ export function useStaffNav() {
         href: '/payment-transactions',
         label: 'Transactions',
         icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z',
-        permissions: ['patients.read', 'patients.write'],
         match: '/payment-transactions',
       },
       {
@@ -370,7 +391,11 @@ export function useStaffNav() {
         match: '/households',
       },
     ]
-    return items.filter((item) => canSee(item.permissions ?? []))
+    const isSuperAdmin = roles.value.includes('super-admin')
+    return items.filter((item) => {
+      if (item.href === '/payment-transactions') return isSuperAdmin
+      return canSee(item.permissions ?? [])
+    })
   })
 
   const catalogNavItems = computed((): NavItem[] => {

@@ -135,9 +135,9 @@ router
     // ── Patient requests / portal registrations / payment transactions ─────
     router.get('/patient-requests', [PatientPortalAdminController, 'patientRequests']).as('patient-requests.index').use(perm('patients.read'))
 
-    router.get('/payment-transactions', [PaymentTransactionsController, 'index']).as('payment-transactions.index').use(perm('patients.read'))
-    router.post('/payment-transactions/:collection/check', [PaymentTransactionsController, 'checkStatus']).as('payment-transactions.check').use(perm('patients.write'))
-    router.post('/payment-transactions/:collection/retry', [PaymentTransactionsController, 'retry']).as('payment-transactions.retry').use(perm('patients.write'))
+    router.get('/payment-transactions', [PaymentTransactionsController, 'index']).as('payment-transactions.index')
+    router.post('/payment-transactions/:collection/check', [PaymentTransactionsController, 'checkStatus']).as('payment-transactions.check')
+    router.post('/payment-transactions/:collection/retry', [PaymentTransactionsController, 'retry']).as('payment-transactions.retry')
 
     router.get('/portal-registrations', [PatientPortalAdminController, 'portalRegistrations']).as('portal-registrations.index').use(perm('patients.read'))
     router.post('/portal-registrations/:ref/approve', [PatientPortalAdminController, 'approvePortalRegistration']).as('portal-registrations.approve').use(perm('patients.manage-portal'))

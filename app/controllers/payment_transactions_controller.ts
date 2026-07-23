@@ -8,15 +8,30 @@ import { num } from '#support/money_helpers'
  * Admin oversight of mobile-money payment transactions.
  * Ported from App\Http\Controllers\PaymentTransactionController.
  *
- * The Laravel version paginated collections server-side; here `index` returns the
- * full ordered set for the client-side table. `checkStatus` and `retry`
- * delegate to the ported MobileMoneyPaymentService (sandbox auto-approves).
+ * Restricted to the super-admin role (sidebar + route access).
  */
 
 export default class PaymentTransactionsController {
   private readonly payments = new MobileMoneyPaymentService()
 
-  async index({ request, inertia }: HttpContext) {
+  private async ensureSuperAdmin({
+    auth,
+    response,
+    session,
+  }: Pick<HttpContext, 'auth' | 'response' | 'session'>) {
+    const user = auth.use('web').user
+    if (!user || !(await user.hasRole('super-admin'))) {
+      session.flash('error', 'Only administrators can manage payment transactions.')
+      return response.redirect().toPath('/dashboard')
+    }
+    return null
+  }
+
+  async index(ctx: HttpContext) {
+    const denied = await this.ensureSuperAdmin(ctx)
+    if (denied) return denied
+
+    const { request, inertia } = ctx
     const filters = request.only(['status', 'search', 'date_from', 'date_to'])
     const status = String(filters.status ?? '').trim()
     const search = String(filters.search ?? '').trim()
@@ -78,7 +93,11 @@ export default class PaymentTransactionsController {
     })
   }
 
-  async checkStatus({ params, response, session }: HttpContext) {
+  async checkStatus(ctx: HttpContext) {
+    const denied = await this.ensureSuperAdmin(ctx)
+    if (denied) return denied
+
+    const { params, response, session } = ctx
     const collection = await PaymentCollection.findOrFail(params.collection)
 
     try {
@@ -95,7 +114,11 @@ export default class PaymentTransactionsController {
     return response.redirect().back()
   }
 
-  async retry({ params, response, session }: HttpContext) {
+  async retry(ctx: HttpContext) {
+    const denied = await this.ensureSuperAdmin(ctx)
+    if (denied) return denied
+
+    const { params, response, session } = ctx
     const collection = await PaymentCollection.findOrFail(params.collection)
 
     try {
