@@ -5,14 +5,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title inertia>Hospital Management System</title>
+  @let(clinicName = page.props?.clinic?.name || 'Hospital Management System')
+
+  <title inertia>{{ clinicName }}</title>
 
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="theme-color" content="#171717">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Hospital Management System">
+  <meta name="apple-mobile-web-app-title" content="{{ clinicName }}">
   <link rel="icon" type="image/png" href="/images/app-icon.png">
   <link rel="apple-touch-icon" href="/pwa/apple-touch-icon.png">
 
@@ -35,13 +37,26 @@
 </head>
 
 <body class="min-h-screen w-screen font-sans bg-white dark:bg-neutral-950 text-neutral-800 dark:text-neutral-100 antialiased">
-  <div id="app-boot" role="status" aria-live="polite" aria-label="Loading application">
+  <div id="app-boot" role="status" aria-live="polite" aria-label="Loading {{ clinicName }}">
     <div id="app-boot-spinner" aria-hidden="true"></div>
-    <span>Loading Care360…</span>
+    <span id="app-boot-label">Loading {{ clinicName }}…</span>
   </div>
   @inertia()
 
   <script>
+    (function () {
+      // If the Vue app never mounts (bad deploy / failed assets), stop spinning forever.
+      window.setTimeout(function () {
+        var boot = document.getElementById('app-boot')
+        if (!boot || boot.classList.contains('is-hidden') || !boot.isConnected) return
+        var label = document.getElementById('app-boot-label')
+        if (label) {
+          label.textContent = 'Taking longer than usual — try refreshing.'
+        }
+        boot.setAttribute('aria-label', 'Application failed to load')
+      }, 15000)
+    })()
+
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function () {
         navigator.serviceWorker.register('/sw.js', { scope: '/' })

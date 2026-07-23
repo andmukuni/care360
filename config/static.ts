@@ -12,16 +12,18 @@ const staticServerConfig = defineConfig({
   etag: true,
   lastModified: true,
   dotFiles: 'ignore',
-  // Default cache for static assets; auth hero overrides below with 1 year
+  // Default cache for static assets (Vite hashed files + public images)
   maxAge: '7d',
   headers: (path) => {
-    const normalized = path.replace(/^\/+/, '')
-    // Login hero is fingerprinted by filename; cache aggressively so repeat visits skip download
-    if (normalized.startsWith('images/auth/')) {
+    // serve-static passes an absolute filesystem path — always return an object
+    // (returning undefined crashes Object.keys in @adonisjs/static).
+    const file = path.replace(/\\/g, '/')
+    if (file.includes('/images/auth/')) {
       return {
         'Cache-Control': 'public, max-age=31536000, immutable',
       }
     }
+    return {}
   },
 })
 
