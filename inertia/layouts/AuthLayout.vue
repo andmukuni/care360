@@ -1,5 +1,9 @@
 <script setup lang="ts">
+import { Head } from '@inertiajs/vue3'
 import ThemeToggle from '~/components/ui/ThemeToggle.vue'
+
+const LOGIN_HERO = '/images/auth/login-hero.webp'
+const LOGIN_HERO_SM = '/images/auth/login-hero-sm.webp'
 
 const props = withDefaults(
   defineProps<{
@@ -10,15 +14,36 @@ const props = withDefaults(
   }>(),
   {
     wide: false,
-    backgroundImage:
-      'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=1200&q=80',
+    backgroundImage: LOGIN_HERO,
   }
 )
 
+const usesDefaultHero = props.backgroundImage === LOGIN_HERO
+const mobileHero = usesDefaultHero ? LOGIN_HERO_SM : props.backgroundImage
 </script>
 
 <template>
   <div class="auth-layout min-h-screen lg:flex">
+    <Head>
+      <link
+        v-if="usesDefaultHero"
+        rel="preload"
+        as="image"
+        type="image/webp"
+        :href="LOGIN_HERO"
+        media="(min-width: 1024px)"
+      />
+      <link
+        v-if="usesDefaultHero"
+        rel="preload"
+        as="image"
+        type="image/webp"
+        :href="LOGIN_HERO_SM"
+        media="(max-width: 1023px)"
+      />
+      <link v-else rel="preload" as="image" :href="props.backgroundImage" />
+    </Head>
+
     <!-- Brand panel (desktop) -->
     <aside class="relative hidden min-h-screen overflow-hidden lg:flex lg:w-1/2">
       <div class="absolute inset-0 bg-slate-950" aria-hidden="true" />
@@ -55,7 +80,7 @@ const props = withDefaults(
         <div
           class="absolute inset-0 opacity-30"
           :style="{
-            backgroundImage: `url(${props.backgroundImage})`,
+            backgroundImage: `url(${mobileHero})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }"

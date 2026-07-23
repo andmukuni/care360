@@ -21,11 +21,7 @@ function submit() {
 </script>
 
 <template>
-  <AuthLayout
-    :brand-title="clinicName"
-    brand-tagline="Patient Portal"
-    background-image="https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=1200&q=80"
-  >
+  <AuthLayout :brand-title="clinicName" brand-tagline="Patient Portal">
     <div class="space-y-8">
       <div>
         <h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-neutral-100">Reset your password</h1>
