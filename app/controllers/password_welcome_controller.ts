@@ -35,6 +35,7 @@ export default class PasswordWelcomeController {
     const user = auth.user as User
     user.mustChangePassword = false
     await user.save()
+    CachedSessionUserProvider.forgetUser(user.id)
 
     session.flash('success', 'You chose to keep your current password.')
     return response.redirect(await this.landingPath(user))
@@ -48,6 +49,7 @@ export default class PasswordWelcomeController {
     user.password = data.password
     user.mustChangePassword = false
     await user.save()
+    CachedSessionUserProvider.forgetUser(user.id)
 
     session.flash('success', 'Password updated successfully.')
     return response.redirect(await this.landingPath(user))
