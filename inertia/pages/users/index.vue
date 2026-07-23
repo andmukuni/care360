@@ -237,12 +237,19 @@ const kpiCards = computed((): KpiCard[] => {
 })
 
 const showCreate = ref(false)
-const createForm = useForm({ name: '', email: '', password: '', password_confirmation: '' })
+const createForm = useForm({
+  name: '',
+  email: '',
+  password: '',
+  password_confirmation: '',
+  roles: [] as string[],
+})
 
 function submitCreate() {
   createForm.post('/users', {
     onSuccess: () => {
       createForm.reset()
+      createForm.roles = []
       showCreate.value = false
     },
   })
@@ -577,7 +584,7 @@ function destroy() {
         <div class="users-page__panel-header">
           <div>
             <h2 class="text-sm font-semibold text-slate-900 dark:text-neutral-100">Add User</h2>
-            <p class="mt-0.5 text-xs text-sand-11">Create a new staff account with default access.</p>
+            <p class="mt-0.5 text-xs text-sand-11">Create a new staff account and assign roles.</p>
           </div>
           <button type="button" class="users-page__icon-btn" title="Close" @click="showCreate = false">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -609,6 +616,24 @@ function destroy() {
                 type="password"
                 class="theme-field w-full rounded px-3 py-2"
               />
+            </div>
+            <div>
+              <label class="mb-1.5 block text-sm font-medium">Roles</label>
+              <p class="mb-2 text-xs text-sand-11">
+                Select one or more roles. If none are selected, the account gets
+                <span class="font-medium">records-officer</span> by default.
+              </p>
+              <div class="grid max-h-48 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+                <label
+                  v-for="role in props.roles"
+                  :key="role"
+                  class="flex cursor-pointer items-center gap-2 rounded border border-sand-6 px-3 py-2 text-xs text-slate-700 hover:bg-sand-2 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                >
+                  <input v-model="createForm.roles" type="checkbox" :value="role" />
+                  {{ role }}
+                </label>
+              </div>
+              <p v-if="createForm.errors.roles" class="mt-1 text-sm text-red-600">{{ createForm.errors.roles }}</p>
             </div>
           </div>
           <div class="users-page__panel-footer">

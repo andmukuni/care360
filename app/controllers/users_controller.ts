@@ -112,6 +112,7 @@ const storeValidator = vine.compile(
     name: vine.string().trim().maxLength(255),
     email: vine.string().trim().email(),
     password: vine.string().minLength(8).confirmed(),
+    roles: vine.array(vine.string()).optional(),
   })
 )
 
@@ -178,12 +179,26 @@ export default class UsersController {
     user.password = payload.password
     await user.save()
 
-    const role = await Role.firstOrCreate({ name: 'records-officer' }, { name: 'records-officer', guardName: 'web' })
-    await db.table('model_has_roles').insert({
-      role_id: role.id,
-      model_type: USER_MORPH_TYPE,
-      model_id: user.id,
-    })
+    const requested = (payload.roles ?? []).map((r) => String(r).trim()).filter(Boolean)
+    const valid = requested.length
+      ? (await db.from('roles').whereIn('name', requested).select('name')).map((r) => String(r.name))
+      : []
+
+    if (valid.length) {
+      await syncUserRoles(user, valid)
+    } else {
+      // Preserve prior default when no role is chosen on create.
+      const role = await Role.firstOrCreate(
+        { name: 'records-officer' },
+        { name: 'records-officer', guardName: 'web' }
+      )
+      await db.table('model_has_roles').insert({
+        role_id: role.id,
+        model_type: USER_MORPH_TYPE,
+        model_id: user.id,
+      })
+      RbacService.forget(user)
+    }
 
     session.flash('success', 'User created successfully.')
     return response.redirect().toPath('/users')
