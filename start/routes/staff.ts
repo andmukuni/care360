@@ -413,6 +413,10 @@ router
     // ── Complaints ───────────────────────────────────────────────────────────
     router.get('/complaints', [PlatformComplaintsController, 'index']).as('complaints.index')
     router.post('/complaints', [PlatformComplaintsController, 'store']).as('complaints.store')
+    router
+      .post('/complaints/:id/resolve', [PlatformComplaintsController, 'resolve'])
+      .as('complaints.resolve')
+      .where('id', /^[0-9]+$/)
 
     // ── Notifications ────────────────────────────────────────────────────────
     router.get('/notifications', [NotificationsController, 'index']).as('notifications.index')

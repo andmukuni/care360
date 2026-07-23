@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
+import { DateTime } from 'luxon'
 import PlatformComplaint from '#models/platform_complaint'
 
 /**
@@ -18,6 +19,21 @@ const complaintValidator = vine.compile(
   })
 )
 
+function serializeComplaint(c: PlatformComplaint) {
+  return {
+    id: c.id,
+    title: c.title,
+    description: c.description,
+    pageUrl: c.pageUrl,
+    severity: c.severity,
+    status: c.status,
+    createdAt: c.createdAt ? c.createdAt.toISO() : null,
+    createdAtFormatted: c.createdAt ? c.createdAt.toFormat('dd LLL yyyy HH:mm') : null,
+    resolvedAt: c.resolvedAt ? c.resolvedAt.toISO() : null,
+    resolvedAtFormatted: c.resolvedAt ? c.resolvedAt.toFormat('dd LLL yyyy HH:mm') : null,
+  }
+}
+
 export default class PlatformComplaintsController {
   async index({ inertia, auth }: HttpContext) {
     const userId = auth.user?.id ?? 0
@@ -28,18 +44,7 @@ export default class PlatformComplaintsController {
       .orderBy('id', 'desc')
 
     return inertia.render('complaints/index', {
-      complaints: complaints.map((c) => ({
-        id: c.id,
-        title: c.title,
-        description: c.description,
-        pageUrl: c.pageUrl,
-        severity: c.severity,
-        status: c.status,
-        createdAt: c.createdAt ? c.createdAt.toISO() : null,
-        createdAtFormatted: c.createdAt ? c.createdAt.toFormat('dd LLL yyyy HH:mm') : null,
-        resolvedAt: c.resolvedAt ? c.resolvedAt.toISO() : null,
-        resolvedAtFormatted: c.resolvedAt ? c.resolvedAt.toFormat('dd LLL yyyy HH:mm') : null,
-      })),
+      complaints: complaints.map(serializeComplaint),
     })
   }
 
@@ -56,6 +61,27 @@ export default class PlatformComplaintsController {
     })
 
     session.flash('success', 'Complaint submitted successfully. Thank you for reporting the issue.')
+    return response.redirect().toPath('/complaints')
+  }
+
+  /**
+   * Mark the current user's own complaint as resolved.
+   * Ownership is enforced so staff cannot resolve another user's report.
+   */
+  async resolve({ params, response, session, auth }: HttpContext) {
+    const userId = auth.user?.id ?? 0
+    const complaint = await PlatformComplaint.query()
+      .where('id', params.id)
+      .where('userId', userId)
+      .firstOrFail()
+
+    if (complaint.status !== 'resolved') {
+      complaint.status = 'resolved'
+      complaint.resolvedAt = DateTime.now()
+      await complaint.save()
+    }
+
+    session.flash('success', 'Complaint marked as resolved.')
     return response.redirect().toPath('/complaints')
   }
 }

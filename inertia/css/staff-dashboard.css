@@ -568,8 +568,18 @@
 }
 
 html {
-  overflow-y: scroll;
+  overflow-x: hidden;
+  overflow-y: auto;
   overscroll-behavior: none;
+}
+
+/* Staff shell owns scrolling (h-screen + main overflow). Keep the document
+   from growing a second tiny horizontal gutter under the app chrome. */
+html:has(.staff-shell),
+body:has(.staff-shell) {
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
 }
 
 html:has(.staff-shell) {

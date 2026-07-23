@@ -558,13 +558,6 @@ export function useStaffNav() {
         match: '/reports',
       },
       {
-        href: '/complaints',
-        label: 'Complaints',
-        icon: 'M12 9v2m0 4h.01M10.29 3.86l-8.08 14A1 1 0 003.08 20h17.84a1 1 0 00.87-1.5l-8.08-14a1 1 0 00-1.74 0z',
-        permissions: ['complaints.read', 'complaints.write'],
-        match: '/complaints',
-      },
-      {
         href: '#',
         label: 'Nurses',
         icon: 'M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z',
@@ -582,6 +575,14 @@ export function useStaffNav() {
         icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9',
         permissions: ['notifications.read', 'notifications.manage'],
         match: '/notifications',
+      },
+      {
+        href: '/complaints',
+        label: 'Complaints',
+        icon: 'M12 9v2m0 4h.01M10.29 3.86l-8.08 14A1 1 0 003.08 20h17.84a1 1 0 00.87-1.5l-8.08-14a1 1 0 00-1.74 0z',
+        // Visible to every signed-in staff user (routes are auth-only).
+        permissions: [],
+        match: '/complaints',
       },
       {
         href: '/calendar',

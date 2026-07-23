@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
-import { useForm } from '@inertiajs/vue3'
+import { router, useForm } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
 import TableIconButton from '~/components/staff/TableIconButton.vue'
 import TableIconLink from '~/components/staff/TableIconLink.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 
 interface Complaint {
   id: number
@@ -185,11 +186,12 @@ function statusLabel(status: string): string {
 
 const showForm = ref(false)
 const viewingComplaint = ref<Complaint | null>(null)
+const resolvingId = ref<number | null>(null)
 
 function formatPageLabel(url: string | null): string {
   if (!url) return '—'
   try {
-    const parsed = new URL(url)
+    const parsed = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'https://localhost')
     const path = parsed.pathname === '/' ? '' : parsed.pathname
     return `${parsed.hostname}${path}`
   } catch {
@@ -197,8 +199,54 @@ function formatPageLabel(url: string | null): string {
   }
 }
 
+/**
+ * Prefer in-app path for same-origin absolute URLs so Inertia Link navigates
+ * without a full external hop; leave true external URLs unchanged.
+ */
+function openPageHref(url: string | null): string | null {
+  if (!url) return null
+  try {
+    const parsed = new URL(url, typeof window !== 'undefined' ? window.location.origin : undefined)
+    if (typeof window !== 'undefined' && parsed.origin === window.location.origin) {
+      return `${parsed.pathname}${parsed.search}${parsed.hash}` || '/'
+    }
+    return parsed.toString()
+  } catch {
+    return url
+  }
+}
+
 function openComplaint(row: Complaint) {
   viewingComplaint.value = row
+}
+
+async function resolveComplaint(row: Complaint) {
+  if (row.status === 'resolved') return
+  if (
+    !(await confirmDialog({
+      title: 'Mark as resolved',
+      message: `Mark “${row.title}” as resolved?`,
+      confirmLabel: 'Mark resolved',
+      variant: 'primary',
+    }))
+  ) {
+    return
+  }
+
+  resolvingId.value = row.id
+  router.post(
+    `/complaints/${row.id}/resolve`,
+    {},
+    {
+      preserveScroll: true,
+      onFinish: () => {
+        resolvingId.value = null
+        if (viewingComplaint.value?.id === row.id) {
+          viewingComplaint.value = null
+        }
+      },
+    }
+  )
 }
 
 const form = useForm({
@@ -419,10 +467,24 @@ function submit() {
                 <div class="table-action-group">
                   <TableIconButton variant="view" title="View report details" @click="openComplaint(row)" />
                   <TableIconLink
-                    v-if="row.pageUrl"
-                    :href="row.pageUrl"
+                    v-if="openPageHref(row.pageUrl)"
+                    :href="openPageHref(row.pageUrl)!"
                     variant="open"
                     title="Open reported page"
+                  />
+                  <TableIconButton
+                    v-if="row.status === 'open'"
+                    variant="check"
+                    tone="primary"
+                    title="Mark as resolved"
+                    :disabled="resolvingId === row.id"
+                    @click="resolveComplaint(row)"
+                  />
+                  <TableIconButton
+                    v-else
+                    variant="check"
+                    title="Already resolved"
+                    disabled
                   />
                 </div>
               </td>
@@ -468,9 +530,27 @@ function submit() {
         <div v-if="viewingComplaint.pageUrl" class="mt-4">
           <p class="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-500">Reported page</p>
           <div class="table-action-group">
-            <TableIconLink :href="viewingComplaint.pageUrl" variant="open" title="Open reported page" />
+            <TableIconLink
+              :href="openPageHref(viewingComplaint.pageUrl) || viewingComplaint.pageUrl"
+              variant="open"
+              title="Open reported page"
+            />
             <span class="text-xs text-neutral-500">{{ viewingComplaint.pageUrl }}</span>
           </div>
+        </div>
+        <div
+          v-if="viewingComplaint.status === 'open'"
+          class="mt-5 flex justify-end gap-2 border-t border-neutral-100 pt-4 dark:border-neutral-800"
+        >
+          <ActionButton
+            type="button"
+            variant="blue"
+            :loading="resolvingId === viewingComplaint.id"
+            loading-text="Resolving…"
+            @click="resolveComplaint(viewingComplaint)"
+          >
+            Mark as resolved
+          </ActionButton>
         </div>
       </div>
     </div>
