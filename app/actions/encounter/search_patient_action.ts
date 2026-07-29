@@ -1,10 +1,14 @@
 import Patient from '#models/patient'
-import { findPatientRowByRef } from '#support/ref_resolvers'
+import { findHouseholdRowByRef, findPatientRowByRef } from '#support/ref_resolvers'
 
 /**
  * Searches for an existing patient using multiple identifiers.
  * Returns matching Patient records. Does NOT create patients.
  * Ported from App\Actions\Encounter\SearchPatientAction.
+ *
+ * Barcode matching is case-insensitive. If a scanned code matches a household
+ * barcode but not a patient row directly, we resolve the household head patient
+ * so registration desk scans keep working after (or without) exact head barcode sync.
  */
 export default class SearchPatientAction {
   async handle(
@@ -58,7 +62,7 @@ export default class SearchPatientAction {
 
       const exactMatches = await exactBuilder
         .where((sub) => {
-          sub.where('patient_id', q).orWhere('barcode', q)
+          sub.whereILike('patient_id', q).orWhereILike('barcode', q)
           if (q.includes('/')) {
             sub.orWhere('nrc_number', q)
           }
@@ -68,13 +72,19 @@ export default class SearchPatientAction {
       if (exactMatches.length > 0) {
         return exactMatches
       }
+
+      // Household barcode → head patient fallback (covers case/sync gaps)
+      const fromHousehold = await this.resolveHeadFromHouseholdBarcode(q, normalizedSex)
+      if (fromHousehold) {
+        return [fromHousehold]
+      }
     }
 
     return builder
       .where((sub) => {
         sub
-          .where('patient_id', q)
-          .orWhere('barcode', q)
+          .whereILike('patient_id', q)
+          .orWhereILike('barcode', q)
           .orWhere('nrc_number', 'like', `%${q}%`)
           .orWhere('phone_number', 'like', `%${q}%`)
           .orWhere('other_cellphone', 'like', `%${q}%`)
@@ -89,5 +99,33 @@ export default class SearchPatientAction {
           })
       })
       .limit(20)
+  }
+
+  private async resolveHeadFromHouseholdBarcode(
+    barcode: string,
+    normalizedSex: string | null
+  ): Promise<Patient | null> {
+    const household = await findHouseholdRowByRef(barcode)
+    const householdId = String(household?.household_id ?? '').trim()
+    if (!householdId) return null
+
+    const headQuery = Patient.query()
+      .where('household_id', householdId)
+      .whereRaw("LOWER(COALESCE(relationship_to_head, '')) = ?", ['head'])
+      .orderBy('id', 'asc')
+
+    if (normalizedSex) {
+      headQuery.whereRaw('LOWER(gender) = ?', [normalizedSex])
+    }
+
+    const head = await headQuery.first()
+    if (head) return head
+
+    // Last resort: any patient linked to the household
+    const anyMember = Patient.query().where('household_id', householdId).orderBy('id', 'asc')
+    if (normalizedSex) {
+      anyMember.whereRaw('LOWER(gender) = ?', [normalizedSex])
+    }
+    return anyMember.first()
   }
 }

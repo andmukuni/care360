@@ -12,9 +12,11 @@ export async function findPatientRowByRef(ref: string): Promise<Record<string, a
   return ReferenceDataCache.patientByRef(trimmed, async () => {
     const row = await db
       .from('patients')
-      .where('patient_id', trimmed)
-      .orWhere('barcode', trimmed)
-      .orWhere('id', /^\d+$/.test(trimmed) ? Number(trimmed) : 0)
+      .where((q) => {
+        q.where('patient_id', trimmed)
+          .orWhereILike('barcode', trimmed)
+          .orWhere('id', /^\d+$/.test(trimmed) ? Number(trimmed) : 0)
+      })
       .first()
 
     return row ?? null
@@ -28,9 +30,11 @@ export async function findHouseholdRowByRef(ref: string): Promise<Record<string,
   return ReferenceDataCache.householdByRef(trimmed, async () => {
     const row = await db
       .from('households')
-      .where('barcode', trimmed)
-      .orWhere('household_id', trimmed)
-      .orWhere('id', /^\d+$/.test(trimmed) ? Number(trimmed) : 0)
+      .where((q) => {
+        q.whereILike('barcode', trimmed)
+          .orWhere('household_id', trimmed)
+          .orWhere('id', /^\d+$/.test(trimmed) ? Number(trimmed) : 0)
+      })
       .first()
 
     return row ?? null
