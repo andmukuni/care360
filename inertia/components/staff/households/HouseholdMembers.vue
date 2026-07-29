@@ -2,9 +2,12 @@
 import { ref, watch } from 'vue'
 import { Link, router, useForm } from '@inertiajs/vue3'
 import ActionButton from '~/components/ui/ActionButton.vue'
+import TableIconButton from '~/components/staff/TableIconButton.vue'
+import StartEncounterModal from '~/components/registration/StartEncounterModal.vue'
 import { confirmDialog } from '~/composables/useConfirm'
 
 interface Member {
+  dbId: number
   patientId: string
   fullName: string
   gender: string
@@ -12,6 +15,9 @@ interface Member {
   phoneNumber: string
   nrcNumber: string
   relationshipToHead: string
+  status?: string | null
+  isDeceased?: boolean
+  activeEncounterId?: number | null
 }
 
 const props = withDefaults(
@@ -46,10 +52,18 @@ const transferForm = useForm({
 })
 
 const editingRef = ref('')
+const encounterMember = ref<Member | null>(null)
 const patientQuery = ref('')
 const patientResults = ref<{ id: string; text: string; disabled?: boolean }[]>([])
 const householdQuery = ref('')
 const householdResults = ref<{ id: string; text: string }[]>([])
+
+function openStartEncounter(m: Member) {
+  encounterMember.value = m
+}
+function closeStartEncounter() {
+  encounterMember.value = null
+}
 
 function openAdd() {
   memberForm.reset()
@@ -212,18 +226,34 @@ function memberInitials(name: string): string {
               <td>{{ m.phoneNumber || '—' }}</td>
               <td class="font-mono text-xs">{{ m.nrcNumber || '—' }}</td>
               <td class="text-right">
-                <div class="flex items-center justify-end gap-2 text-xs">
-                  <button type="button" class="text-blue-600 hover:underline" @click="openEdit(m)">Edit</button>
-                  <button
+                <div class="flex items-center justify-end gap-1">
+                  <TableIconButton
+                    variant="start"
+                    tone="primary"
+                    :title="
+                      m.isDeceased
+                        ? 'Patient is deceased'
+                        : m.activeEncounterId
+                          ? 'Active encounter already exists'
+                          : 'Start encounter'
+                    "
+                    :disabled="!m.dbId || m.isDeceased"
+                    @click="openStartEncounter(m)"
+                  />
+                  <TableIconButton variant="edit" title="Edit member" @click="openEdit(m)" />
+                  <TableIconButton
                     v-if="m.relationshipToHead !== 'Head'"
-                    type="button"
-                    class="text-blue-600 hover:underline"
+                    variant="set-head"
+                    title="Set as head of house"
                     @click="setHead(m)"
-                  >
-                    Set Head
-                  </button>
-                  <button type="button" class="text-blue-600 hover:underline" @click="openTransfer(m)">Transfer</button>
-                  <button type="button" class="text-red-600 hover:underline" @click="removeMember(m)">Remove</button>
+                  />
+                  <TableIconButton variant="transfer" title="Transfer member" @click="openTransfer(m)" />
+                  <TableIconButton
+                    variant="delete"
+                    tone="danger"
+                    title="Remove member"
+                    @click="removeMember(m)"
+                  />
                 </div>
               </td>
             </tr>
@@ -359,5 +389,16 @@ function memberInitials(name: string): string {
         </form>
       </div>
     </div>
+
+    <StartEncounterModal
+      v-if="encounterMember"
+      :open="!!encounterMember"
+      :patient-db-id="encounterMember.dbId"
+      :patient-name="encounterMember.fullName"
+      :is-deceased="!!encounterMember.isDeceased"
+      :status="encounterMember.status"
+      :active-encounter-id="encounterMember.activeEncounterId ?? null"
+      @close="closeStartEncounter"
+    />
   </div>
 </template>

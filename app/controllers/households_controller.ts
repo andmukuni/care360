@@ -266,9 +266,10 @@ export default class HouseholdsController {
     }
   }
 
-  private normalizeMember(row: Record<string, any>) {
+  private normalizeMember(row: Record<string, any>, activeEncounterId: number | null = null) {
     return {
       id: String(row.patient_id ?? ''),
+      dbId: Number(row.id),
       patientId: String(row.patient_id ?? ''),
       fullName: String(row.full_name ?? ''),
       gender: String(row.gender ?? ''),
@@ -278,7 +279,9 @@ export default class HouseholdsController {
       householdId: String(row.household_id ?? ''),
       relationshipToHead: String(row.relationship_to_head ?? 'Member'),
       barcode: String(row.barcode || row.patient_id || ''),
-      status: 'Active',
+      status: String(row.status ?? 'active').toLowerCase(),
+      isDeceased: Boolean(row.is_deceased),
+      activeEncounterId,
     }
   }
 
@@ -534,7 +537,28 @@ export default class HouseholdsController {
         .orderBy('id', 'desc')
     }
 
-    const members = memberRows.map((r) => this.normalizeMember(r))
+    const patientDbIds = memberRows.map((r) => Number(r.id)).filter((id) => Number.isFinite(id) && id > 0)
+    const activeEncounterByPatient = new Map<number, number>()
+    if (patientDbIds.length > 0) {
+      const activeRows = await db
+        .from('encounters')
+        .whereIn('patient_id', patientDbIds)
+        .where('is_locked', false)
+        .whereNull('closed_at')
+        .select('id', 'patient_id')
+        .orderBy('id', 'desc')
+
+      for (const row of activeRows) {
+        const pid = Number(row.patient_id)
+        if (!activeEncounterByPatient.has(pid)) {
+          activeEncounterByPatient.set(pid, Number(row.id))
+        }
+      }
+    }
+
+    const members = memberRows.map((r) =>
+      this.normalizeMember(r, activeEncounterByPatient.get(Number(r.id)) ?? null)
+    )
 
     return inertia.render('households/show', {
       household,

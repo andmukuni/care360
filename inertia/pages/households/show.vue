@@ -6,6 +6,7 @@ import StaffLayout from '~/layouts/StaffLayout.vue'
 import HouseholdMembers from '~/components/staff/households/HouseholdMembers.vue'
 
 interface Member {
+  dbId: number
   patientId: string
   fullName: string
   gender: string
@@ -13,6 +14,9 @@ interface Member {
   phoneNumber: string
   nrcNumber: string
   relationshipToHead: string
+  status?: string | null
+  isDeceased?: boolean
+  activeEncounterId?: number | null
 }
 
 type TabId = 'overview' | 'subscription' | 'members' | 'barcode'
