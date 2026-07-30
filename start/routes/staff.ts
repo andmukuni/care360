@@ -299,6 +299,10 @@ router
     router.post('/screening/:encounter/vital-recheck', [ScreeningController, 'saveVitalRecheck']).as('screening.vital-recheck').use(perm('screening.manage-assessment'))
     router.post('/screening/:encounter/vital-recheck/autosave', [ScreeningController, 'autosaveVitalRecheck']).as('screening.vital-recheck.autosave').use(perm('screening.manage-assessment'))
     router.post('/screening/:encounter/complete', [ScreeningController, 'complete']).as('screening.complete').use(perm('screening.manage-assessment|screening.queue-to-lab|screening.queue-to-pharmacy'))
+    router
+      .post('/screening/:encounter/close', [ScreeningController, 'close'])
+      .as('screening.close')
+      .use(perm('screening.manage-assessment|screening.queue-to-lab|screening.queue-to-pharmacy'))
     router.post('/screening/:encounter/recommendations/approve-all', [ScreeningController, 'approveAllRecommendations']).as('screening.recommendations.approve-all').use(perm('screening.manage-assessment'))
     router.post('/screening/:encounter/recommendations/decline-all', [ScreeningController, 'declineAllRecommendations']).as('screening.recommendations.decline-all').use(perm('screening.manage-assessment'))
     router.post('/screening/:encounter/recommendations/:recommendation/approve', [ScreeningController, 'approveRecommendation']).as('screening.recommendations.approve').use(perm('screening.manage-assessment'))

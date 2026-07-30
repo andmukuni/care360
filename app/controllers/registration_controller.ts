@@ -51,6 +51,7 @@ export default class RegistrationController {
       QueueCache.getOrSet(registrationDeskPageKey(page), EncounterStage.Registration, async () => {
         const paginator = await Encounter.query()
           .preload('patient')
+          .preload('startedByUser')
           .where('current_stage', EncounterStage.Registration)
           .whereIn('current_status', [EncounterStatus.Started, EncounterStatus.InProgress])
           .orderBy('started_at', 'desc')
@@ -65,6 +66,7 @@ export default class RegistrationController {
             visit_type: e.visitType,
             priority_level: e.priorityLevel,
             started_at_relative: e.startedAt?.toRelative() ?? null,
+            started_by_name: e.startedByUser?.name?.trim() || 'Unknown user',
           })),
           meta: {
             current_page: paginator.currentPage,

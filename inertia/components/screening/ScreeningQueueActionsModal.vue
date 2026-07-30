@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { router } from '@inertiajs/vue3'
 import ActionButton from '~/components/ui/ActionButton.vue'
 import Spinner from '~/components/ui/Spinner.vue'
 import ComingSoonWardQueueOptions from '~/components/queue/ComingSoonWardQueueOptions.vue'
 
+type SelectedAction = 'end' | null
+
 const show = defineModel<boolean>('show', { required: true })
 const treatmentNotes = defineModel<string>('treatmentNotes', { default: '' })
+const closureNotes = defineModel<string>('closureNotes', { default: '' })
 
 const props = defineProps<{
   labRequested: boolean
@@ -14,42 +17,64 @@ const props = defineProps<{
   completeLoading: boolean
   treatmentLoading: boolean
   triageLoading: boolean
+  endLoading: boolean
 }>()
 
 const emit = defineEmits<{
   complete: []
   queueTreatment: []
   queueTriage: []
+  endEncounter: []
 }>()
 
 const backLoading = ref(false)
+const selectedAction = ref<SelectedAction>(null)
 
 const anyLoading = computed(
   () =>
     props.completeLoading ||
     props.treatmentLoading ||
     props.triageLoading ||
+    props.endLoading ||
     backLoading.value
 )
 
+watch(show, (open) => {
+  if (!open) selectedAction.value = null
+})
+
 function close() {
   if (anyLoading.value) return
+  selectedAction.value = null
   show.value = false
 }
 
 function handleComplete() {
+  if (anyLoading.value) return
   emit('complete')
 }
 
 function handleTreatment() {
+  if (anyLoading.value) return
   emit('queueTreatment')
 }
 
 function handleTriage() {
+  if (anyLoading.value) return
   emit('queueTriage')
 }
 
+function selectEnd() {
+  if (anyLoading.value) return
+  if (selectedAction.value === 'end') {
+    emit('endEncounter')
+    return
+  }
+  selectedAction.value = 'end'
+}
+
 function handleBack() {
+  if (anyLoading.value) return
   backLoading.value = true
   router.visit('/screening/queue', {
     onFinish: () => {
@@ -73,7 +98,9 @@ function handleBack() {
         <div class="flex items-center justify-between theme-card-header px-6 py-4">
           <div>
             <h3 class="text-sm font-bold uppercase tracking-wide text-neutral-900 dark:text-white">Queue Actions</h3>
-            <p class="mt-0.5 text-xs text-neutral-500">Choose where to send this patient next</p>
+            <p class="mt-0.5 text-xs text-neutral-500">
+              Queue the patient onward or end this encounter at screening
+            </p>
           </div>
           <button
             type="button"
@@ -175,6 +202,76 @@ function handleBack() {
               Returning…
             </span>
           </button>
+
+          <div class="space-y-2">
+            <button
+              type="button"
+              class="flex w-full items-center gap-4 rounded-lg border px-4 py-3.5 text-left transition disabled:cursor-not-allowed disabled:opacity-50"
+              :class="
+                selectedAction === 'end'
+                  ? 'border-red-200 bg-red-600 hover:bg-red-700 dark:border-red-800'
+                  : 'theme-surface hover:bg-neutral-50 dark:hover:bg-neutral-800'
+              "
+              :disabled="anyLoading"
+              :aria-busy="endLoading"
+              @click="selectEnd"
+            >
+              <span
+                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+                :class="
+                  selectedAction === 'end'
+                    ? 'bg-white/15 text-white'
+                    : 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300'
+                "
+              >
+                <Spinner
+                  v-if="endLoading"
+                  size="md"
+                  :class="selectedAction === 'end' ? 'text-white' : 'text-red-700 dark:text-red-300'"
+                />
+                <svg v-else class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </span>
+              <span class="min-w-0 flex-1">
+                <span
+                  class="block text-sm font-semibold"
+                  :class="selectedAction === 'end' ? 'text-white' : 'text-neutral-900 dark:text-white'"
+                >
+                  {{ selectedAction === 'end' ? 'Confirm end encounter' : 'End encounter' }}
+                </span>
+                <span
+                  class="block text-xs"
+                  :class="selectedAction === 'end' ? 'text-red-100' : 'text-neutral-500'"
+                >
+                  Finish the visit at screening without queueing onward
+                </span>
+              </span>
+              <span v-if="endLoading" class="inline-flex items-center gap-2 text-xs text-red-100">
+                <Spinner size="xs" class="text-red-100" />
+                Ending…
+              </span>
+            </button>
+
+            <div v-if="selectedAction === 'end'" class="ml-14">
+              <label class="mb-1 block text-xs font-semibold text-neutral-600 dark:text-neutral-300">
+                Closure notes <span class="font-normal text-neutral-400">(optional)</span>
+              </label>
+              <textarea
+                v-model="closureNotes"
+                rows="2"
+                maxlength="2000"
+                class="field-input text-sm"
+                placeholder="e.g. Advice only, discharged home, left before pharmacy…"
+                :disabled="anyLoading"
+              />
+            </div>
+          </div>
 
           <ComingSoonWardQueueOptions />
 

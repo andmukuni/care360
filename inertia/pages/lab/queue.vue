@@ -132,7 +132,7 @@ function labRequestSegments(row: Row) {
                 <th>Encounter</th>
                 <th>Patient</th>
                 <th>Lab request</th>
-                <th>Received by</th>
+                <th>Attending</th>
                 <th class="text-right">Action</th>
               </tr>
             </template>

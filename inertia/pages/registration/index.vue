@@ -27,6 +27,7 @@ const props = defineProps<{
       visit_type: string | null
       priority_level: string | null
       started_at_relative: string | null
+      started_by_name?: string | null
     }[]
     meta: {
       current_page: number
@@ -429,6 +430,9 @@ function onAddVillageClick() {
                       {{ enc.encounter_number }}
                       <template v-if="enc.visit_type"> · {{ enc.visit_type }}</template>
                       <template v-if="enc.started_at_relative"> · {{ enc.started_at_relative }}</template>
+                    </p>
+                    <p class="mt-0.5 truncate text-[11px] text-neutral-400">
+                      Attending: {{ enc.started_by_name || 'Unknown user' }}
                     </p>
                   </div>
                   <div class="flex shrink-0 items-center gap-1">

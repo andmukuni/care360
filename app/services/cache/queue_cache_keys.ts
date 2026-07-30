@@ -33,5 +33,5 @@ export function apiStageQueueKey(stage: string): string {
 }
 
 export function registrationDeskPageKey(page: number): string {
-  return `queue:registration:desk:p${page}`
+  return `queue:registration:desk:v2:p${page}`
 }

@@ -235,6 +235,8 @@ const s = props.screening ?? {}
 const { showQueueHint, dismissQueueHint } = useQueueFooterHint('screening', props.encounter.id)
 
 const queueActionsModalOpen = ref(false)
+const closureNotes = ref('')
+const endingEncounter = ref(false)
 const reviewPanelOpen = ref(false)
 const admitModalOpen = ref(false)
 const medsDrawerOpen = ref(false)
@@ -825,6 +827,28 @@ async function complete() {
       clearLabCart()
     },
   })
+}
+
+async function endEncounter() {
+  dismissQueueHint()
+  syncPrescriptions()
+  syncLabItems()
+  if (!(await flushAutosavesBeforeAction({ required: false }))) return
+  endingEncounter.value = true
+  form
+    .transform((data) => ({
+      ...data,
+      closure_notes: closureNotes.value.trim() || null,
+    }))
+    .post(`/screening/${props.encounter.id}/close`, {
+      onSuccess: () => {
+        clearRxCart()
+        clearLabCart()
+      },
+      onFinish: () => {
+        endingEncounter.value = false
+      },
+    })
 }
 
 async function setPharmacyDisposition() {
@@ -2085,14 +2109,17 @@ onUnmounted(() => {
     <ScreeningQueueActionsModal
       v-model:show="queueActionsModalOpen"
       v-model:treatment-notes="treatmentRoomNotes"
+      v-model:closure-notes="closureNotes"
       :lab-requested="!!form.lab_requested"
       :complete-label="completeActionLabel"
-      :complete-loading="form.processing"
+      :complete-loading="form.processing && !endingEncounter"
       :treatment-loading="queueingTreatment"
       :triage-loading="queueingTriage"
+      :end-loading="endingEncounter && form.processing"
       @complete="complete"
       @queue-treatment="queueTreatmentRoom"
       @queue-triage="queueTriage"
+      @end-encounter="endEncounter"
     />
 
     <template v-if="!encounter.is_locked">

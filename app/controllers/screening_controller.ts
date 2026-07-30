@@ -25,6 +25,8 @@ import QueueEncounterToLabAction from '#actions/encounter/queue_encounter_to_lab
 import QueueEncounterToPharmacyFromScreeningAction from '#actions/encounter/queue_encounter_to_pharmacy_from_screening_action'
 import QueueEncounterToTreatmentRoomFromScreeningAction from '#actions/encounter/queue_encounter_to_treatment_room_from_screening_action'
 import QueueEncounterBackToTriageAction from '#actions/encounter/queue_encounter_back_to_triage_action'
+import CloseEncounterFromScreeningAction from '#actions/encounter/close_encounter_from_screening_action'
+import { closeEncounterValidator } from '#validators/staff/pharmacy'
 import GeneratePresumptiveTbCaseNumberAction from '#actions/encounter/generate_presumptive_tb_case_number_action'
 import { getInitialScreeningRecord } from '#services/encounter/encounter_records'
 import {
@@ -751,6 +753,53 @@ export default class ScreeningController {
       return response.redirect().back()
     }
 
+    return response.redirect().toPath('/screening/queue')
+  }
+
+  // POST /screening/:encounter/close
+  async close({ params, request, response, session, auth, bouncer }: HttpContext) {
+    const user = auth.getUserOrFail()
+    const encounter = await Encounter.findOrFail(params.encounter)
+
+    await (bouncer as any)
+      .with('EncounterPolicy')
+      .authorize('advanceFromStage', encounter, EncounterStage.Screening)
+
+    if (
+      encounter.currentStage !== EncounterStage.Screening ||
+      encounter.currentStatus !== EncounterStatus.InProgress
+    ) {
+      session.flash('error', 'This encounter is no longer at screening and cannot be ended here.')
+      return response.redirect().toPath(`/screening/${encounter.id}`)
+    }
+
+    const { closure_notes } = await request.validateUsing(closeEncounterValidator)
+
+    // Persist assessment draft when the close payload includes valid screening fields.
+    try {
+      const data = await request.validateUsing(screeningAssessmentValidator)
+      await this.persistAssessment(
+        encounter,
+        this.normalizeAssessmentData(data as Record<string, any>),
+        user.id
+      )
+      await encounter.refresh()
+    } catch {
+      // End encounter is allowed even when assessment fields are incomplete.
+    }
+
+    try {
+      await new CloseEncounterFromScreeningAction().handle(
+        encounter,
+        user.id,
+        closure_notes ?? null
+      )
+    } catch (error) {
+      session.flash('error', error.message)
+      return response.redirect().back()
+    }
+
+    session.flash('success', `Encounter ${encounter.encounterNumber} ended at Screening.`)
     return response.redirect().toPath('/screening/queue')
   }
 

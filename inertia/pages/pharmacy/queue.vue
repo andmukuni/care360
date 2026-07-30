@@ -248,7 +248,7 @@ onMounted(() => {
                 <th>Patient</th>
                 <th>Diagnosis</th>
                 <th>Prescription</th>
-                <th>Assigned to</th>
+                <th>Attending</th>
                 <th class="text-right">Action</th>
               </tr>
             </template>
@@ -301,7 +301,7 @@ onMounted(() => {
                 <th>Diagnosis</th>
                 <th>Prescription</th>
                 <th>Location</th>
-                <th>Assigned to</th>
+                <th>Attending</th>
                 <th class="text-right">Action</th>
               </tr>
             </template>

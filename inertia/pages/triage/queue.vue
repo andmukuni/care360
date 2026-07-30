@@ -157,7 +157,7 @@ function receive(id: number) {
                 <th>Encounter</th>
                 <th>Patient</th>
                 <th>Temperature</th>
-                <th>Assigned to</th>
+                <th>Attending</th>
                 <th class="text-right">Action</th>
               </tr>
             </template>
@@ -187,7 +187,7 @@ function receive(id: number) {
                 <QueueAssignedAction
                   v-else
                   :user="row.received_by"
-                  :name="row.received_by_name ?? 'another user'"
+                  :name="row.received_by_name || 'another user'"
                 />
               </td>
             </tr>

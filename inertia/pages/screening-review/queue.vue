@@ -19,6 +19,7 @@ type Row = {
   visit_type: string | null
   priority: string | null
   updated_at_relative: string | null
+  queued_by_name: string | null
   received_by_name: string | null
   has_allergies: boolean
   can_manage: boolean
@@ -94,7 +95,8 @@ function attributionSegments(row: Row) {
                 <th>Encounter</th>
                 <th>Patient</th>
                 <th>Lab request</th>
-                <th>Attribution</th>
+                <th>Queued by</th>
+                <th>Lab staff</th>
                 <th class="text-right">Action</th>
               </tr>
             </template>
@@ -123,6 +125,9 @@ function attributionSegments(row: Row) {
                 <QueueInlineCell :segments="labRequestSegments(row)" :emphasize-first="false" />
               </td>
               <td>
+                <div class="queue-cell-sub font-medium">{{ row.queued_by_name || 'Unknown user' }}</div>
+              </td>
+              <td>
                 <QueueInlineCell :segments="attributionSegments(row)" :emphasize-first="false" />
               </td>
               <td class="queue-action-col">
@@ -148,7 +153,7 @@ function attributionSegments(row: Row) {
                 <th>Encounter</th>
                 <th>Patient</th>
                 <th>Review summary</th>
-                <th>Assigned to</th>
+                <th>Attending</th>
                 <th class="text-right">Action</th>
               </tr>
             </template>

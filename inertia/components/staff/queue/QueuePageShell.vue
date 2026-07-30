@@ -41,7 +41,7 @@ defineEmits<{
       v-if="isQueuePreview"
       class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100"
     >
-      Preview access is read-only on this queue. Receive and record actions are disabled.
+      Preview access is read-only on this queue. Receive and record actions are disabled — you can still see who queued each patient and who is attending.
     </div>
 
     <slot v-if="$slots.categories" name="categories" />

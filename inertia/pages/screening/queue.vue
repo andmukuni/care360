@@ -22,6 +22,8 @@ type Row = {
   visit_type: string | null
   priority: string | null
   updated_at_relative: string | null
+  queued_by_name: string | null
+  received_by_name: string | null
   has_allergies: boolean
   can_manage: boolean
   patient_age: number | null
@@ -172,7 +174,7 @@ onMounted(() => {
                 <th>Encounter</th>
                 <th>Patient</th>
                 <th>Clinical flags</th>
-                <th>Returned by</th>
+                <th>Queued by</th>
                 <th class="text-right">Action</th>
               </tr>
             </template>
@@ -199,14 +201,16 @@ onMounted(() => {
               <td>
                 <div class="flex flex-wrap items-center gap-2">
                   <span v-if="row.has_allergies" class="queue-chip queue-chip--warning">Allergies noted</span>
-                  <span v-if="row.return_reason" class="queue-cell-sub">{{ row.return_reason }}</span>
-                  <span v-if="!row.has_allergies && !row.return_reason" class="queue-cell-sub">No clinical flags</span>
+                  <span v-if="row.is_returned_from_pharmacy" class="queue-cell-sub">
+                    Returned by {{ row.returned_by_name ?? 'Unknown user' }}
+                    <template v-if="row.return_reason"> · {{ row.return_reason }}</template>
+                  </span>
+                  <span v-else-if="row.return_reason" class="queue-cell-sub">{{ row.return_reason }}</span>
+                  <span v-else-if="!row.has_allergies" class="queue-cell-sub">No clinical flags</span>
                 </div>
               </td>
               <td>
-                <div class="queue-cell-sub font-medium">
-                  {{ row.is_returned_from_pharmacy ? (row.returned_by_name ?? 'Unknown user') : '—' }}
-                </div>
+                <div class="queue-cell-sub font-medium">{{ row.queued_by_name || 'Unknown user' }}</div>
               </td>
               <td class="queue-action-col">
                 <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
@@ -253,7 +257,7 @@ onMounted(() => {
                 <th>Encounter</th>
                 <th>Patient</th>
                 <th>Assessment</th>
-                <th>Returned by</th>
+                <th>Attending</th>
                 <th class="text-right">Action</th>
               </tr>
             </template>
@@ -279,14 +283,12 @@ onMounted(() => {
               </td>
               <td><div class="queue-cell-sub">{{ row.assessment_summary ?? 'Assessment started' }}</div></td>
               <td>
-                <div class="queue-cell-sub font-medium">
-                  {{ row.is_returned_from_pharmacy ? (row.returned_by_name ?? 'Unknown user') : '—' }}
-                </div>
+                <div class="queue-cell-sub font-medium">{{ row.received_by_name || 'Unknown user' }}</div>
               </td>
               <td class="queue-action-col">
                 <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
                 <QueueRecordButton v-else-if="row.can_manage" :href="`/screening/${row.id}`" label="Continue" />
-                <span v-else class="queue-assigned">Assigned to another user</span>
+                <span v-else class="queue-assigned">Assigned to {{ row.received_by_name || 'another user' }}</span>
               </td>
             </tr>
           </QueueTable>

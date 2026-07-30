@@ -144,7 +144,7 @@ function routeChipClass(route: string | null) {
                 <th>Encounter</th>
                 <th>Patient</th>
                 <th>Medications</th>
-                <th>Received by</th>
+                <th>Attending</th>
                 <th class="text-right">Action</th>
               </tr>
             </template>
