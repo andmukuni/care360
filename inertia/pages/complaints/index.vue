@@ -18,9 +18,14 @@ interface Complaint {
   createdAtFormatted: string | null
   resolvedAt: string | null
   resolvedAtFormatted: string | null
+  reporterName?: string | null
+  reporterEmail?: string | null
 }
 
-const props = defineProps<{ complaints: Complaint[] }>()
+const props = defineProps<{
+  complaints: Complaint[]
+  viewAll?: boolean
+}>()
 
 const fieldClass =
   'theme-field encounters-filter-field w-full px-2.5 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 dark:text-neutral-100 dark:placeholder:text-neutral-500'
@@ -103,7 +108,7 @@ const kpiCards = computed(() => [
     key: 'total',
     label: 'Total reports',
     value: String(props.complaints.length),
-    meta: 'Issues you have submitted',
+    meta: props.viewAll ? 'All staff reports' : 'Issues you have submitted',
     tone: 'sky',
   },
   {
@@ -280,7 +285,12 @@ function submit() {
     <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
       <div class="max-w-3xl">
         <p class="text-sm text-neutral-500 dark:text-neutral-400">
-          Report bugs and platform issues so the team can investigate and fix them.
+          <template v-if="viewAll">
+            Review bugs and platform issues reported by staff across the clinic.
+          </template>
+          <template v-else>
+            Report bugs and platform issues so the team can investigate and fix them.
+          </template>
         </p>
         <p class="mt-1.5 border-l-2 border-sky-400/70 pl-3 text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
           Include steps to reproduce, what you expected, and the page URL. High-severity reports are prioritised.
@@ -428,6 +438,7 @@ function submit() {
           <thead>
             <tr class="staff-table-head">
               <th class="px-4 py-2.5 text-left">Issue</th>
+              <th v-if="viewAll" class="px-4 py-2.5 text-left">Reporter</th>
               <th class="px-4 py-2.5 text-left">Severity</th>
               <th class="px-4 py-2.5 text-left">Status</th>
               <th class="px-4 py-2.5 text-left">Submitted</th>
@@ -447,6 +458,10 @@ function submit() {
                 <p v-if="row.resolvedAtFormatted" class="mt-1 text-xs text-green-700 dark:text-green-400">
                   Resolved {{ row.resolvedAtFormatted }}
                 </p>
+              </td>
+              <td v-if="viewAll" class="px-4 py-2.5 text-xs text-neutral-600 dark:text-neutral-300">
+                <p class="font-medium text-neutral-800 dark:text-neutral-100">{{ row.reporterName || '—' }}</p>
+                <p v-if="row.reporterEmail" class="text-neutral-500">{{ row.reporterEmail }}</p>
               </td>
               <td class="px-4 py-2.5">
                 <span :class="severityBadgeClass(row.severity)">{{ severityLabel(row.severity) }}</span>
@@ -490,7 +505,7 @@ function submit() {
               </td>
             </tr>
             <tr v-if="!filteredComplaints.length">
-              <td colspan="6" class="px-4 py-12 text-center text-sm text-neutral-500">
+              <td :colspan="viewAll ? 7 : 6" class="px-4 py-12 text-center text-sm text-neutral-500">
                 <template v-if="hasFilters">
                   No reports match the current filters.
                   <button type="button" class="font-medium text-neutral-800 underline dark:text-neutral-200" @click="clearFilters">
@@ -517,6 +532,9 @@ function submit() {
             <h2 class="text-base font-semibold text-neutral-900 dark:text-neutral-100">{{ viewingComplaint.title }}</h2>
             <p class="mt-1 text-xs text-neutral-500">
               Submitted {{ viewingComplaint.createdAtFormatted ?? '—' }}
+              <span v-if="viewAll && (viewingComplaint.reporterName || viewingComplaint.reporterEmail)">
+                · by {{ viewingComplaint.reporterName || viewingComplaint.reporterEmail }}
+              </span>
               <span v-if="viewingComplaint.resolvedAtFormatted"> · Resolved {{ viewingComplaint.resolvedAtFormatted }}</span>
             </p>
           </div>

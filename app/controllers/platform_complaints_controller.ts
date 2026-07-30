@@ -2,13 +2,14 @@ import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
 import { DateTime } from 'luxon'
 import PlatformComplaint from '#models/platform_complaint'
+import type User from '#models/user'
 
 /**
  * Platform complaint / issue reporting for staff.
  * Ported from App\Http\Controllers\PlatformComplaintController (+ StorePlatformComplaintRequest).
  *
- * The Laravel version paginated the current user's complaints server-side; here
- * `index` returns the full ordered set for a client-side DataTable.
+ * Regular staff see only their own reports. Super-admins see every report and
+ * can resolve any of them.
  */
 const complaintValidator = vine.compile(
   vine.object({
@@ -19,7 +20,12 @@ const complaintValidator = vine.compile(
   })
 )
 
-function serializeComplaint(c: PlatformComplaint) {
+async function canManageAllComplaints(user: User | undefined): Promise<boolean> {
+  if (!user) return false
+  return user.hasRole('super-admin')
+}
+
+function serializeComplaint(c: PlatformComplaint, includeReporter: boolean) {
   return {
     id: c.id,
     title: c.title,
@@ -31,20 +37,30 @@ function serializeComplaint(c: PlatformComplaint) {
     createdAtFormatted: c.createdAt ? c.createdAt.toFormat('dd LLL yyyy HH:mm') : null,
     resolvedAt: c.resolvedAt ? c.resolvedAt.toISO() : null,
     resolvedAtFormatted: c.resolvedAt ? c.resolvedAt.toFormat('dd LLL yyyy HH:mm') : null,
+    reporterName: includeReporter ? (c.user?.name ?? null) : null,
+    reporterEmail: includeReporter ? (c.user?.email ?? null) : null,
   }
 }
 
 export default class PlatformComplaintsController {
   async index({ inertia, auth }: HttpContext) {
-    const userId = auth.user?.id ?? 0
+    const user = auth.user
+    const userId = user?.id ?? 0
+    const viewAll = await canManageAllComplaints(user)
 
-    const complaints = await PlatformComplaint.query()
-      .where('userId', userId)
-      .orderBy('createdAt', 'desc')
-      .orderBy('id', 'desc')
+    const query = PlatformComplaint.query().orderBy('createdAt', 'desc').orderBy('id', 'desc')
+
+    if (viewAll) {
+      query.preload('user', (q) => q.select('id', 'name', 'email'))
+    } else {
+      query.where('userId', userId)
+    }
+
+    const complaints = await query
 
     return inertia.render('complaints/index', {
-      complaints: complaints.map(serializeComplaint),
+      complaints: complaints.map((c) => serializeComplaint(c, viewAll)),
+      viewAll,
     })
   }
 
@@ -65,15 +81,20 @@ export default class PlatformComplaintsController {
   }
 
   /**
-   * Mark the current user's own complaint as resolved.
-   * Ownership is enforced so staff cannot resolve another user's report.
+   * Mark a complaint as resolved.
+   * Owners can resolve their own; super-admins can resolve any.
    */
   async resolve({ params, response, session, auth }: HttpContext) {
-    const userId = auth.user?.id ?? 0
-    const complaint = await PlatformComplaint.query()
-      .where('id', params.id)
-      .where('userId', userId)
-      .firstOrFail()
+    const user = auth.user
+    const userId = user?.id ?? 0
+    const viewAll = await canManageAllComplaints(user)
+
+    const query = PlatformComplaint.query().where('id', params.id)
+    if (!viewAll) {
+      query.where('userId', userId)
+    }
+
+    const complaint = await query.firstOrFail()
 
     if (complaint.status !== 'resolved') {
       complaint.status = 'resolved'
