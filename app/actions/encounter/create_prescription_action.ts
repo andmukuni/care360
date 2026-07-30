@@ -138,7 +138,7 @@ export default class CreatePrescriptionAction {
             durationUnit: item.duration_unit ?? null,
             startDate: toDateTime(item.start_date ?? null),
             endDate: toDateTime(item.end_date ?? null),
-            quantityPrescribed: Math.max(1, Number(item.quantity_prescribed ?? 1)),
+            quantityPrescribed: Math.max(0.01, Number(item.quantity_prescribed ?? 1)),
             route: item.route ?? null,
             isPasserBy: parsePasserBy(item.is_passer_by),
             instructions: item.instructions ?? null,

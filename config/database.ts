@@ -24,11 +24,12 @@ const dbConfig = defineConfig({
       },
       pool: {
         min: 0,
-        // A small dev pool avoids wedging when the remote DB is slow or unreachable.
-        max: isDev ? 5 : 20,
+        // Production needs enough headroom for concurrent clinical screens;
+        // a saturated pool surfaces as KnexTimeoutError across the whole app.
+        max: isDev ? 5 : 40,
         idleTimeoutMillis: 15_000,
-        acquireTimeoutMillis: 8_000,
-        createTimeoutMillis: 5_000,
+        acquireTimeoutMillis: isDev ? 8_000 : 20_000,
+        createTimeoutMillis: 10_000,
         propagateCreateError: true,
         reapIntervalMillis: 3_000,
         createRetryIntervalMillis: 500,
