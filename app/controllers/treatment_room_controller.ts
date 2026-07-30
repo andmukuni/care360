@@ -12,6 +12,7 @@ import { closeEncounterValidator } from '#validators/staff/pharmacy'
 import {
   initialScreeningRecord,
   isQueuePreviewForStage,
+  isSuperAdminUser,
   latestStageTransition,
   paginateCachedStageQueue,
   parseQueuePages,
@@ -30,6 +31,7 @@ export default class TreatmentRoomController {
   async queue({ inertia, request, auth }: HttpContext) {
     const { queuedPage, progressPage } = parseQueuePages(request)
     const currentUserId = auth.use('web').user?.id ?? null
+    const forceManage = await isSuperAdminUser(auth)
     const isQueuePreview = await isQueuePreviewForStage(auth, EncounterStage.TreatmentRoom)
 
     const { queued, inProgress } = await paginateCachedStageQueue({
@@ -37,6 +39,7 @@ export default class TreatmentRoomController {
       queuedPage,
       progressPage,
       currentUserId,
+      forceManage,
       orderBy: 'clinical',
       preload: (query) => {
         query.preload('pharmacyPrescriptions', (q: any) => q.preload('prescribedByUser'))

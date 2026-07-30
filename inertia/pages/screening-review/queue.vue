@@ -78,7 +78,7 @@ function attributionSegments(row: Row) {
 
     <QueuePageShell
       title="Screening Review Queue"
-      description="Review lab results, finalize diagnosis, and send updated prescriptions to pharmacy."
+      description="Shared review pool — any clinician can receive and review patients after lab returns results."
       :tab="tab"
       :queued-total="queued.meta.total"
       :in-progress-total="inProgress.meta.total"
@@ -180,8 +180,7 @@ function attributionSegments(row: Row) {
               <td><div class="queue-cell-sub font-medium">{{ row.received_by_name || 'Unknown user' }}</div></td>
               <td class="queue-action-col">
                 <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
-                <QueueRecordButton v-else-if="row.can_manage" :href="`/screening-review/${row.id}`" label="Review" />
-                <span v-else class="queue-assigned">Assigned to {{ row.received_by_name || 'another user' }}</span>
+                <QueueRecordButton v-else :href="`/screening-review/${row.id}`" label="Review" />
               </td>
             </tr>
           </QueueTable>

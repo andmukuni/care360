@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { Link, useForm } from '@inertiajs/vue3'
+import { Link, router, useForm } from '@inertiajs/vue3'
 import { computed, ref, watch } from 'vue'
 import UserBadge from '~/components/staff/UserBadge.vue'
 import GcsAssessmentDisplay from '~/components/encounter/GcsAssessmentDisplay.vue'
 import LabRequestResultsTable from '~/components/lab/LabRequestResultsTable.vue'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
+import { confirmDialog } from '~/composables/useConfirm'
 import {
   abdominalCircumferenceBadge,
   bloodSugarBadge,
@@ -28,6 +29,13 @@ import { isGcsAssessmentNotes } from '~/support/screening/gcs_assessment'
 
 const props = defineProps<{
   encounter: any
+  canSelectAnyStage?: boolean
+  adminStages?: Array<{
+    value: string
+    label: string
+    url: string
+    isCurrent: boolean
+  }>
 }>()
 
 type TriageVitalCard = {
@@ -41,6 +49,33 @@ type TriageVitalCard = {
 
 const tab = ref('overview')
 const showReopenModal = ref(false)
+const movingStage = ref<string | null>(null)
+
+async function moveToStage(stage: { value: string; label: string; isCurrent: boolean }) {
+  if (
+    !(await confirmDialog({
+      title: stage.isCurrent ? 'Open stage for recording?' : 'Move encounter to stage?',
+      message: stage.isCurrent
+        ? `Open ${stage.label} so you can record on this encounter as super-admin?`
+        : `Move this encounter to ${stage.label} and open it for recording?`,
+      confirmLabel: stage.isCurrent ? 'Open stage' : 'Move & open',
+      variant: 'warning',
+    }))
+  ) {
+    return
+  }
+
+  movingStage.value = stage.value
+  router.post(
+    `/encounters/${props.encounter.id}/move-to-stage`,
+    { target_stage: stage.value },
+    {
+      onFinish: () => {
+        movingStage.value = null
+      },
+    }
+  )
+}
 
 type ScreeningSubTabId =
   | 'overview'
@@ -605,6 +640,33 @@ function submitReopen(encounterId: number) {
             {{ stage.label }}
           </div>
           <span v-if="index < encounter.stageStrip.length - 1" class="stage-arrow">›</span>
+        </div>
+      </div>
+
+      <div
+        v-if="canSelectAnyStage && adminStages?.length"
+        class="mt-4 border-t border-neutral-200 px-1 pt-3 dark:border-neutral-800"
+      >
+        <div class="mb-2 flex items-center justify-between gap-2">
+          <p class="text-[11px] font-bold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+            Super Admin · Open any stage to record
+          </p>
+          <span v-if="movingStage" class="text-[11px] text-neutral-400">Opening…</span>
+        </div>
+        <div class="flex flex-wrap gap-1.5">
+          <ActionButton
+            v-for="stage in adminStages"
+            :key="stage.value"
+            variant="outline"
+            class="!min-h-0 !px-2.5 !py-1 text-xs"
+            :disabled="movingStage !== null"
+            :loading="movingStage === stage.value"
+            loading-text="…"
+            @click="moveToStage(stage)"
+          >
+            <span :class="stage.isCurrent ? 'font-semibold' : ''">{{ stage.label }}</span>
+            <span v-if="stage.isCurrent" class="ml-1 text-[10px] uppercase text-amber-600">current</span>
+          </ActionButton>
         </div>
       </div>
     </div>

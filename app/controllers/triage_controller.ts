@@ -16,6 +16,8 @@ import { EncounterStatus } from '#enums/encounter_status'
 import ReceiveTriageQueueAction from '#actions/encounter/receive_triage_queue_action'
 import RecordTriageAction from '#actions/encounter/record_triage_action'
 import QueueEncounterToScreeningAction from '#actions/encounter/queue_encounter_to_screening_action'
+import CloseEncounterFromTriageAction from '#actions/encounter/close_encounter_from_triage_action'
+import { closeEncounterValidator } from '#validators/staff/pharmacy'
 import { getTriageRecord } from '#services/encounter/encounter_records'
 import { EncounterWorkflowService } from '#services/encounter/encounter_workflow_service'
 import { normalizeTriageVitalsPayload, toDateTime } from '#support/encounter/coerce'
@@ -26,7 +28,11 @@ import { errors as vineErrors } from '@vinejs/vine'
 import { queueUserBadge } from '#support/queue/queue_user_badge'
 import QueueCache from '#services/cache/queue_cache'
 import { stageQueuePageKey } from '#services/cache/queue_cache_keys'
-import { isQueuePreviewForStage, patchQueueCanManage } from '#support/queue/stage_queue_helpers'
+import {
+  isQueuePreviewForStage,
+  isSuperAdminUser,
+  patchQueueCanManage,
+} from '#support/queue/stage_queue_helpers'
 
 /**
  * Triage workbench. Ported from App\Http\Controllers\TriageController.
@@ -125,6 +131,7 @@ export default class TriageController {
   async queue({ inertia, request, auth }: HttpContext) {
     const user = auth.use('web').user ?? null
     const currentUserId = user?.id ?? null
+    const forceManage = await isSuperAdminUser(auth)
     const isQueuePreview = await isQueuePreviewForStage(auth, EncounterStage.Triage)
 
     const queuedPage = Math.max(1, Number(request.qs().queued_page ?? 1))
@@ -169,8 +176,8 @@ export default class TriageController {
 
     return inertia.render('triage/queue', {
       isQueuePreview,
-      queued: patchQueueCanManage(cached.queued, currentUserId),
-      inProgress: patchQueueCanManage(cached.inProgress, currentUserId),
+      queued: patchQueueCanManage(cached.queued, currentUserId, forceManage),
+      inProgress: patchQueueCanManage(cached.inProgress, currentUserId, forceManage),
     })
   }
 
@@ -456,6 +463,41 @@ export default class TriageController {
     }
 
     session.flash('success', `Encounter ${encounter.encounterNumber} queued to Screening.`)
+    return response.redirect().toPath('/triage/queue')
+  }
+
+  // POST /triage/:encounter/close
+  async close({ params, request, response, session, auth, bouncer }: HttpContext) {
+    const user = auth.getUserOrFail()
+    const encounter = await Encounter.findOrFail(params.encounter)
+
+    await (bouncer as any)
+      .with('EncounterPolicy')
+      .authorize('advanceFromStage', encounter, EncounterStage.Triage)
+
+    if (encounter.currentStage !== EncounterStage.Triage) {
+      session.flash('error', 'This encounter is no longer at triage and cannot be ended here.')
+      return response.redirect().toPath(`/triage/${encounter.id}`)
+    }
+
+    const { closure_notes } = await request.validateUsing(closeEncounterValidator)
+
+    // Persist any vitals submitted with the close request when they validate.
+    try {
+      const vitalsData = await validateTriageVitalsRequest(request)
+      await new RecordTriageAction().handle(encounter, vitalsData as Record<string, any>, user.id)
+    } catch {
+      // End encounter is allowed even when vitals are incomplete.
+    }
+
+    try {
+      await new CloseEncounterFromTriageAction().handle(encounter, user.id, closure_notes ?? null)
+    } catch (error) {
+      session.flash('error', error.message)
+      return response.redirect().back()
+    }
+
+    session.flash('success', `Encounter ${encounter.encounterNumber} ended at Triage.`)
     return response.redirect().toPath('/triage/queue')
   }
 

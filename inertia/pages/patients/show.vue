@@ -4,6 +4,7 @@ import { Link, router, useForm } from '@inertiajs/vue3'
 import JsBarcode from 'jsbarcode'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
+import StartEncounterModal from '~/components/registration/StartEncounterModal.vue'
 
 interface NotificationItem {
   id: string
@@ -57,6 +58,7 @@ const props = defineProps<{
 const tab = ref<TabId>('overview')
 const notifications = ref<NotificationItem[]>([...props.patientNotifications])
 const showPasswordForm = ref(false)
+const showStartEncounter = ref(false)
 const barcodeSvgRef = ref<SVGSVGElement | null>(null)
 
 const passwordForm = useForm({
@@ -170,6 +172,16 @@ const hasAllergies = computed(() => {
   return value !== '' && value !== '—' && value.toLowerCase() !== 'none'
 })
 
+const activeEncounterId = computed(() => {
+  const active = props.recentEncounters.find(
+    (enc) =>
+      ACTIVE_STAGES.has(String(enc.current_stage ?? '').toLowerCase()) &&
+      String(enc.current_status ?? '').toLowerCase() !== 'completed' &&
+      enc.closed_at === null
+  )
+  return active?.id ?? null
+})
+
 function calcAge(dob: string | null | undefined): number | null {
   if (!dob) return null
   const date = new Date(dob)
@@ -233,11 +245,12 @@ function memberAvatarClass(gender: string): string {
   return 'hero-avatar--other'
 }
 
-function startEncounter(visitType: string) {
-  router.post('/encounters/start', {
-    patient_id: props.patientDbId,
-    visit_type: visitType,
-  })
+function openStartEncounter() {
+  showStartEncounter.value = true
+}
+
+function closeStartEncounter() {
+  showStartEncounter.value = false
 }
 
 function sendInvitation() {
@@ -416,14 +429,12 @@ watch(tab, (next) => {
         </Link>
 
         <template v-if="canStartEncounter && !patient.isDeceased">
-          <button type="button" class="patient-action-btn patient-action-btn--primary" @click="startEncounter('OPD')">
+          <button type="button" class="patient-action-btn patient-action-btn--primary" @click="openStartEncounter">
             <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
             </svg>
             {{ isRegistrationClerk ? 'Start Encounter' : 'Attend to Patient' }}
           </button>
-          <button type="button" class="patient-action-btn" @click="startEncounter('Admission')">Admission</button>
-          <button type="button" class="patient-action-btn" @click="startEncounter('Appointment')">Appointment</button>
         </template>
 
         <Link
@@ -900,5 +911,15 @@ watch(tab, (next) => {
         </div>
       </div>
     </div>
+
+    <StartEncounterModal
+      :open="showStartEncounter"
+      :patient-db-id="patientDbId"
+      :patient-name="patient.fullName"
+      :is-deceased="!!patient.isDeceased"
+      :status="String(patient.status || '').toLowerCase()"
+      :active-encounter-id="activeEncounterId"
+      @close="closeStartEncounter"
+    />
   </StaffLayout>
 </template>

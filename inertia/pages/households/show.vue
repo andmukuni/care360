@@ -137,7 +137,16 @@ function extractHead() {
 }
 
 function printBarcode() {
-  window.print()
+  const run = () => {
+    renderBarcode()
+    window.print()
+  }
+  if (tab.value !== 'barcode') {
+    tab.value = 'barcode'
+    setTimeout(run, 50)
+    return
+  }
+  run()
 }
 
 function renderBarcode() {
@@ -232,7 +241,9 @@ watch(tab, (next) => {
           </svg>
           Extract Head as Patient
         </button>
-        <Link href="/households/barcodes/print" class="patient-action-btn">Print Barcodes</Link>
+        <button type="button" class="patient-action-btn" @click="printBarcode">
+          Print Barcode
+        </button>
         <Link
           :href="`/patients/create?household_id=${household.householdId}`"
           class="patient-action-btn"

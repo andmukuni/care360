@@ -36,6 +36,7 @@ import {
 import {
   applyScreeningCategoryFilter,
   isQueuePreviewForStage,
+  isSuperAdminUser,
   paginateScreeningCategoryQueue,
   parseQueuePages,
   screeningQueueRow,
@@ -172,6 +173,7 @@ export default class ScreeningController {
     const cat = request.qs().cat === 'pediatric' ? 'pediatric' : 'adult'
     const { queuedPage, progressPage } = parseQueuePages(request)
     const currentUserId = auth.use('web').user?.id ?? null
+    const forceManage = await isSuperAdminUser(auth)
     const isQueuePreview = await isQueuePreviewForStage(auth, EncounterStage.Screening)
 
     const [adultQueues, pediatricQueues] = await Promise.all([
@@ -180,12 +182,14 @@ export default class ScreeningController {
         queuedPage,
         progressPage,
         currentUserId,
+        forceManage,
       }),
       paginateScreeningCategoryQueue({
         cat: 'pediatric',
         queuedPage,
         progressPage,
         currentUserId,
+        forceManage,
       }),
     ])
 

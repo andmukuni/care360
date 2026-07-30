@@ -40,12 +40,15 @@ export default class ScreeningReviewController {
     const { queuedPage, progressPage } = parseQueuePages(request)
     const currentUserId = auth.use('web').user?.id ?? null
     const isQueuePreview = await isQueuePreviewForStage(auth, EncounterStage.ScreeningReview)
+    // Shared clinician pool: any non-preview user may open/review any in-progress row.
+    const forceManage = !isQueuePreview
 
     const { queued, inProgress } = await paginateCachedStageQueue({
       stage: EncounterStage.ScreeningReview,
       queuedPage,
       progressPage,
       currentUserId,
+      forceManage,
       orderBy: 'lab',
       preload: (query) => {
         query.preload('screeningRecords')

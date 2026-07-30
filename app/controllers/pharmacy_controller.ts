@@ -25,6 +25,7 @@ import {
   closedEncounterRow,
   initialScreeningRecord,
   isQueuePreviewForStage,
+  isSuperAdminUser,
   latestStageTransition,
   paginateCachedClosedEncounters,
   paginateCachedPharmacyQueue,
@@ -58,6 +59,7 @@ export default class PharmacyController {
     )
     const closedSearch = String(request.qs().closed_search ?? '').trim()
     const currentUserId = auth.use('web').user?.id ?? null
+    const forceManage = await isSuperAdminUser(auth)
     const isQueuePreview = await isQueuePreviewForStage(auth, EncounterStage.Pharmacy)
 
     const pharmacyPreload = (query: any) => {
@@ -76,6 +78,7 @@ export default class PharmacyController {
       progressPage,
       partiallyDispensedPage,
       currentUserId,
+      forceManage,
       preload: pharmacyPreload,
     })
 

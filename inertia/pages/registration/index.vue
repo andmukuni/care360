@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Link } from '@inertiajs/vue3'
+import { Link, router } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import Spinner from '~/components/ui/Spinner.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
@@ -11,9 +11,11 @@ import QueueEmptyState from '~/components/staff/queue/QueueEmptyState.vue'
 import QueueLiveIndicator from '~/components/staff/queue/QueueLiveIndicator.vue'
 import QueuePrioritySelect from '~/components/staff/queue/QueuePrioritySelect.vue'
 import PatientMembershipMiniCard from '~/components/billing/PatientMembershipMiniCard.vue'
+import TableIconButton from '~/components/staff/TableIconButton.vue'
 import { useRegistrationDesk, type PatientSearchResult } from '~/composables/useRegistrationDesk'
 import { useLiveQueueRefresh } from '~/composables/useLiveQueueRefresh'
 import { resolveMembershipCardTheme } from '~/constants/membershipPlanThemes'
+import { confirmDialog } from '~/composables/useConfirm'
 
 const props = defineProps<{
   activeEncounters: {
@@ -48,6 +50,21 @@ useLiveQueueRefresh({
   stages: ['registration'],
   only: ['activeEncounters'],
 })
+
+async function deleteEncounter(enc: { id: number; encounter_number: string; patient_name: string }) {
+  if (
+    !(await confirmDialog({
+      title: 'Delete encounter?',
+      message: `Delete ${enc.encounter_number} for ${enc.patient_name}? This is only allowed before queueing to triage.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    }))
+  ) {
+    return
+  }
+
+  router.delete(`/encounters/${enc.id}`, { preserveScroll: true })
+}
 
 const showEncounterModal = ref(false)
 
@@ -436,6 +453,12 @@ function onAddVillageClick() {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                       </svg>
                     </Link>
+                    <TableIconButton
+                      variant="delete"
+                      tone="danger"
+                      title="Delete encounter"
+                      @click="deleteEncounter(enc)"
+                    />
                   </div>
                 </div>
               </div>

@@ -23,6 +23,7 @@ import {
 } from '#validators/staff/lab'
 import {
   isQueuePreviewForStage,
+  isSuperAdminUser,
   labQueueRow,
   latestStageTransition,
   paginateCachedStageQueue,
@@ -61,6 +62,7 @@ export default class LabController {
   async queue({ inertia, request, auth }: HttpContext) {
     const { queuedPage, progressPage } = parseQueuePages(request)
     const currentUserId = auth.use('web').user?.id ?? null
+    const forceManage = await isSuperAdminUser(auth)
     const isQueuePreview = await isQueuePreviewForStage(auth, EncounterStage.Lab)
 
     const { queued, inProgress } = await paginateCachedStageQueue({
@@ -68,6 +70,7 @@ export default class LabController {
       queuedPage,
       progressPage,
       currentUserId,
+      forceManage,
       orderBy: 'lab',
       preload: (query) => {
         query.preload('labRequests', (q: any) => q.preload('labRequestItems'))

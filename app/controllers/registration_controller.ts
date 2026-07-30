@@ -7,6 +7,7 @@ import { EncounterStatus, EncounterStatusHelper } from '#enums/encounter_status'
 import StartEncounterAction from '#actions/encounter/start_encounter_action'
 import SearchPatientAction from '#actions/encounter/search_patient_action'
 import QueueEncounterToTriageAction from '#actions/encounter/queue_encounter_to_triage_action'
+import DeleteRegistrationEncounterAction from '#actions/encounter/delete_registration_encounter_action'
 import PatientBillingService from '#services/portal/patient_billing_service'
 import {
   ActiveEncounterExistsException,
@@ -316,6 +317,22 @@ export default class RegistrationController {
     }
 
     session.flash('success', `Encounter ${encounter.encounterNumber} queued to Triage.`)
+    return response.redirect().toPath('/registration')
+  }
+
+  // DELETE /encounters/:encounter
+  async destroy({ params, response, session, auth }: HttpContext) {
+    const user = auth.getUserOrFail()
+    const encounter = await Encounter.findOrFail(params.encounter)
+
+    try {
+      await new DeleteRegistrationEncounterAction().handle(encounter, user.id)
+    } catch (error) {
+      session.flash('error', error.message ?? 'Unable to delete this encounter.')
+      return response.redirect().back()
+    }
+
+    session.flash('success', `Encounter ${encounter.encounterNumber} deleted.`)
     return response.redirect().toPath('/registration')
   }
 }

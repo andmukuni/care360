@@ -280,6 +280,8 @@ let medSearchTimer: ReturnType<typeof setTimeout> | null = null
 const { showQueueHint, dismissQueueHint } = useQueueFooterHint('triage', props.encounter.id)
 
 const queueActionsModalOpen = ref(false)
+const closureNotes = ref('')
+const endingEncounter = ref(false)
 
 const dimmerVisible = computed(
   () =>
@@ -462,6 +464,24 @@ async function complete() {
   calculateMuacScore()
   if (!(await flushAutosavesBeforeAction({ required: false }))) return
   vitals.post(`/triage/${props.encounter.id}/complete`)
+}
+
+async function endEncounter() {
+  dismissQueueHint()
+  calculateBmi()
+  calculateMuacScore()
+  if (!(await flushAutosavesBeforeAction({ required: false }))) return
+  endingEncounter.value = true
+  vitals
+    .transform((data) => ({
+      ...data,
+      closure_notes: closureNotes.value.trim() || null,
+    }))
+    .post(`/triage/${props.encounter.id}/close`, {
+      onFinish: () => {
+        endingEncounter.value = false
+      },
+    })
 }
 
 function openQueueFooter() {
@@ -1230,7 +1250,7 @@ onUnmounted(() => {
 
             <QueueFooter
               :show-hint="showQueueHint"
-              aria-label="Queue patient — save vitals and send to screening"
+              aria-label="Queue patient or end encounter"
               @click="openQueueFooter"
             />
           </form>
@@ -1807,8 +1827,11 @@ onUnmounted(() => {
 
     <TriageQueueActionsModal
       v-model:show="queueActionsModalOpen"
-      :complete-loading="vitals.processing"
+      v-model:closure-notes="closureNotes"
+      :complete-loading="vitals.processing && !endingEncounter"
+      :end-loading="endingEncounter && vitals.processing"
       @complete="complete"
+      @end-encounter="endEncounter"
     />
   </StaffLayout>
 </template>

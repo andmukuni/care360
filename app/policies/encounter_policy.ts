@@ -20,8 +20,13 @@ export default class EncounterPolicy extends BasePolicy {
    * When an encounter is being worked on (in_progress), only the clinician who
    * received it into its current stage may act on it. Legacy data without a
    * captured receive transition is not hard-blocked.
+   * Super-admins may take over any in-progress stage.
    */
   private async isCurrentStageReceiver(user: User, encounter: Encounter): Promise<boolean> {
+    if (await this.isSuperAdmin(user)) {
+      return true
+    }
+
     if (encounter.currentStatus !== EncounterStatus.InProgress) {
       return true
     }
@@ -52,6 +57,10 @@ export default class EncounterPolicy extends BasePolicy {
 
   private isLegacyUserWithoutRbac(user: User): Promise<boolean> {
     return user.isLegacyUserWithoutRbac()
+  }
+
+  private isSuperAdmin(user: User): Promise<boolean> {
+    return user.hasRole('super-admin')
   }
 
   async viewAny(user: User): Promise<boolean> {
@@ -195,6 +204,10 @@ export default class EncounterPolicy extends BasePolicy {
     encounter: Encounter,
     stage: EncounterStage
   ): Promise<boolean> {
+    if (await this.isSuperAdmin(user)) {
+      return this.abac.canReceiveFromQueue(encounter, stage)
+    }
+
     let canRole = false
     switch (stage) {
       case EncounterStage.Triage:
@@ -230,13 +243,18 @@ export default class EncounterPolicy extends BasePolicy {
   }
 
   async editInStage(user: User, encounter: Encounter, stage: EncounterStage): Promise<boolean> {
+    if (await this.isSuperAdmin(user)) {
+      return this.abac.canEditInProgress(encounter, stage)
+    }
+
     const canRole = (await this.isLegacyUserWithoutRbac(user)) || (await this.view(user, encounter))
 
-    return (
-      canRole &&
-      (await this.isCurrentStageReceiver(user, encounter)) &&
-      this.abac.canEditInProgress(encounter, stage)
-    )
+    // Screening Review is a shared pool — any authorized clinician may record,
+    // not only the clinician who originally requested labs or received the row.
+    const receiverOk =
+      stage === EncounterStage.ScreeningReview || (await this.isCurrentStageReceiver(user, encounter))
+
+    return canRole && receiverOk && this.abac.canEditInProgress(encounter, stage)
   }
 
   async advanceFromStage(
@@ -244,12 +262,15 @@ export default class EncounterPolicy extends BasePolicy {
     encounter: Encounter,
     stage: EncounterStage
   ): Promise<boolean> {
+    if (await this.isSuperAdmin(user)) {
+      return this.abac.canAdvanceToNextStage(encounter, stage)
+    }
+
     const canRole = (await this.isLegacyUserWithoutRbac(user)) || (await this.view(user, encounter))
 
-    return (
-      canRole &&
-      (await this.isCurrentStageReceiver(user, encounter)) &&
-      this.abac.canAdvanceToNextStage(encounter, stage)
-    )
+    const receiverOk =
+      stage === EncounterStage.ScreeningReview || (await this.isCurrentStageReceiver(user, encounter))
+
+    return canRole && receiverOk && this.abac.canAdvanceToNextStage(encounter, stage)
   }
 }

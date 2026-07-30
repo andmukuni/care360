@@ -7,6 +7,9 @@ import { EncounterDetailService } from '#services/encounter/encounter_detail_ser
 import { EncounterShowSerializer } from '#services/encounter/encounter_show_serializer'
 import ReopenEncounterAction from '#actions/encounter/reopen_encounter_action'
 import ReopenEncounterToStageAction from '#actions/encounter/reopen_encounter_to_stage_action'
+import AdminMoveEncounterToStageAction, {
+  stageWorkspaceUrl,
+} from '#actions/encounter/admin_move_encounter_to_stage_action'
 import UpdateEncounterPriorityAction, {
   ENCOUNTER_PRIORITY_LEVELS,
 } from '#actions/encounter/update_encounter_priority_action'
@@ -51,12 +54,21 @@ export default class EncountersController {
   }
 
   // GET /encounters/:encounter
-  async show({ params, inertia }: HttpContext) {
+  async show({ params, inertia, auth }: HttpContext) {
     const encounter = await Encounter.findOrFail(params.encounter)
     await this.detailService.load(encounter)
+    const user = auth.use('web').user ?? null
+    const canSelectAnyStage = user ? await user.hasRole('super-admin') : false
 
     return inertia.render('encounters/show', {
       encounter: await this.showSerializer.serialize(encounter),
+      canSelectAnyStage,
+      adminStages: EncounterStageHelper.activeStages().map((s) => ({
+        value: s,
+        label: EncounterStageHelper.label(s),
+        url: stageWorkspaceUrl(s, encounter.id),
+        isCurrent: encounter.currentStage === s,
+      })),
       reopenStages: EncounterStageHelper.activeStages().map((s) => ({
         value: s,
         label: EncounterStageHelper.label(s),
@@ -87,6 +99,44 @@ export default class EncountersController {
 
     session.flash('success', `Encounter ${encounter.encounterNumber} has been reopened.`)
     return response.redirect().toPath(`/encounters/${encounter.id}`)
+  }
+
+  // POST /encounters/:encounter/move-to-stage  (super-admin)
+  async moveToStage({ params, request, response, session, auth }: HttpContext) {
+    const user = auth.getUserOrFail()
+    if (!(await user.hasRole('super-admin'))) {
+      session.flash('error', 'Only super-admins can move an encounter to any stage.')
+      return response.redirect().back()
+    }
+
+    const encounter = await Encounter.findOrFail(params.encounter)
+    const stageValues = EncounterStageHelper.activeStages()
+    const validator = vine.compile(
+      vine.object({
+        target_stage: vine.enum(stageValues),
+        notes: vine.string().trim().maxLength(500).nullable().optional(),
+      })
+    )
+    const data = await request.validateUsing(validator)
+    const targetStage = data.target_stage as EncounterStage
+
+    try {
+      await new AdminMoveEncounterToStageAction().handle(
+        encounter,
+        targetStage,
+        user.id,
+        data.notes ?? null
+      )
+    } catch (error) {
+      session.flash('error', error.message)
+      return response.redirect().back()
+    }
+
+    session.flash(
+      'success',
+      `Encounter ${encounter.encounterNumber} opened at ${EncounterStageHelper.label(targetStage)} for recording.`
+    )
+    return response.redirect().toPath(stageWorkspaceUrl(targetStage, encounter.id))
   }
 
   // POST /encounters/:encounter/reopen-to-stage

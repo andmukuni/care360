@@ -210,6 +210,10 @@ export async function isQueuePreviewForStage(
   const user = auth.use('web').user ?? null
   if (!user) return true
 
+  if (await user.hasRole('super-admin')) {
+    return false
+  }
+
   if (await isRegistrationClerk(auth) && stage !== EncounterStage.Registration) {
     return true
   }
@@ -218,6 +222,12 @@ export async function isQueuePreviewForStage(
   if (!receivePerm) return false
 
   return !(await user.hasPermission(receivePerm))
+}
+
+export async function isSuperAdminUser(auth: HttpContext['auth']): Promise<boolean> {
+  const user = auth.use('web').user ?? null
+  if (!user) return false
+  return user.hasRole('super-admin')
 }
 
 export function latestStageTransition(
@@ -259,7 +269,8 @@ type CanManagePatchable = {
 
 export function patchQueueCanManage<T extends CanManagePatchable>(
   payload: QueuePaginatorPayload<T>,
-  currentUserId: number | null
+  currentUserId: number | null,
+  forceManage = false
 ): QueuePaginatorPayload<Omit<T, 'received_by_id'>> {
   return {
     data: payload.data.map((row) => {
@@ -268,7 +279,9 @@ export function patchQueueCanManage<T extends CanManagePatchable>(
       return {
         ...rest,
         can_manage:
-          !receivedById || (currentUserId !== null && receivedById === currentUserId),
+          forceManage ||
+          !receivedById ||
+          (currentUserId !== null && receivedById === currentUserId),
       } as Omit<T, 'received_by_id'>
     }),
     meta: payload.meta,
@@ -674,6 +687,7 @@ export async function paginateScreeningCategoryQueue(options: {
   queuedPage: number
   progressPage: number
   currentUserId: number | null
+  forceManage?: boolean
 }) {
   const cacheKey = stageQueuePageKey({
     stage: EncounterStage.Screening,
@@ -707,8 +721,8 @@ export async function paginateScreeningCategoryQueue(options: {
   })
 
   return {
-    queued: patchQueueCanManage(cached.queued, options.currentUserId),
-    inProgress: patchQueueCanManage(cached.inProgress, options.currentUserId),
+    queued: patchQueueCanManage(cached.queued, options.currentUserId, options.forceManage),
+    inProgress: patchQueueCanManage(cached.inProgress, options.currentUserId, options.forceManage),
     queueTotal: cached.queueTotal,
   }
 }
@@ -718,6 +732,7 @@ export async function paginateCachedStageQueue<T extends BaseQueueRow>(options: 
   queuedPage: number
   progressPage: number
   currentUserId: number | null
+  forceManage?: boolean
   cacheScope?: string
   perPage?: number
   orderBy?: QueueOrder
@@ -753,8 +768,8 @@ export async function paginateCachedStageQueue<T extends BaseQueueRow>(options: 
   })
 
   return {
-    queued: patchQueueCanManage(cached.queued, options.currentUserId),
-    inProgress: patchQueueCanManage(cached.inProgress, options.currentUserId),
+    queued: patchQueueCanManage(cached.queued, options.currentUserId, options.forceManage),
+    inProgress: patchQueueCanManage(cached.inProgress, options.currentUserId, options.forceManage),
   }
 }
 
@@ -889,6 +904,7 @@ export async function paginateCachedPharmacyQueue(options: {
   progressPage: number
   partiallyDispensedPage: number
   currentUserId: number | null
+  forceManage?: boolean
   preload?: (query: any) => void
 }) {
   const cacheKey = stageQueuePageKey({
@@ -922,9 +938,13 @@ export async function paginateCachedPharmacyQueue(options: {
   })
 
   return {
-    queued: patchQueueCanManage(cached.queued, options.currentUserId),
-    inProgress: patchQueueCanManage(cached.inProgress, options.currentUserId),
-    partiallyDispensed: patchQueueCanManage(cached.partiallyDispensed, options.currentUserId),
+    queued: patchQueueCanManage(cached.queued, options.currentUserId, options.forceManage),
+    inProgress: patchQueueCanManage(cached.inProgress, options.currentUserId, options.forceManage),
+    partiallyDispensed: patchQueueCanManage(
+      cached.partiallyDispensed,
+      options.currentUserId,
+      options.forceManage
+    ),
   }
 }
 

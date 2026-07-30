@@ -171,6 +171,10 @@ router
     router.get('/registration/encounters/:encounter', [RegistrationController, 'showEncounter']).as('registration.encounter')
     router.post('/encounters/start', [RegistrationController, 'start']).as('encounters.start').use(perm('registration.create-encounter'))
     router.post('/encounters/:encounter/queue/triage', [RegistrationController, 'queueToTriage']).as('encounters.queue.triage').use(perm('registration.queue-to-triage'))
+    router
+      .delete('/encounters/:encounter', [RegistrationController, 'destroy'])
+      .as('encounters.destroy')
+      .use(perm('registration.create-encounter'))
 
     // ── Triage ───────────────────────────────────────────────────────────────
     router.get('/triage/queue', [TriageController, 'queue']).as('triage.queue')
@@ -180,6 +184,7 @@ router
     router.get('/triage/:encounter', [TriageController, 'show']).as('triage.show')
     router.post('/triage/:encounter/save-vitals', [TriageController, 'saveVitals']).as('triage.save-vitals').use(perm('triage.record-vitals'))
     router.post('/triage/:encounter/complete', [TriageController, 'complete']).as('triage.complete').use(perm('triage.complete'))
+    router.post('/triage/:encounter/close', [TriageController, 'close']).as('triage.close').use(perm('triage.complete'))
     router.post('/triage/:encounter/assign-ward', [TriageController, 'assignWard']).as('triage.assign-ward').use(perm('triage.manage-ward-assignment|screening.manage-ward-assignment'))
     router.post('/triage/:encounter/admit', [TriageController, 'admitToWard']).as('triage.admit').use(perm('triage.manage-ward-assignment|screening.manage-ward-assignment'))
     router.post('/triage/:encounter/discharge', [TriageController, 'discharge']).as('triage.discharge').use(perm('triage.manage-ward-assignment|screening.manage-ward-assignment'))
@@ -365,6 +370,10 @@ router
     router.get('/encounters/:encounter', [EncountersController, 'show']).as('encounters.show').use(perm('encounter.view-own|encounter.view-all'))
     router.post('/encounters/:encounter/reopen', [EncountersController, 'reopen']).as('encounters.reopen').use(perm('encounters.reopen'))
     router.post('/encounters/:encounter/reopen-to-stage', [EncountersController, 'reopenToStage']).as('encounters.reopen-to-stage').use(perm('encounters.reopen|pharmacy.close-encounter'))
+    router
+      .post('/encounters/:encounter/move-to-stage', [EncountersController, 'moveToStage'])
+      .as('encounters.move-to-stage')
+      .use(perm('encounter.view-all'))
     router
       .patch('/encounters/:encounter/priority', [EncountersController, 'updatePriority'])
       .as('encounters.priority.update')
