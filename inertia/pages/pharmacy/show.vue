@@ -12,6 +12,7 @@ import ComingSoonWardQueueOptions from '~/components/queue/ComingSoonWardQueueOp
 import ClinicalSuggestionsBanner from '~/components/clinical/ClinicalSuggestionsBanner.vue'
 import PrescriptionSuggestionsPanel from '~/components/clinical/PrescriptionSuggestionsPanel.vue'
 import FieldWithSuggestions from '~/components/clinical/FieldWithSuggestions.vue'
+import LabResultsSummaryCard from '~/components/lab/LabResultsSummaryCard.vue'
 import { useAsyncAction } from '~/composables/useAsyncAction'
 import { useAutosave } from '~/composables/useAutosave'
 import { usePrescriptionCart, type PrescriptionCartItem } from '~/composables/usePrescriptionCart'
@@ -98,6 +99,25 @@ const props = defineProps<{
     lines: { description: string; lineTotal: string }[]
     estimatedTotal: string
     has_existing_invoice?: boolean
+  } | null
+  labRequest: {
+    request_number: string
+    status: string
+    priority_level: string | null
+    request_notes: string | null
+    items: {
+      id: number
+      test_name: string
+      test_group: string | null
+      specimen_type: string | null
+      result: {
+        result_value: string | null
+        result_text: string | null
+        reference_range: string | null
+        interpretation: string | null
+        remarks: string | null
+      } | null
+    }[]
   } | null
   clinicalSuggestions: {
     fields: Record<string, { id: number; text: string; source?: Record<string, unknown> }[]>
@@ -371,9 +391,9 @@ const prescribedItemCount = computed(() => props.prescription?.items.length ?? 0
           </div>
           <div class="space-y-3 px-4 py-3 text-sm">
             <div v-if="reviewContext?.final_diagnosis">
-              <p class="text-[10px] font-bold uppercase text-neutral-500">Final Diagnosis</p>
+              <p class="text-[10px] font-bold uppercase text-neutral-500">Screening Review Diagnosis</p>
               <p class="mt-0.5 font-medium text-neutral-900 dark:text-white">
-                {{ reviewContext.final_diagnosis }}
+                {{ formatDiagnosisLabel(reviewContext.final_diagnosis) }}
               </p>
             </div>
             <div v-else-if="formatDiagnosisLabel(initialScreening?.provisional_diagnosis)">
@@ -433,6 +453,12 @@ const prescribedItemCount = computed(() => props.prescription?.items.length ?? 0
       </div>
 
       <div class="min-w-0 space-y-4 lg:order-1 lg:col-span-9">
+        <LabResultsSummaryCard
+          v-if="labRequest"
+          :request-number="labRequest.request_number"
+          :items="labRequest.items"
+        />
+
         <div class="theme-surface rounded-lg shadow-sm">
           <div class="stage-tab-nav-sticky stage-tab-nav-sticky--card">
             <div v-if="canManagePrescription" class="mx-6 mt-5 flex justify-end">

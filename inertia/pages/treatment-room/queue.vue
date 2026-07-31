@@ -5,6 +5,7 @@ import QueueTable from '~/components/staff/queue/QueueTable.vue'
 import QueueEmptyState from '~/components/staff/queue/QueueEmptyState.vue'
 import QueueReceiveButton from '~/components/staff/queue/QueueReceiveButton.vue'
 import QueueRecordButton from '~/components/staff/queue/QueueRecordButton.vue'
+import QueueForwardButton from '~/components/staff/queue/QueueForwardButton.vue'
 import QueuePagination from '~/components/staff/queue/QueuePagination.vue'
 import QueueEncounterCell from '~/components/staff/queue/QueueEncounterCell.vue'
 import QueuePatientCell from '~/components/staff/queue/QueuePatientCell.vue'
@@ -181,7 +182,10 @@ function routeChipClass(route: string | null) {
               <td><div class="queue-cell-sub font-medium">{{ row.received_by_name ?? '—' }}</div></td>
               <td class="queue-action-col">
                 <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
-                <QueueRecordButton v-else-if="row.can_manage" :href="`/treatment-room/${row.id}`" label="Open" theme="treatment" />
+                <div v-else-if="row.can_manage" class="flex flex-col items-end gap-2 sm:flex-row">
+                  <QueueForwardButton :href="`/treatment-room/${row.id}?queue=1`" />
+                  <QueueRecordButton :href="`/treatment-room/${row.id}`" label="Open" theme="treatment" />
+                </div>
                 <span v-else class="queue-assigned">Assigned to {{ row.received_by_name || 'another user' }}</span>
               </td>
             </tr>

@@ -299,6 +299,8 @@ router
     router.post('/screening/:encounter/vital-recheck', [ScreeningController, 'saveVitalRecheck']).as('screening.vital-recheck').use(perm('screening.manage-assessment'))
     router.post('/screening/:encounter/vital-recheck/autosave', [ScreeningController, 'autosaveVitalRecheck']).as('screening.vital-recheck.autosave').use(perm('screening.manage-assessment'))
     router.post('/screening/:encounter/complete', [ScreeningController, 'complete']).as('screening.complete').use(perm('screening.manage-assessment|screening.queue-to-lab|screening.queue-to-pharmacy'))
+    router.post('/screening/:encounter/queue-lab', [ScreeningController, 'queueToLab']).as('screening.queue-lab').use(perm('screening.manage-assessment|screening.queue-to-lab'))
+    router.post('/screening/:encounter/queue-pharmacy', [ScreeningController, 'queueToPharmacy']).as('screening.queue-pharmacy').use(perm('screening.manage-assessment|screening.queue-to-pharmacy'))
     router
       .post('/screening/:encounter/close', [ScreeningController, 'close'])
       .as('screening.close')
@@ -345,6 +347,7 @@ router
     router.post('/screening-review/:encounter/queue-lab', [ScreeningReviewController, 'queueToLab']).as('screening-review.queue-lab').use(perm('screening-review.complete|screening.manage-assessment'))
     router.post('/screening-review/:encounter/queue-treatment-room', [ScreeningReviewController, 'queueToTreatmentRoom']).as('screening-review.queue-treatment-room').use(perm('screening-review.complete|screening.manage-assessment|screening.queue-to-treatment-room'))
     router.post('/screening-review/:encounter/queue-triage', [ScreeningReviewController, 'queueToTriage']).as('screening-review.queue-triage').use(perm('screening-review.complete|screening.manage-assessment'))
+    router.post('/screening-review/:encounter/close', [ScreeningReviewController, 'close']).as('screening-review.close').use(perm('screening-review.complete|screening.manage-assessment'))
 
     // ── Pharmacy ─────────────────────────────────────────────────────────────
     router.get('/pharmacy/queue', [PharmacyController, 'queue']).as('pharmacy.queue')

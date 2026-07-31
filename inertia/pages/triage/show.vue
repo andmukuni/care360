@@ -15,6 +15,7 @@ import TriageQueueActionsModal from '~/components/triage/TriageQueueActionsModal
 import { useAsyncAction } from '~/composables/useAsyncAction'
 import { useAutosave } from '~/composables/useAutosave'
 import { useQueueFooterHint } from '~/composables/useQueueFooterHint'
+import { useQueueActionsDeepLink } from '~/composables/useQueueActionsDeepLink'
 import { flushAutosavesBeforeAction } from '~/composables/useFlushAutosave'
 import { confirmDialog } from '~/composables/useConfirm'
 import { formatApiErrors } from '~/support/api_errors'
@@ -487,6 +488,8 @@ async function endEncounter() {
 function openQueueFooter() {
   queueActionsModalOpen.value = true
 }
+
+useQueueActionsDeepLink(openQueueFooter)
 
 function closeQueueActionsModal() {
   queueActionsModalOpen.value = false

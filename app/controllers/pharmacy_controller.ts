@@ -4,6 +4,7 @@ import { DateTime } from 'luxon'
 import Encounter from '#models/encounter'
 import EncounterAudit from '#models/encounter_audit'
 import PharmacyPrescription from '#models/pharmacy_prescription'
+import User from '#models/user'
 import { EncounterStage, EncounterStageHelper } from '#enums/encounter_stage'
 import { EncounterStatus } from '#enums/encounter_status'
 import ClinicSettings from '#support/clinic_settings'
@@ -15,6 +16,7 @@ import AppendPharmacyPrescriptionItemsAction from '#actions/encounter/append_pha
 import CloseEncounterAction from '#actions/encounter/close_encounter_action'
 import QueueEncounterFromPharmacyToScreeningAction from '#actions/encounter/queue_encounter_from_pharmacy_to_screening_action'
 import { serializePrescriptionItem } from '#support/encounter/prescription_item_payload'
+import { serializeLabItemsWithResults } from '#support/encounter/lab_item_payload'
 import {
   pharmacyPrescriptionValidator,
   dispenseValidator,
@@ -64,6 +66,10 @@ export default class PharmacyController {
 
     const pharmacyPreload = (query: any) => {
       query.preload('screeningRecords')
+      query.preload('labRequests', (q: any) => {
+        q.preload('labRequestItems')
+        q.preload('labResults', (r: any) => r.preload('recordedByUser'))
+      })
       query.preload('pharmacyPrescriptions', (q: any) => {
         q.preload('pharmacyPrescriptionItems')
         q.preload('prescribedByUser')
@@ -160,7 +166,11 @@ export default class PharmacyController {
     await encounter.load('pharmacyDispenses', (q) => q.preload('pharmacyDispenseItems'))
     await encounter.load('labRequests', (q) => {
       q.preload('labRequestItems')
-      q.preload('labResults', (r) => r.preload('labRequestItem'))
+      q.preload('labResults', (r) => {
+        r.preload('labRequestItem')
+        r.preload('verifiedByUser')
+        r.preload('releasedByUser')
+      })
     })
 
     const rx = (encounter.pharmacyPrescriptions ?? []).slice().sort((a, b) => b.id - a.id)[0] ?? null
@@ -194,6 +204,12 @@ export default class PharmacyController {
     )
     const review = reviewScreeningRecord(encounter)
     const initial = initialScreeningRecord(encounter)
+    const lr = (encounter.labRequests ?? []).slice().sort((a, b) => b.id - a.id)[0] ?? null
+
+    const formatDate = (value: DateTime | null | undefined, format = 'dd LLL yyyy, HH:mm') =>
+      value?.toFormat(format) ?? null
+    const userBadge = (user: User | null | undefined) =>
+      user ? { name: user.name, role: null } : null
 
     const dispenseDraftAudit = await EncounterAudit.query()
       .where('encounter_id', encounter.id)
@@ -275,6 +291,15 @@ export default class PharmacyController {
       dispensed_item_ids: [...dispensedItemIds],
       dispenseDraft,
       billingPreview,
+      labRequest: lr
+        ? {
+            request_number: lr.requestNumber,
+            status: lr.status,
+            priority_level: lr.priorityLevel,
+            request_notes: lr.requestNotes,
+            items: serializeLabItemsWithResults(lr, { formatDate, userBadge }),
+          }
+        : null,
       clinicalSuggestions: await loadClinicalSuggestions(encounter.id, 'pharmacy'),
     })
   }

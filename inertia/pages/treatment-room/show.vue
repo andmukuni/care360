@@ -10,6 +10,7 @@ import TreatmentRoomQueueActionsModal from '~/components/treatment-room/Treatmen
 import { useAsyncAction } from '~/composables/useAsyncAction'
 import { useAutosave } from '~/composables/useAutosave'
 import { useQueueFooterHint } from '~/composables/useQueueFooterHint'
+import { useQueueActionsDeepLink } from '~/composables/useQueueActionsDeepLink'
 import { flushAutosavesBeforeAction } from '~/composables/useFlushAutosave'
 import { formatDiagnosisLabel } from '~/support/screening/screening_json_fields'
 import {
@@ -133,6 +134,8 @@ const { loading: queueingScreeningReview, run: runQueueScreeningReview } = useAs
 function openQueueActionsModal() {
   queueActionsModalOpen.value = true
 }
+
+useQueueActionsDeepLink(openQueueActionsModal)
 
 function closeQueueActionsModal() {
   queueActionsModalOpen.value = false

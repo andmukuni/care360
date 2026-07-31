@@ -18,6 +18,7 @@ import { useAsyncAction } from '~/composables/useAsyncAction'
 import { useAutosave } from '~/composables/useAutosave'
 import { usePrescriptionCart, type PrescriptionCartItem } from '~/composables/usePrescriptionCart'
 import { useQueueFooterHint } from '~/composables/useQueueFooterHint'
+import { useQueueActionsDeepLink } from '~/composables/useQueueActionsDeepLink'
 import { flushAutosavesBeforeAction } from '~/composables/useFlushAutosave'
 import { formatDiagnosisLabel } from '~/support/screening/screening_json_fields'
 import DictionarySearchSelect from '~/components/dictionary/DictionarySearchSelect.vue'
@@ -100,6 +101,8 @@ const props = defineProps<{
 const activeTab = ref<TabId>('review')
 const queueActionsModalOpen = ref(false)
 const treatmentRoomNotes = ref('')
+const closureNotes = ref('')
+const endingEncounter = ref(false)
 const { showQueueHint, dismissQueueHint } = useQueueFooterHint('screening-review', props.encounter.id)
 const { loading: queueingLab, run: runQueueLab } = useAsyncAction()
 const { loading: queueingTreatment, run: runQueueTreatment } = useAsyncAction()
@@ -296,6 +299,8 @@ function openQueueActionsModal() {
   queueActionsModalOpen.value = true
 }
 
+useQueueActionsDeepLink(openQueueActionsModal)
+
 function closeQueueActionsModal() {
   queueActionsModalOpen.value = false
 }
@@ -337,6 +342,22 @@ async function queueTriage() {
       { onFinish: done }
     )
   })
+}
+
+async function endEncounter() {
+  dismissQueueHint()
+  form.items = prescriptionItemsForPayload()
+  if (!(await flushAutosavesBeforeAction({ required: false }))) return
+  endingEncounter.value = true
+  router.post(
+    `/screening-review/${props.encounter.id}/close`,
+    { closure_notes: closureNotes.value.trim() || null },
+    {
+      onFinish: () => {
+        endingEncounter.value = false
+      },
+    }
+  )
 }
 
 function onSuggestionApplied() {
@@ -703,14 +724,17 @@ function applyAllClinicalSuggestions(updates: Record<string, string>) {
       v-if="canEdit"
       v-model:show="queueActionsModalOpen"
       v-model:treatment-notes="treatmentRoomNotes"
-      :complete-loading="form.processing"
+      v-model:closure-notes="closureNotes"
+      :complete-loading="form.processing && !endingEncounter"
       :lab-loading="queueingLab"
       :treatment-loading="queueingTreatment"
       :triage-loading="queueingTriage"
+      :end-loading="endingEncounter"
       @complete="complete"
       @queue-lab="queueLab"
       @queue-treatment="queueTreatmentRoom"
       @queue-triage="queueTriage"
+      @end-encounter="endEncounter"
     />
 
     <AddPrescriptionModal

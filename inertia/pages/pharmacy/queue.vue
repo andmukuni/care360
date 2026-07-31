@@ -27,6 +27,10 @@ type Row = {
   received_by_name: string | null
   can_manage: boolean
   diagnosis: string
+  review_diagnosis: string | null
+  lab_request_number: string | null
+  lab_results_summary: string | null
+  lab_results_posted_by: string[]
   prescription_number: string | null
   prescription_item_count: number
   dispensed_item_count: number
@@ -163,6 +167,23 @@ function partialPrescriptionSegments(row: Row) {
   ]
 }
 
+function reviewDiagnosisLabel(row: Row) {
+  return row.review_diagnosis ?? row.diagnosis
+}
+
+function labResultsSegments(row: Row) {
+  if (!row.lab_results_summary) {
+    return row.lab_request_number ? [`${row.lab_request_number} · pending`] : ['No lab results']
+  }
+
+  return [
+    row.lab_results_summary,
+    row.lab_results_posted_by.length
+      ? `Posted: ${row.lab_results_posted_by.join(', ')}`
+      : null,
+  ].filter((segment): segment is string => Boolean(segment))
+}
+
 onMounted(() => {
   const params = new URLSearchParams(window.location.search)
   if (params.get('closed_search') || params.has('closed_page')) tab.value = 'closed'
@@ -199,7 +220,8 @@ onMounted(() => {
               <tr>
                 <th>Encounter</th>
                 <th>Patient</th>
-                <th>Diagnosis</th>
+                <th>Review diagnosis</th>
+                <th>Lab results</th>
                 <th>Prescription</th>
                 <th>Sent by</th>
                 <th class="text-right">Action</th>
@@ -219,7 +241,10 @@ onMounted(() => {
               <td>
                 <QueuePatientCell :patient-name="row.patient_name" name-fallback="Unknown" />
               </td>
-              <td><div class="queue-cell-sub">{{ row.diagnosis }}</div></td>
+              <td><div class="queue-cell-sub">{{ reviewDiagnosisLabel(row) }}</div></td>
+              <td>
+                <QueueInlineCell :segments="labResultsSegments(row)" :emphasize-first="false" />
+              </td>
               <td>
                 <QueueInlineCell :segments="prescriptionSegments(row)" :emphasize-first="false" />
               </td>
@@ -246,7 +271,8 @@ onMounted(() => {
               <tr>
                 <th>Encounter</th>
                 <th>Patient</th>
-                <th>Diagnosis</th>
+                <th>Review diagnosis</th>
+                <th>Lab results</th>
                 <th>Prescription</th>
                 <th>Attending</th>
                 <th class="text-right">Action</th>
@@ -266,9 +292,9 @@ onMounted(() => {
               <td>
                 <QueuePatientCell :patient-name="row.patient_name" name-fallback="Unknown" />
               </td>
-              <td><div class="queue-cell-sub">{{ row.diagnosis }}</div></td>
+              <td><div class="queue-cell-sub">{{ reviewDiagnosisLabel(row) }}</div></td>
               <td>
-                <QueueInlineCell :segments="prescriptionSegments(row)" :emphasize-first="false" />
+                <QueueInlineCell :segments="labResultsSegments(row)" :emphasize-first="false" />
               </td>
               <td><div class="queue-cell-sub font-medium">{{ row.received_by_name || 'Unknown user' }}</div></td>
               <td class="queue-action-col">
@@ -298,7 +324,8 @@ onMounted(() => {
               <tr>
                 <th>Encounter</th>
                 <th>Patient</th>
-                <th>Diagnosis</th>
+                <th>Review diagnosis</th>
+                <th>Lab results</th>
                 <th>Prescription</th>
                 <th>Location</th>
                 <th>Attending</th>
@@ -319,7 +346,10 @@ onMounted(() => {
               <td>
                 <QueuePatientCell :patient-name="row.patient_name" name-fallback="Unknown" />
               </td>
-              <td><div class="queue-cell-sub">{{ row.diagnosis }}</div></td>
+              <td><div class="queue-cell-sub">{{ reviewDiagnosisLabel(row) }}</div></td>
+              <td>
+                <QueueInlineCell :segments="labResultsSegments(row)" :emphasize-first="false" />
+              </td>
               <td>
                 <QueueInlineCell :segments="partialPrescriptionSegments(row)" :emphasize-first="false" />
               </td>

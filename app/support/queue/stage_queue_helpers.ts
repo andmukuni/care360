@@ -59,6 +59,10 @@ export type LabQueueRow = BaseQueueRow & {
 
 export type PharmacyQueueRow = BaseQueueRow & {
   diagnosis: string
+  review_diagnosis: string | null
+  lab_request_number: string | null
+  lab_results_summary: string | null
+  lab_results_posted_by: string[]
   prescription_number: string | null
   prescription_item_count: number
   dispensed_item_count: number
@@ -433,6 +437,56 @@ export function latestLabRequest(encounter: Encounter): LabRequest | null {
   return (encounter.labRequests ?? []).slice().sort((a, b) => b.id - a.id)[0] ?? null
 }
 
+export function summarizeLabResultsForQueue(lr: LabRequest | null): string | null {
+  if (!lr) return null
+
+  const items = lr.labRequestItems ?? []
+  if (items.length === 0) return null
+
+  const resultsByItemId = new Map<number, (typeof lr.labResults)[number]>()
+  for (const result of lr.labResults ?? []) {
+    if (result.labRequestItemId) {
+      resultsByItemId.set(result.labRequestItemId, result)
+    }
+  }
+
+  let recorded = 0
+  let abnormal = 0
+  let critical = 0
+
+  for (const item of items) {
+    const result = resultsByItemId.get(item.id)
+    if (!result) continue
+
+    const hasValue = Boolean(
+      result.resultValue?.trim() ||
+        result.resultText?.trim() ||
+        result.referenceRange?.trim() ||
+        result.interpretation?.trim() ||
+        result.remarks?.trim()
+    )
+    if (!hasValue) continue
+
+    recorded += 1
+    const interpretation = String(result.interpretation ?? '').toLowerCase()
+    if (interpretation === 'critical') critical += 1
+    else if (interpretation === 'abnormal') abnormal += 1
+  }
+
+  const parts: string[] = []
+  if (lr.requestNumber) parts.push(lr.requestNumber)
+
+  if (recorded > 0) {
+    parts.push(`${recorded}/${items.length} result${recorded === 1 ? '' : 's'}`)
+    if (critical > 0) parts.push(`${critical} critical`)
+    else if (abnormal > 0) parts.push(`${abnormal} abnormal`)
+  } else {
+    parts.push(`${items.length} test${items.length === 1 ? '' : 's'} pending`)
+  }
+
+  return parts.join(' · ')
+}
+
 function truncateText(value: string | null | undefined, maxLength: number): string | null {
   if (!value?.trim()) return null
   const text = value.trim()
@@ -507,14 +561,23 @@ export function pharmacyQueueRow(
 
   const review = reviewScreeningRecord(encounter)
   const initial = initialScreeningRecord(encounter)
+  const lr = latestLabRequest(encounter)
+  const reviewDiagnosis = diagnosisLabel(review?.finalDiagnosis ?? null, 110)
   const diagnosis =
+    reviewDiagnosis ??
     diagnosisLabel(
-      review?.finalDiagnosis ??
-        initial?.finalDiagnosis ??
-        initial?.provisionalDiagnosis ??
-        null,
+      initial?.finalDiagnosis ?? initial?.provisionalDiagnosis ?? null,
       110
-    ) ?? 'No diagnosis recorded'
+    ) ??
+    'No diagnosis recorded'
+
+  const labResultsPostedBy = [
+    ...new Set(
+      (lr?.labResults ?? [])
+        .map((result) => result.recordedByUser?.name)
+        .filter((name): name is string => Boolean(name))
+    ),
+  ]
 
   const prescription = latestPrescription(encounter)
   const { dispensed, total } = partialDispenseCounts(encounter)
@@ -527,6 +590,10 @@ export function pharmacyQueueRow(
   return {
     ...base,
     diagnosis,
+    review_diagnosis: reviewDiagnosis,
+    lab_request_number: lr?.requestNumber ?? null,
+    lab_results_summary: summarizeLabResultsForQueue(lr),
+    lab_results_posted_by: labResultsPostedBy,
     prescription_number: prescription?.prescriptionNumber ?? null,
     prescription_item_count: total || (prescription?.pharmacyPrescriptionItems?.length ?? 0),
     dispensed_item_count: dispensed,

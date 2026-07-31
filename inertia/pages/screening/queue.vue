@@ -9,6 +9,7 @@ import QueueEmptyState from '~/components/staff/queue/QueueEmptyState.vue'
 import QueueSearchField from '~/components/staff/queue/QueueSearchField.vue'
 import QueueReceiveButton from '~/components/staff/queue/QueueReceiveButton.vue'
 import QueueRecordButton from '~/components/staff/queue/QueueRecordButton.vue'
+import QueueForwardButton from '~/components/staff/queue/QueueForwardButton.vue'
 import QueueEncounterCell from '~/components/staff/queue/QueueEncounterCell.vue'
 import QueuePatientCell from '~/components/staff/queue/QueuePatientCell.vue'
 import { useStageQueue, type QueuePaginatorMeta } from '~/composables/useStageQueue'
@@ -287,7 +288,10 @@ onMounted(() => {
               </td>
               <td class="queue-action-col">
                 <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
-                <QueueRecordButton v-else-if="row.can_manage" :href="`/screening/${row.id}`" label="Continue" />
+                <div v-else-if="row.can_manage" class="flex flex-col items-end gap-2 sm:flex-row">
+                  <QueueForwardButton :href="`/screening/${row.id}?queue=1`" />
+                  <QueueRecordButton :href="`/screening/${row.id}`" label="Continue" />
+                </div>
                 <span v-else class="queue-assigned">Assigned to {{ row.received_by_name || 'another user' }}</span>
               </td>
             </tr>

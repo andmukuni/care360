@@ -7,6 +7,7 @@ import QueueTable from '~/components/staff/queue/QueueTable.vue'
 import QueueEmptyState from '~/components/staff/queue/QueueEmptyState.vue'
 import QueueReceiveButton from '~/components/staff/queue/QueueReceiveButton.vue'
 import QueueRecordButton from '~/components/staff/queue/QueueRecordButton.vue'
+import QueueForwardButton from '~/components/staff/queue/QueueForwardButton.vue'
 import QueuePagination from '~/components/staff/queue/QueuePagination.vue'
 import TemperatureQueueIndicator from '~/components/staff/queue/TemperatureQueueIndicator.vue'
 import QueueEncounterCell from '~/components/staff/queue/QueueEncounterCell.vue'
@@ -183,7 +184,10 @@ function receive(id: number) {
               </td>
               <td class="queue-action-col">
                 <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
-                <QueueRecordButton v-else-if="row.can_manage" :href="`/triage/${row.id}`" label="Record" />
+                <div v-else-if="row.can_manage" class="flex flex-col items-end gap-2 sm:flex-row">
+                  <QueueForwardButton :href="`/triage/${row.id}?queue=1`" />
+                  <QueueRecordButton :href="`/triage/${row.id}`" label="Record" />
+                </div>
                 <QueueAssignedAction
                   v-else
                   :user="row.received_by"

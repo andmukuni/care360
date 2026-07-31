@@ -25,6 +25,7 @@ import { useAutosave } from '~/composables/useAutosave'
 import { usePrescriptionCart, type PrescriptionCartItem } from '~/composables/usePrescriptionCart'
 import { useLabCart, type LabCartItem } from '~/composables/useLabCart'
 import { useQueueFooterHint } from '~/composables/useQueueFooterHint'
+import { useQueueActionsDeepLink } from '~/composables/useQueueActionsDeepLink'
 import { flushAutosavesBeforeAction } from '~/composables/useFlushAutosave'
 import { confirmDialog } from '~/composables/useConfirm'
 import { formatApiErrors } from '~/support/api_errors'
@@ -457,6 +458,8 @@ const { loading: recommendingMed, run: runRecommendMed } = useAsyncAction()
 const { processingId: removingMedId, runFor: runRemoveMed } = useAsyncAction<number>()
 const { loading: queueingTreatment, run: runQueueTreatment } = useAsyncAction()
 const { loading: queueingTriage, run: runQueueTriage } = useAsyncAction()
+const { loading: queueingLab, run: runQueueLab } = useAsyncAction()
+const { loading: queueingPharmacy, run: runQueuePharmacy } = useAsyncAction()
 const { processingId: decidingUrl, runFor: runDecision } = useAsyncAction<string>()
 
 watch(
@@ -626,9 +629,6 @@ const dimmerVisible = computed(
     labModalOpen.value
 )
 
-const completeActionLabel = computed(() =>
-  form.lab_requested ? 'Save & Submit to Lab' : 'Complete Screening'
-)
 
 const showEditableForm = computed(() => props.isAtScreening && props.encounter.can_edit)
 
@@ -816,16 +816,37 @@ function formatRxDose(item: {
   return parts.length ? parts.join(' · ') : '—'
 }
 
-async function complete() {
+async function queueToLab() {
   dismissQueueHint()
+  form.lab_requested = true
   syncPrescriptions()
   syncLabItems()
   if (!(await flushAutosavesBeforeAction({ required: false }))) return
-  form.post(`/screening/${props.encounter.id}/complete`, {
-    onSuccess: () => {
-      clearRxCart()
-      clearLabCart()
-    },
+  runQueueLab(({ done }) => {
+    form.post(`/screening/${props.encounter.id}/queue-lab`, {
+      onSuccess: () => {
+        clearRxCart()
+        clearLabCart()
+      },
+      onFinish: done,
+    })
+  })
+}
+
+async function queueToPharmacy() {
+  dismissQueueHint()
+  form.lab_requested = false
+  syncPrescriptions()
+  syncLabItems()
+  if (!(await flushAutosavesBeforeAction({ required: false }))) return
+  runQueuePharmacy(({ done }) => {
+    form.post(`/screening/${props.encounter.id}/queue-pharmacy`, {
+      onSuccess: () => {
+        clearRxCart()
+        clearLabCart()
+      },
+      onFinish: done,
+    })
   })
 }
 
@@ -954,6 +975,8 @@ function closeMedsDrawer() {
 function openQueueActionsModal() {
   queueActionsModalOpen.value = true
 }
+
+useQueueActionsDeepLink(openQueueActionsModal)
 
 function onScreeningSuggestionApplied() {
   // Autosave watchSource picks up form changes.
@@ -2082,7 +2105,7 @@ onUnmounted(() => {
                 <svg class="h-4 w-4 shrink-0 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
                 </svg>
-                <span>Press <strong>Queue</strong> below to send this patient to <strong>{{ form.lab_requested ? 'Lab' : 'Pharmacy' }}</strong>.</span>
+                <span>Press <strong>Queue</strong> below to send this patient to <strong>Lab</strong>, <strong>Pharmacy</strong>, <strong>Triage</strong>, or end the encounter.</span>
               </div>
             </div>
 
@@ -2110,13 +2133,13 @@ onUnmounted(() => {
       v-model:show="queueActionsModalOpen"
       v-model:treatment-notes="treatmentRoomNotes"
       v-model:closure-notes="closureNotes"
-      :lab-requested="!!form.lab_requested"
-      :complete-label="completeActionLabel"
-      :complete-loading="form.processing && !endingEncounter"
+      :lab-loading="queueingLab"
+      :pharmacy-loading="queueingPharmacy"
       :treatment-loading="queueingTreatment"
       :triage-loading="queueingTriage"
       :end-loading="endingEncounter && form.processing"
-      @complete="complete"
+      @queue-lab="queueToLab"
+      @queue-pharmacy="queueToPharmacy"
       @queue-treatment="queueTreatmentRoom"
       @queue-triage="queueTriage"
       @end-encounter="endEncounter"

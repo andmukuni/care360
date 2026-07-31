@@ -12,16 +12,16 @@ const treatmentNotes = defineModel<string>('treatmentNotes', { default: '' })
 const closureNotes = defineModel<string>('closureNotes', { default: '' })
 
 const props = defineProps<{
-  labRequested: boolean
-  completeLabel: string
-  completeLoading: boolean
+  labLoading: boolean
+  pharmacyLoading: boolean
   treatmentLoading: boolean
   triageLoading: boolean
   endLoading: boolean
 }>()
 
 const emit = defineEmits<{
-  complete: []
+  queueLab: []
+  queuePharmacy: []
   queueTreatment: []
   queueTriage: []
   endEncounter: []
@@ -32,7 +32,8 @@ const selectedAction = ref<SelectedAction>(null)
 
 const anyLoading = computed(
   () =>
-    props.completeLoading ||
+    props.labLoading ||
+    props.pharmacyLoading ||
     props.treatmentLoading ||
     props.triageLoading ||
     props.endLoading ||
@@ -49,9 +50,14 @@ function close() {
   show.value = false
 }
 
-function handleComplete() {
+function handleLab() {
   if (anyLoading.value) return
-  emit('complete')
+  emit('queueLab')
+}
+
+function handlePharmacy() {
+  if (anyLoading.value) return
+  emit('queuePharmacy')
 }
 
 function handleTreatment() {
@@ -99,7 +105,7 @@ function handleBack() {
           <div>
             <h3 class="text-sm font-bold uppercase tracking-wide text-neutral-900 dark:text-white">Queue Actions</h3>
             <p class="mt-0.5 text-xs text-neutral-500">
-              Queue the patient onward or end this encounter at screening
+              Queue to lab, pharmacy, triage, or end this encounter at screening
             </p>
           </div>
           <button
@@ -117,26 +123,39 @@ function handleBack() {
         <div class="space-y-2 overflow-y-auto p-4">
           <button
             type="button"
-            class="flex w-full items-center gap-4 rounded-lg border border-neutral-200 bg-neutral-900 px-4 py-3.5 text-left transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
+            class="flex w-full items-center gap-4 rounded-lg border border-violet-200 bg-violet-600 px-4 py-3.5 text-left transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-violet-800"
             :disabled="anyLoading"
-            :aria-busy="completeLoading"
-            @click="handleComplete"
+            :aria-busy="labLoading"
+            @click="handleLab"
           >
-            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white">
-              <Spinner v-if="completeLoading" size="md" class="text-white" />
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white">
+              <Spinner v-if="labLoading" size="md" class="text-white" />
+              <svg v-else class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+              </svg>
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="block text-sm font-semibold text-white">Queue to Lab</span>
+              <span class="block text-xs text-violet-100">Save assessment and send for investigations</span>
+            </span>
+          </button>
+
+          <button
+            type="button"
+            class="flex w-full items-center gap-4 rounded-lg border border-emerald-200 bg-emerald-600 px-4 py-3.5 text-left transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-800"
+            :disabled="anyLoading"
+            :aria-busy="pharmacyLoading"
+            @click="handlePharmacy"
+          >
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white">
+              <Spinner v-if="pharmacyLoading" size="md" class="text-white" />
               <svg v-else class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </span>
             <span class="min-w-0 flex-1">
-              <span class="block text-sm font-semibold text-white">{{ completeLabel }}</span>
-              <span class="block text-xs text-neutral-300">
-                {{ labRequested ? 'Save assessment and queue to Lab' : 'Save assessment and queue to Pharmacy' }}
-              </span>
-            </span>
-            <span v-if="completeLoading" class="inline-flex items-center gap-2 text-xs text-neutral-300">
-              <Spinner size="xs" class="text-neutral-300" />
-              Submitting…
+              <span class="block text-sm font-semibold text-white">Queue to Pharmacy</span>
+              <span class="block text-xs text-emerald-100">Save assessment and send prescription to pharmacy</span>
             </span>
           </button>
 
@@ -144,8 +163,7 @@ function handleBack() {
             <button
               type="button"
               class="flex w-full items-center gap-4 rounded-lg border border-sky-200 bg-sky-600 px-4 py-3.5 text-left transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-800"
-              :disabled="labRequested || anyLoading"
-              :title="labRequested ? 'Complete lab workflow first, or uncheck lab request' : ''"
+              :disabled="anyLoading"
               :aria-busy="treatmentLoading"
               @click="handleTreatment"
             >
@@ -159,13 +177,9 @@ function handleBack() {
                 <span class="block text-sm font-semibold text-white">Queue to Treatment Room</span>
                 <span class="block text-xs text-sky-100">Send for injections, IV, nebulisation, dressings</span>
               </span>
-              <span v-if="treatmentLoading" class="inline-flex items-center gap-2 text-xs text-sky-100">
-                <Spinner size="xs" class="text-sky-100" />
-                Queueing…
-              </span>
             </button>
 
-            <div v-if="!labRequested" class="ml-14">
+            <div class="ml-14">
               <label class="mb-1 block text-xs font-semibold text-neutral-600 dark:text-neutral-300">
                 Handover notes <span class="font-normal text-neutral-400">(optional)</span>
               </label>
@@ -197,10 +211,6 @@ function handleBack() {
               <span class="block text-sm font-semibold text-neutral-900 dark:text-white">Return to Triage</span>
               <span class="block text-xs text-neutral-500">Send back for vitals recheck</span>
             </span>
-            <span v-if="triageLoading" class="inline-flex items-center gap-2 text-xs text-neutral-500">
-              <Spinner size="xs" />
-              Returning…
-            </span>
           </button>
 
           <div class="space-y-2">
@@ -230,12 +240,7 @@ function handleBack() {
                   :class="selectedAction === 'end' ? 'text-white' : 'text-red-700 dark:text-red-300'"
                 />
                 <svg v-else class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </span>
               <span class="min-w-0 flex-1">
@@ -251,10 +256,6 @@ function handleBack() {
                 >
                   Finish the visit at screening without queueing onward
                 </span>
-              </span>
-              <span v-if="endLoading" class="inline-flex items-center gap-2 text-xs text-red-100">
-                <Spinner size="xs" class="text-red-100" />
-                Ending…
               </span>
             </button>
 
@@ -291,10 +292,6 @@ function handleBack() {
             <span class="min-w-0 flex-1">
               <span class="block text-sm font-semibold text-neutral-900 dark:text-white">Back to Queue</span>
               <span class="block text-xs text-neutral-500">Return to screening queue without completing</span>
-            </span>
-            <span v-if="backLoading" class="inline-flex items-center gap-2 text-xs text-neutral-500">
-              <Spinner size="xs" />
-              Leaving…
             </span>
           </button>
         </div>

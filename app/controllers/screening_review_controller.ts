@@ -14,6 +14,8 @@ import QueueEncounterToPharmacyAction from '#actions/encounter/queue_encounter_t
 import QueueEncounterBackToLabFromScreeningReviewAction from '#actions/encounter/queue_encounter_back_to_lab_from_screening_review_action'
 import QueueEncounterBackToTriageFromScreeningReviewAction from '#actions/encounter/queue_encounter_back_to_triage_from_screening_review_action'
 import QueueEncounterToTreatmentRoomFromScreeningReviewAction from '#actions/encounter/queue_encounter_to_treatment_room_from_screening_review_action'
+import CloseEncounterFromScreeningReviewAction from '#actions/encounter/close_encounter_from_screening_review_action'
+import { closeEncounterValidator } from '#validators/staff/pharmacy'
 import {
   screeningReviewValidator,
   screeningReviewDraftValidator,
@@ -407,6 +409,40 @@ export default class ScreeningReviewController {
     }
 
     session.flash('success', `Encounter ${encounter.encounterNumber} returned to Triage.`)
+    return response.redirect().toPath('/screening-review/queue')
+  }
+
+  // POST /screening-review/:encounter/close
+  async close({ params, request, response, session, auth, bouncer }: HttpContext) {
+    const user = auth.getUserOrFail()
+    const encounter = await Encounter.findOrFail(params.encounter)
+
+    await (bouncer as any)
+      .with('EncounterPolicy')
+      .authorize('advanceFromStage', encounter, EncounterStage.ScreeningReview)
+
+    if (
+      encounter.currentStage !== EncounterStage.ScreeningReview ||
+      encounter.currentStatus !== EncounterStatus.InProgress
+    ) {
+      session.flash('error', 'This encounter is no longer at screening review and cannot be ended here.')
+      return response.redirect().toPath(`/screening-review/${encounter.id}`)
+    }
+
+    const { closure_notes } = await request.validateUsing(closeEncounterValidator)
+
+    try {
+      await new CloseEncounterFromScreeningReviewAction().handle(
+        encounter,
+        user.id,
+        closure_notes ?? null
+      )
+    } catch (error) {
+      session.flash('error', error.message)
+      return response.redirect().back()
+    }
+
+    session.flash('success', `Encounter ${encounter.encounterNumber} ended at Screening Review.`)
     return response.redirect().toPath('/screening-review/queue')
   }
 }

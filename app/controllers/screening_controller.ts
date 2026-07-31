@@ -705,7 +705,24 @@ export default class ScreeningController {
   }
 
   // POST /screening/:encounter/complete
-  async complete({ params, request, response, session, auth, bouncer }: HttpContext) {
+  async complete(ctx: HttpContext) {
+    return this.queueScreeningAssessment(ctx, null)
+  }
+
+  // POST /screening/:encounter/queue-lab
+  async queueToLab(ctx: HttpContext) {
+    return this.queueScreeningAssessment(ctx, 'lab')
+  }
+
+  // POST /screening/:encounter/queue-pharmacy
+  async queueToPharmacy(ctx: HttpContext) {
+    return this.queueScreeningAssessment(ctx, 'pharmacy')
+  }
+
+  private async queueScreeningAssessment(
+    { params, request, response, session, auth, bouncer }: HttpContext,
+    forcedDestination: 'lab' | 'pharmacy' | null
+  ) {
     const user = auth.getUserOrFail()
     const encounter = await Encounter.findOrFail(params.encounter)
     await (bouncer as any)
@@ -721,11 +738,12 @@ export default class ScreeningController {
     }
 
     const data = await request.validateUsing(screeningAssessmentValidator)
+    const destination = forcedDestination ?? (data.lab_requested ? 'lab' : 'pharmacy')
 
     try {
       await this.persistAssessment(
         encounter,
-        this.normalizeAssessmentData(data as Record<string, any>),
+        this.normalizeAssessmentData({ ...data, lab_requested: destination === 'lab' }),
         user.id
       )
     } catch (error) {
@@ -734,10 +752,9 @@ export default class ScreeningController {
     }
 
     await encounter.refresh()
-    const labRequested = !!data.lab_requested
 
     try {
-      if (labRequested) {
+      if (destination === 'lab') {
         await new QueueEncounterToLabAction().handle(encounter, user.id, data.notes ?? null)
         session.flash('success', `Encounter ${encounter.encounterNumber} queued to Lab.`)
       } else {
