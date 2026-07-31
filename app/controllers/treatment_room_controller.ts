@@ -168,6 +168,7 @@ export default class TreatmentRoomController {
         ? {
             prescription_number: rx.prescriptionNumber,
             status: rx.status,
+            notes: rx.notes,
             prescribed_by: rx.prescribedByUser?.name ?? null,
             items: rx.pharmacyPrescriptionItems.map(serializePrescriptionItem),
           }

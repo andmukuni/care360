@@ -12,6 +12,9 @@ const prescriptionItem = vine.object({
   duration_unit: vine.string().trim().maxLength(50).optional().nullable(),
   quantity_prescribed: vine.number().optional().nullable(),
   route: vine.string().trim().maxLength(100).optional().nullable(),
+  start_date: vine.string().trim().maxLength(20).optional().nullable(),
+  end_date: vine.string().trim().maxLength(20).optional().nullable(),
+  is_passer_by: vine.any().optional().nullable(),
   instructions: vine.string().trim().maxLength(1000).optional().nullable(),
   source_prescription_item_id: vine.number().optional().nullable(),
 })

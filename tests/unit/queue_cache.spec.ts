@@ -18,12 +18,12 @@ test.group('Queue cache keys', () => {
         progressPage: 3,
         orderBy: 'clinical',
       }),
-      'queue:triage:adult:clinical:q2:p3'
+      'queue:triage:adult:clinical:v3:q2:p3'
     )
   })
 
   test('registrationDeskPageKey encodes page number', ({ assert }) => {
-    assert.equal(registrationDeskPageKey(4), 'queue:registration:desk:p4')
+    assert.equal(registrationDeskPageKey(4), 'queue:registration:desk:v2:p4')
   })
 
   test('apiStageQueueKey scopes API payloads by stage', ({ assert }) => {

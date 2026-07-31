@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { router } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import QueuePageShell from '~/components/staff/queue/QueuePageShell.vue'
 import QueueTable from '~/components/staff/queue/QueueTable.vue'
@@ -14,7 +12,7 @@ import QueueEncounterCell from '~/components/staff/queue/QueueEncounterCell.vue'
 import QueuePatientCell from '~/components/staff/queue/QueuePatientCell.vue'
 import QueueStaffUserCell from '~/components/staff/queue/QueueStaffUserCell.vue'
 import QueueAssignedAction from '~/components/staff/queue/QueueAssignedAction.vue'
-import { useLiveQueueRefresh } from '~/composables/useLiveQueueRefresh'
+import { useStageQueue, type QueuePaginatorMeta } from '~/composables/useStageQueue'
 
 type QueueUser = {
   name: string
@@ -39,7 +37,7 @@ type Row = {
 
 type Paginator = {
   data: Row[]
-  meta: { current_page: number; last_page: number; per_page: number; total: number }
+  meta: QueuePaginatorMeta
 }
 
 const props = defineProps<{
@@ -48,25 +46,7 @@ const props = defineProps<{
   inProgress: Paginator
 }>()
 
-const tab = ref<'waiting' | 'progress'>('waiting')
-const receivingId = ref<number | null>(null)
-
-useLiveQueueRefresh({
-  stages: ['triage'],
-  only: ['queued', 'inProgress'],
-})
-
-function queueUrl(pageParam: 'queued_page' | 'progress_page', page: number) {
-  const params = new URLSearchParams()
-  params.set('queued_page', String(pageParam === 'queued_page' ? page : props.queued.meta.current_page))
-  params.set('progress_page', String(pageParam === 'progress_page' ? page : props.inProgress.meta.current_page))
-  return `/triage/queue?${params.toString()}`
-}
-
-function receive(id: number) {
-  receivingId.value = id
-  router.post(`/triage/${id}/receive`, {}, { onFinish: () => { receivingId.value = null } })
-}
+const { tab, receivingId, queueUrl, receive } = useStageQueue('/triage/queue')
 </script>
 
 <template>
@@ -117,30 +97,22 @@ function receive(id: number) {
                 <QueuePatientCell :patient-name="row.patient_name" :visit-type="row.visit_type" />
               </td>
               <td>
-                <div class="flex flex-wrap items-center gap-2">
-                  <span v-if="row.has_allergies" class="queue-chip queue-chip--warning">Allergies noted</span>
-                  <TemperatureQueueIndicator :temperature="row.temperature" hide-when-missing />
-                  <span
-                    v-if="!row.has_allergies && row.temperature === null"
-                    class="queue-cell-sub"
-                  >
-                    No clinical flags
-                  </span>
-                </div>
+                <span v-if="row.has_allergies" class="queue-chip queue-chip--warning">Allergies noted</span>
+                <span v-else class="queue-cell-sub">No clinical flags</span>
               </td>
               <td>
                 <QueueStaffUserCell :user="row.queued_by" :name="row.queued_by_name ?? 'Unknown user'" />
               </td>
               <td class="queue-action-col">
                 <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
-                <QueueReceiveButton v-else :processing="receivingId === row.id" @click="receive(row.id)" />
+                <QueueReceiveButton v-else :processing="receivingId === row.id" @click="receive('/triage/:id/receive', row.id)" />
               </td>
             </tr>
           </QueueTable>
           <QueuePagination
             :meta="queued.meta"
-            :previous-href="queued.meta.current_page > 1 ? queueUrl('queued_page', queued.meta.current_page - 1) : null"
-            :next-href="queued.meta.current_page < queued.meta.last_page ? queueUrl('queued_page', queued.meta.current_page + 1) : null"
+            :previous-href="queued.meta.current_page > 1 ? queueUrl('queued_page', queued.meta.current_page - 1, props) : null"
+            :next-href="queued.meta.current_page < queued.meta.last_page ? queueUrl('queued_page', queued.meta.current_page + 1, props) : null"
           />
         </template>
       </div>
@@ -198,8 +170,8 @@ function receive(id: number) {
           </QueueTable>
           <QueuePagination
             :meta="inProgress.meta"
-            :previous-href="inProgress.meta.current_page > 1 ? queueUrl('progress_page', inProgress.meta.current_page - 1) : null"
-            :next-href="inProgress.meta.current_page < inProgress.meta.last_page ? queueUrl('progress_page', inProgress.meta.current_page + 1) : null"
+            :previous-href="inProgress.meta.current_page > 1 ? queueUrl('progress_page', inProgress.meta.current_page - 1, props) : null"
+            :next-href="inProgress.meta.current_page < inProgress.meta.last_page ? queueUrl('progress_page', inProgress.meta.current_page + 1, props) : null"
           />
         </template>
       </div>

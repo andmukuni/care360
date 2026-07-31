@@ -8,6 +8,7 @@ import ComingSoonWardQueueOptions from '~/components/queue/ComingSoonWardQueueOp
 type SelectedAction = 'end' | null
 
 const show = defineModel<boolean>('show', { required: true })
+const returnTriageNotes = defineModel<string>('returnTriageNotes', { default: '' })
 const treatmentNotes = defineModel<string>('treatmentNotes', { default: '' })
 const closureNotes = defineModel<string>('closureNotes', { default: '' })
 
@@ -194,24 +195,40 @@ function handleBack() {
             </div>
           </div>
 
-          <button
-            type="button"
-            class="theme-surface flex w-full items-center gap-4 rounded-lg px-4 py-3.5 text-left transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-neutral-800/60"
-            :disabled="anyLoading"
-            :aria-busy="triageLoading"
-            @click="handleTriage"
-          >
-            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-              <Spinner v-if="triageLoading" size="md" class="text-amber-700 dark:text-amber-300" />
-              <svg v-else class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-            </span>
-            <span class="min-w-0 flex-1">
-              <span class="block text-sm font-semibold text-neutral-900 dark:text-white">Return to Triage</span>
-              <span class="block text-xs text-neutral-500">Send back for vitals recheck</span>
-            </span>
-          </button>
+          <div class="space-y-2">
+            <button
+              type="button"
+              class="theme-surface flex w-full items-center gap-4 rounded-lg px-4 py-3.5 text-left transition hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-neutral-800/60"
+              :disabled="anyLoading"
+              :aria-busy="triageLoading"
+              @click="handleTriage"
+            >
+              <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+                <Spinner v-if="triageLoading" size="md" class="text-amber-700 dark:text-amber-300" />
+                <svg v-else class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="block text-sm font-semibold text-neutral-900 dark:text-white">Return to Triage</span>
+                <span class="block text-xs text-neutral-500">Send back for vitals recheck</span>
+              </span>
+            </button>
+
+            <div class="ml-14">
+              <label class="mb-1 block text-xs font-semibold text-neutral-600 dark:text-neutral-300">
+                Handover notes <span class="font-normal text-neutral-400">(optional)</span>
+              </label>
+              <textarea
+                v-model="returnTriageNotes"
+                rows="2"
+                maxlength="500"
+                class="field-input text-sm"
+                placeholder="Reason for return or what triage should recheck…"
+                :disabled="anyLoading"
+              />
+            </div>
+          </div>
 
           <div class="space-y-2">
             <button

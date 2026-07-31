@@ -464,7 +464,11 @@ async function complete() {
   calculateBmi()
   calculateMuacScore()
   if (!(await flushAutosavesBeforeAction({ required: false }))) return
-  vitals.post(`/triage/${props.encounter.id}/complete`)
+  vitals.post(`/triage/${props.encounter.id}/complete`, {
+    onSuccess: () => {
+      closeQueueActionsModal()
+    },
+  })
 }
 
 async function endEncounter() {
@@ -479,6 +483,9 @@ async function endEncounter() {
       closure_notes: closureNotes.value.trim() || null,
     }))
     .post(`/triage/${props.encounter.id}/close`, {
+      onSuccess: () => {
+        closeQueueActionsModal()
+      },
       onFinish: () => {
         endingEncounter.value = false
       },
@@ -1382,7 +1389,7 @@ onUnmounted(() => {
                   </p>
                 </div>
               </div>
-              <div v-if="canManageWardInTriage && !encounter.is_locked" class="flex flex-col gap-2 sm:flex-row">
+              <div v-if="canManageWardInTriage && encounter.can_edit && !encounter.is_locked" class="flex flex-col gap-2 sm:flex-row">
                 <button
                   type="button"
                   class="whitespace-nowrap rounded-lg border border-neutral-300 px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:bg-white dark:text-neutral-100 dark:hover:bg-neutral-700"
@@ -1411,7 +1418,7 @@ onUnmounted(() => {
                 <span class="font-semibold text-neutral-900 dark:text-white">{{ targetWing }} Wing</span>.
               </p>
               <p class="mt-1.5 text-xs text-neutral-500">Use the bed map to select an available bed.</p>
-              <div v-if="canManageWardInTriage && !encounter.is_locked" class="mt-4">
+              <div v-if="canManageWardInTriage && encounter.can_edit && !encounter.is_locked" class="mt-4">
                 <button
                   type="button"
                   class="inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-neutral-800 sm:w-auto"
@@ -1579,7 +1586,7 @@ onUnmounted(() => {
 
       <!-- Admit modal -->
       <div
-        v-if="isAtTriage && canManageWardInTriage && admitModalOpen"
+        v-if="isAtTriage && canManageWardInTriage && encounter.can_edit && admitModalOpen"
         class="fixed inset-0 z-[9999] flex items-center justify-center p-4"
       >
         <div class="absolute inset-0 bg-black/55" @click="closeAdmitModal" />

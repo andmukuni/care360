@@ -46,6 +46,7 @@ watch(show, (open) => {
 
 function close() {
   if (anyLoading.value) return
+  selectedAction.value = null
   show.value = false
 }
 

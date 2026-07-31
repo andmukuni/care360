@@ -17,6 +17,7 @@ import { useAsyncAction } from '~/composables/useAsyncAction'
 import { useAutosave } from '~/composables/useAutosave'
 import { usePrescriptionCart, type PrescriptionCartItem } from '~/composables/usePrescriptionCart'
 import { useQueueFooterHint } from '~/composables/useQueueFooterHint'
+import { useQueueActionsDeepLink } from '~/composables/useQueueActionsDeepLink'
 import { flushAutosavesBeforeAction } from '~/composables/useFlushAutosave'
 import { formatDiagnosisLabel } from '~/support/screening/screening_json_fields'
 import {
@@ -200,6 +201,8 @@ function cartItemToApi(item: PrescriptionCartItem) {
     duration_unit: item.duration_unit?.trim() || null,
     quantity_prescribed: quantity != null && !Number.isNaN(quantity) ? quantity : null,
     route: item.route?.trim() || null,
+    start_date: item.start_date?.trim() || null,
+    end_date: item.end_date?.trim() || null,
     is_passer_by: item.is_passer_by,
     instructions: item.instructions?.trim() || null,
   }
@@ -303,11 +306,14 @@ const { loading: queueingScreening, run: runQueueScreening } = useAsyncAction()
 async function dispense() {
   dismissDispenseHint()
   if (!(await flushAutosavesBeforeAction({ required: false }))) return
-  const items = pendingPrescriptionItems.value.map((it) => ({
-    pharmacy_prescription_item_id: it.id,
-    drug_name: it.drug_name,
-    quantity_dispensed: dispenseInputs[it.id] ?? 0,
-  }))
+  const items = pendingPrescriptionItems.value
+    .map((it) => ({
+      pharmacy_prescription_item_id: it.id,
+      drug_name: it.drug_name,
+      quantity_dispensed: dispenseInputs[it.id] ?? 0,
+    }))
+    .filter((it) => it.quantity_dispensed >= 1)
+  if (!items.length) return
   runDispense(({ done }) => {
     router.post(
       `/pharmacy/${props.encounter.id}/dispense`,
@@ -323,22 +329,31 @@ async function dispense() {
 
 const closeForm = useForm({ closure_notes: '' })
 
-function close() {
+async function close() {
   dismissCloseHint()
+  if (!(await flushAutosavesBeforeAction({ required: false }))) return
   closeForm.post(`/pharmacy/${props.encounter.id}/close`)
 }
 
-function queueTreatmentRoom() {
+async function queueTreatmentRoom() {
+  if (!(await flushAutosavesBeforeAction({ required: true }))) return
   runQueueTreatment(({ done }) => {
     router.post(`/pharmacy/${props.encounter.id}/queue-treatment-room`, {}, { onFinish: done })
   })
 }
 
-function queueScreening() {
+async function queueScreening() {
+  if (!(await flushAutosavesBeforeAction({ required: true }))) return
   runQueueScreening(({ done }) => {
     router.post(`/pharmacy/${props.encounter.id}/queue-screening`, {}, { onFinish: done })
   })
 }
+
+function openQueueActions() {
+  activeTab.value = 'next'
+}
+
+useQueueActionsDeepLink(openQueueActions)
 
 const showDispenseFooter = computed(() => canEditDispenseQty.value)
 const showCloseFooter = computed(

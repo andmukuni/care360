@@ -94,7 +94,14 @@ export function useAutosave(options: UseAutosaveOptions) {
         const validationMessage = Array.isArray(data.errors)
           ? data.errors.find((entry: { message?: string }) => entry?.message)?.message
           : null
-        errorMessage.value = data.message ?? validationMessage ?? `Save failed (${res.status})`
+        errorMessage.value =
+          data.message ?? validationMessage ?? (data.stale ? 'Encounter moved — changes not saved' : `Save failed (${res.status})`)
+        return
+      }
+
+      if (data.stale) {
+        status.value = 'error'
+        errorMessage.value = data.message ?? 'Encounter moved — changes not saved'
         return
       }
 

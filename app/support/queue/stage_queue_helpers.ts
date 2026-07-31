@@ -9,6 +9,7 @@ import ScreeningRecord from '#models/screening_record'
 import { EncounterStage, EncounterStageHelper } from '#enums/encounter_stage'
 import { EncounterStatus } from '#enums/encounter_status'
 import { diagnosisLabel } from '#support/queue/diagnosis_label'
+import { queueUserBadge } from '#support/queue/queue_user_badge'
 import {
   closedEncounterDayStart,
   encounterDurationHours,
@@ -49,6 +50,13 @@ export type ScreeningQueueRow = BaseQueueRow & {
   return_reason: string | null
   returned_by_name: string | null
   assessment_summary: string | null
+}
+
+export type TriageQueueRow = BaseQueueRow & {
+  status: string
+  temperature: number | null
+  queued_by: { name: string; role: string | null } | null
+  received_by: { name: string; role: string | null } | null
 }
 
 export type LabQueueRow = BaseQueueRow & {
@@ -530,6 +538,31 @@ export function screeningQueueRow(
   }
 }
 
+export function triageQueueRow(
+  encounter: Encounter,
+  options: { currentUserId: number | null; inProgress?: boolean }
+): TriageQueueRow {
+  const base = baseQueueRow(encounter, {
+    stage: EncounterStage.Triage,
+    currentUserId: options.currentUserId,
+    inProgress: options.inProgress,
+  })
+  const transition = latestStageTransition(
+    encounter.encounterQueueTransitions,
+    EncounterStage.Triage,
+    options.inProgress ? 'received' : 'queued'
+  )
+  const triage = encounter.triageRecords?.[0] ?? null
+
+  return {
+    ...base,
+    status: encounter.currentStatus,
+    temperature: triage?.temperature ?? null,
+    queued_by: queueUserBadge(transition?.queuedByUser),
+    received_by: queueUserBadge(transition?.receivedByUser),
+  }
+}
+
 export function labQueueRow(
   encounter: Encounter,
   options: { currentUserId: number | null; inProgress?: boolean }
@@ -706,7 +739,13 @@ export function treatmentRoomQueueRow(
   )
   const fromStage = latestTransition?.fromStage ?? EncounterStage.Pharmacy
   const sourceLabel =
-    fromStage === EncounterStage.Screening ? 'From Screening' : 'From Pharmacy'
+    fromStage === EncounterStage.Screening
+      ? 'From Screening'
+      : fromStage === EncounterStage.ScreeningReview
+        ? 'From Screening Review'
+        : fromStage === EncounterStage.Pharmacy
+          ? 'From Pharmacy'
+          : EncounterStageHelper.label(fromStage)
 
   const dispense = latestDispense(encounter)
   const dispensedMedications = (dispense?.pharmacyDispenseItems ?? [])
@@ -840,7 +879,28 @@ export async function paginateCachedStageQueue<T extends BaseQueueRow>(options: 
   }
 }
 
-type QueueOrder = 'clinical' | 'lab' | 'updated_at'
+export async function paginateCachedTriageQueue(options: {
+  queuedPage: number
+  progressPage: number
+  currentUserId: number | null
+  forceManage?: boolean
+}) {
+  return paginateCachedStageQueue({
+    stage: EncounterStage.Triage,
+    queuedPage: options.queuedPage,
+    progressPage: options.progressPage,
+    currentUserId: options.currentUserId,
+    forceManage: options.forceManage,
+    orderBy: 'started_at',
+    preload: (query) => {
+      query.preload('triageRecords', (q: any) => q.orderBy('id', 'desc'))
+    },
+    mapRow: (encounter, inProgress) =>
+      triageQueueRow(encounter, { currentUserId: null, inProgress }),
+  })
+}
+
+type QueueOrder = 'clinical' | 'lab' | 'updated_at' | 'started_at'
 
 export async function paginateStageQueue(options: {
   stage: EncounterStage
@@ -869,6 +929,9 @@ export async function paginateStageQueue(options: {
   const applyOrder = (query: any) => {
     if (options.orderBy === 'lab') {
       return Encounter.orderByLabQueuePriority(query, 'updated_at')
+    }
+    if (options.orderBy === 'started_at') {
+      return Encounter.orderByClinicalPriority(query, 'started_at')
     }
     if (options.orderBy === 'clinical') {
       return Encounter.orderByClinicalPriority(query, 'updated_at')

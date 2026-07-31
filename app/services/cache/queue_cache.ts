@@ -4,7 +4,7 @@ import type { EncounterStage } from '#enums/encounter_stage'
 import { queueStageTag, QUEUE_TAGS } from '#services/cache/queue_cache_keys'
 import { safeCacheGetOrSet, safeCacheMutation } from '#services/cache/safe_cache'
 
-const QUEUE_TTL = env.get('CACHE_QUEUE_TTL', '60s')
+const QUEUE_TTL = env.get('CACHE_QUEUE_TTL', '15s')
 
 export default class QueueCache {
   static ttl(): string {

@@ -41,7 +41,7 @@ import {
   isSuperAdminUser,
   paginateScreeningCategoryQueue,
   parseQueuePages,
-  screeningQueueRow,
+  screeningCategoryCounts,
 } from '#support/queue/stage_queue_helpers'
 import {
   buildPatientHeaderEncounter,
@@ -100,6 +100,7 @@ function serializeScreeningRecord(sr: ScreeningRecord | null) {
   if (!sr) return null
 
   return {
+    id: sr.id,
     complaints: sr.complaints,
     tb_symptoms: parseTbSymptoms(sr.tbSymptoms),
     constitutional_symptoms: sr.constitutionalSymptoms,
@@ -178,40 +179,26 @@ export default class ScreeningController {
     const forceManage = await isSuperAdminUser(auth)
     const isQueuePreview = await isQueuePreviewForStage(auth, EncounterStage.Screening)
 
-    const [adultQueues, pediatricQueues] = await Promise.all([
-      paginateScreeningCategoryQueue({
-        cat: 'adult',
-        queuedPage,
-        progressPage,
-        currentUserId,
-        forceManage,
-      }),
-      paginateScreeningCategoryQueue({
-        cat: 'pediatric',
-        queuedPage,
-        progressPage,
-        currentUserId,
-        forceManage,
-      }),
-    ])
+    const activeQueues = await paginateScreeningCategoryQueue({
+      cat,
+      queuedPage,
+      progressPage,
+      currentUserId,
+      forceManage,
+    })
+
+    const counts = await screeningCategoryCounts(
+      cat,
+      activeQueues.queued.meta.total,
+      activeQueues.inProgress.meta.total
+    )
 
     return inertia.render('screening/queue', {
       cat,
       isQueuePreview,
-      counts: {
-        adult: adultQueues.queueTotal,
-        pediatric: pediatricQueues.queueTotal,
-      },
-      queues: {
-        adult: {
-          queued: adultQueues.queued,
-          inProgress: adultQueues.inProgress,
-        },
-        pediatric: {
-          queued: pediatricQueues.queued,
-          inProgress: pediatricQueues.inProgress,
-        },
-      },
+      counts,
+      queued: activeQueues.queued,
+      inProgress: activeQueues.inProgress,
     })
   }
 
@@ -675,12 +662,9 @@ export default class ScreeningController {
       encounter.currentStatus !== EncounterStatus.InProgress
     ) {
       return response.json({
-        ok: true,
-        saved_at: new Date().toISOString(),
-        lab_requested: labRequested,
-        next_url: labRequested
-          ? `/screening/${encounter.id}?tab=lab`
-          : `/screening/${encounter.id}`,
+        ok: false,
+        stale: true,
+        message: 'This encounter is no longer at the screening stage.',
       })
     }
 

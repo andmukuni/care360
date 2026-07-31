@@ -363,6 +363,9 @@ function syncLabItems() {
     form.lab_requested = true
   } else {
     form.lab_items = ''
+    if (!(props.labRequest?.items?.length ?? 0)) {
+      form.lab_requested = false
+    }
   }
 
   form.lab_priority_level = labPriority.value
@@ -632,6 +635,14 @@ const dimmerVisible = computed(
 
 const showEditableForm = computed(() => props.isAtScreening && props.encounter.can_edit)
 
+const hasScreeningAssessment = computed(
+  () => !!props.screening?.id || !!String(form.complaints ?? '').trim()
+)
+
+const canAutosaveVitalRecheck = computed(
+  () => showEditableForm.value && hasScreeningAssessment.value
+)
+
 const recheckBmiBadge = computed(() => computeBmiBadge(recheckBmiDisplay.value))
 
 const recheckVitalBadges = computed(() => ({
@@ -687,7 +698,7 @@ function recheckHasValue() {
 
 const { status: recheckStatus, indicatorText: recheckText } = useAutosave({
   url: `/screening/${props.encounter.id}/vital-recheck/autosave`,
-  enabled: showEditableForm,
+  enabled: canAutosaveVitalRecheck,
   getPayload: () => {
     if (!recheckHasValue()) return null
     const raw = recheck.data() as Record<string, unknown>
@@ -1630,7 +1641,7 @@ onUnmounted(() => {
       </div>
 
       <div class="lg:col-span-9 lg:order-1">
-        <form class="theme-surface rounded-lg shadow-sm" @submit.prevent="complete">
+        <form class="theme-surface rounded-lg shadow-sm" @submit.prevent>
           <div class="stage-tab-nav-sticky stage-tab-nav-sticky--card">
             <div
               v-if="showEditableForm && activeTab !== 'vital-recheck'"
@@ -1725,6 +1736,9 @@ onUnmounted(() => {
                 <div><span class="text-xs text-neutral-500">Pulse</span><p class="font-semibold">{{ triage.pulse ?? '—' }}</p></div>
                 <div><span class="text-xs text-neutral-500">Temp</span><p class="font-semibold">{{ triage.temperature ? `${triage.temperature}°C` : '—' }}</p></div>
               </div>
+            </div>
+            <div v-if="showEditableForm && !hasScreeningAssessment" class="rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+              Save the screening assessment (Complaints tab) before recording a vital recheck.
             </div>
             <div v-if="showEditableForm" class="section-card">
               <div class="flex items-center justify-between gap-3">
@@ -2132,6 +2146,7 @@ onUnmounted(() => {
     <ScreeningQueueActionsModal
       v-model:show="queueActionsModalOpen"
       v-model:treatment-notes="treatmentRoomNotes"
+      v-model:return-triage-notes="returnTriageNotes"
       v-model:closure-notes="closureNotes"
       :lab-loading="queueingLab"
       :pharmacy-loading="queueingPharmacy"

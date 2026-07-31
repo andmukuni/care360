@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { Link, router, useForm } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import PatientHeader from '~/components/encounter/PatientHeader.vue'
@@ -14,6 +14,7 @@ import ComingSoonWardQueueOptions from '~/components/queue/ComingSoonWardQueueOp
 import { useAsyncAction } from '~/composables/useAsyncAction'
 import { useAutosave } from '~/composables/useAutosave'
 import { useQueueFooterHint } from '~/composables/useQueueFooterHint'
+import { useQueueActionsDeepLink } from '~/composables/useQueueActionsDeepLink'
 import { flushAutosavesBeforeAction } from '~/composables/useFlushAutosave'
 import {
   initializeFormStateForTest,
@@ -144,6 +145,12 @@ const { status: autosaveStatus, indicatorText: autosaveText, saveNow } = useAuto
   watchSource: computed(() => ({ ...formStates })),
 })
 
+watch(activeTab, async (tab, previousTab) => {
+  if (previousTab === 'results' && tab !== 'results') {
+    await saveNow()
+  }
+})
+
 function saveResults() {
   if (!buildResultsPayload()) return
   runSaveResults(async ({ done }) => {
@@ -154,6 +161,7 @@ function saveResults() {
 
 async function complete() {
   dismissQueueHint()
+  if (pendingResultCount.value > 0) return
   if (!(await flushAutosavesBeforeAction({ required: false }))) return
   const results = (props.labRequest?.items ?? [])
     .map((item) => {
@@ -166,6 +174,12 @@ async function complete() {
     router.post(`/lab/${props.encounter.id}/complete`, { results }, { onFinish: done })
   })
 }
+
+function openQueueComplete() {
+  activeTab.value = 'results'
+}
+
+useQueueActionsDeepLink(openQueueComplete, { scrollTo: 'lab-queue-complete' })
 
 const sample = useForm({
   samples: [
@@ -515,13 +529,21 @@ const pendingResultCount = computed(
 
           <QueueFooter
             v-if="canEdit"
+            id="lab-queue-complete"
             :show-hint="showQueueHint"
             label="Complete"
             aria-label="Complete lab and queue to screening review"
             :loading="completing"
+            :disabled="pendingResultCount > 0"
             loading-text="Submitting…"
             @click="complete"
           />
+          <p
+            v-if="canEdit && pendingResultCount > 0"
+            class="px-6 pb-4 text-xs text-amber-700 dark:text-amber-300"
+          >
+            Enter results for all {{ pendingResultCount }} pending test(s) before completing.
+          </p>
         </form>
 
         <div v-else class="theme-surface rounded-lg shadow-sm">

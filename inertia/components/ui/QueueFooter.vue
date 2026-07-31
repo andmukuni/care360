@@ -12,12 +12,14 @@ const props = withDefaults(
     sticky?: boolean
     loading?: boolean
     loadingText?: string
+    disabled?: boolean
   }>(),
   {
     showHint: false,
     sticky: true,
     loading: false,
     loadingText: 'Processing…',
+    disabled: false,
   }
 )
 
@@ -30,7 +32,7 @@ const { isVisible } = useOffscreenVisibility(footerRef)
 const showSticky = computed(() => props.sticky !== false && !isVisible.value)
 
 function handleClick() {
-  if (props.loading) {
+  if (props.loading || props.disabled) {
     return
   }
   emit('click')
@@ -44,7 +46,7 @@ function handleClick() {
     class="queue-footer group flex w-full items-stretch border-0 pl-6 text-left"
     :aria-label="ariaLabel ?? 'Queue patient'"
     :aria-busy="loading"
-    :disabled="loading"
+    :disabled="loading || disabled"
     @click="handleClick"
   >
     <div class="queue-footer__hint relative min-h-[52px] flex-1 self-stretch">
@@ -71,7 +73,7 @@ function handleClick() {
       class="queue-footer-sticky"
       :aria-label="ariaLabel ?? 'Queue patient'"
       :aria-busy="loading"
-      :disabled="loading"
+      :disabled="loading || disabled"
       @click="handleClick"
     >
       <span class="queue-footer-sticky__btn btn-primary inline-flex w-full max-w-3xl items-center justify-center gap-2">

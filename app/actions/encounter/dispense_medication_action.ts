@@ -47,6 +47,7 @@ export default class DispenseMedicationAction {
 
       for (const item of data.items ?? []) {
         const quantity = Number(item.quantity_dispensed)
+        if (quantity < 1) continue
         const medicationId = item.medication_id ?? null
 
         await PharmacyDispenseItem.create(

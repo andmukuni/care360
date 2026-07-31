@@ -75,9 +75,9 @@ export class EncounterStageMap {
       case EncounterStage.Screening:
         return [EncounterStage.Triage, EncounterStage.Pharmacy]
       case EncounterStage.Lab:
-        return [EncounterStage.Screening]
+        return [EncounterStage.Screening, EncounterStage.ScreeningReview]
       case EncounterStage.ScreeningReview:
-        return [EncounterStage.Lab]
+        return [EncounterStage.Lab, EncounterStage.TreatmentRoom]
       case EncounterStage.Pharmacy:
         return [EncounterStage.Screening, EncounterStage.ScreeningReview]
       case EncounterStage.TreatmentRoom:

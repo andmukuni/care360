@@ -672,7 +672,31 @@ export default class LabController {
       await new RecordLabResultsAction().handle(labRequest, { results: data.results }, user.id)
     }
 
+    await labRequest.load('labRequestItems')
     await labRequest.load('labResults')
+
+    const resultsByItemId = new Map<number, LabResult>()
+    for (const result of labRequest.labResults) {
+      if (result.labRequestItemId) {
+        resultsByItemId.set(result.labRequestItemId, result)
+      }
+    }
+
+    const pendingItems = labRequest.labRequestItems.filter((item) => {
+      const result = resultsByItemId.get(item.id)
+      const value = result?.resultValue?.trim() ?? ''
+      const text = result?.resultText?.trim() ?? ''
+      return !result || (!value && !text)
+    })
+
+    if (pendingItems.length > 0) {
+      session.flash(
+        'error',
+        `All ordered tests must have results before completing (${pendingItems.length} pending).`
+      )
+      return response.redirect().back()
+    }
+
     if (labRequest.labResults.length === 0) {
       session.flash('error', 'At least one result must be recorded before completing the lab stage.')
       return response.redirect().back()

@@ -3,7 +3,6 @@ import vine from '@vinejs/vine'
 import db from '@adonisjs/lucid/services/db'
 import { DateTime } from 'luxon'
 import Encounter from '#models/encounter'
-import EncounterQueueTransition from '#models/encounter_queue_transition'
 import Bed from '#models/bed'
 import Ward from '#models/ward'
 import Medication from '#models/medication'
@@ -25,13 +24,12 @@ import { buildPatientHeaderEncounter } from '#support/encounter/patient_header_p
 import { loadClinicalSuggestions } from '#support/clinical/load_clinical_suggestions'
 import { triageVitalsValidator, startupMedicationValidator } from '#validators/staff/triage'
 import { errors as vineErrors } from '@vinejs/vine'
-import { queueUserBadge } from '#support/queue/queue_user_badge'
-import QueueCache from '#services/cache/queue_cache'
-import { stageQueuePageKey } from '#services/cache/queue_cache_keys'
 import {
   isQueuePreviewForStage,
   isSuperAdminUser,
-  patchQueueCanManage,
+  latestStageTransition,
+  paginateCachedTriageQueue,
+  parseQueuePages,
 } from '#support/queue/stage_queue_helpers'
 
 /**
@@ -50,77 +48,6 @@ function expectedWing(gender: string | null | undefined): string | null {
   return null
 }
 
-function latestTriageTransition(
-  transitions: EncounterQueueTransition[] | undefined,
-  sortBy: 'queued' | 'received' = 'queued'
-): EncounterQueueTransition | null {
-  if (!transitions?.length) return null
-
-  return [...transitions]
-    .filter((transition) => transition.toStage === EncounterStage.Triage)
-    .sort((a, b) => {
-      const aTime =
-        sortBy === 'received'
-          ? (a.receivedAt ?? a.queuedAt ?? a.createdAt)?.toMillis() ?? 0
-          : (a.queuedAt ?? a.createdAt)?.toMillis() ?? 0
-      const bTime =
-        sortBy === 'received'
-          ? (b.receivedAt ?? b.queuedAt ?? b.createdAt)?.toMillis() ?? 0
-          : (b.queuedAt ?? b.createdAt)?.toMillis() ?? 0
-      return bTime - aTime
-    })[0] ?? null
-}
-
-function queueRow(
-  e: Encounter,
-  options: { currentUserId: number | null; inProgress?: boolean } = { currentUserId: null }
-) {
-  const transition = latestTriageTransition(
-    e.encounterQueueTransitions,
-    options.inProgress ? 'received' : 'queued'
-  )
-  const receivedById = transition?.receivedBy ?? null
-  const canManage =
-    !options.inProgress ||
-    !receivedById ||
-    (options.currentUserId !== null && receivedById === options.currentUserId)
-  const triage = e.triageRecords?.[0] ?? null
-
-  return {
-    id: e.id,
-    encounter_number: e.encounterNumber,
-    patient_name: e.patient?.fullName ?? null,
-    patient_code: e.patient?.patientId ?? null,
-    visit_type: e.visitType,
-    priority: e.priorityLevel,
-    status: e.currentStatus,
-    updated_at_relative: e.updatedAt?.toRelative() ?? null,
-    queued_by_name: transition?.queuedByUser?.name ?? 'Unknown user',
-    received_by_name: transition?.receivedByUser?.name ?? null,
-    queued_by: queueUserBadge(transition?.queuedByUser),
-    received_by: queueUserBadge(transition?.receivedByUser),
-    has_allergies: Boolean(e.patient?.allergies?.trim()),
-    can_manage: canManage,
-    received_by_id: receivedById,
-    temperature: triage?.temperature ?? null,
-  }
-}
-
-function paginatorPayload<T>(
-  paginator: { all: () => Encounter[]; currentPage: number; lastPage: number; perPage: number; total: number },
-  mapper: (encounter: Encounter) => T
-) {
-  return {
-    data: paginator.all().map(mapper),
-    meta: {
-      current_page: paginator.currentPage,
-      last_page: paginator.lastPage,
-      per_page: paginator.perPage,
-      total: paginator.total,
-    },
-  }
-}
-
 async function validateTriageVitalsRequest(request: HttpContext['request']) {
   const normalized = normalizeTriageVitalsPayload(request.all() as Record<string, unknown>)
   return request.validateUsing(triageVitalsValidator, { data: normalized })
@@ -129,55 +56,22 @@ async function validateTriageVitalsRequest(request: HttpContext['request']) {
 export default class TriageController {
   // GET /triage/queue
   async queue({ inertia, request, auth }: HttpContext) {
-    const user = auth.use('web').user ?? null
-    const currentUserId = user?.id ?? null
+    const { queuedPage, progressPage } = parseQueuePages(request)
+    const currentUserId = auth.use('web').user?.id ?? null
     const forceManage = await isSuperAdminUser(auth)
     const isQueuePreview = await isQueuePreviewForStage(auth, EncounterStage.Triage)
 
-    const queuedPage = Math.max(1, Number(request.qs().queued_page ?? 1))
-    const progressPage = Math.max(1, Number(request.qs().progress_page ?? 1))
-
-    const cacheKey = stageQueuePageKey({
-      stage: EncounterStage.Triage,
+    const { queued, inProgress } = await paginateCachedTriageQueue({
       queuedPage,
       progressPage,
-      orderBy: 'clinical',
-    })
-
-    const cached = await QueueCache.getOrSet(cacheKey, EncounterStage.Triage, async () => {
-      const base = () =>
-        Encounter.query()
-          .preload('patient')
-          .preload('triageRecords', (q) => q.orderBy('id', 'desc'))
-          .preload('encounterQueueTransitions', (q) =>
-            q.preload('queuedByUser').preload('receivedByUser')
-          )
-          .where('current_stage', EncounterStage.Triage)
-
-      const queuedPaginator = await Encounter.orderByClinicalPriority(
-        base().where('current_status', EncounterStatus.Queued),
-        'started_at'
-      ).paginate(queuedPage, 20)
-
-      const inProgressPaginator = await Encounter.orderByClinicalPriority(
-        base().where('current_status', EncounterStatus.InProgress),
-        'started_at'
-      ).paginate(progressPage, 20)
-
-      return {
-        queued: paginatorPayload(queuedPaginator, (encounter) =>
-          queueRow(encounter, { currentUserId: null })
-        ),
-        inProgress: paginatorPayload(inProgressPaginator, (encounter) =>
-          queueRow(encounter, { currentUserId: null, inProgress: true })
-        ),
-      }
+      currentUserId,
+      forceManage,
     })
 
     return inertia.render('triage/queue', {
       isQueuePreview,
-      queued: patchQueueCanManage(cached.queued, currentUserId, forceManage),
-      inProgress: patchQueueCanManage(cached.inProgress, currentUserId, forceManage),
+      queued,
+      inProgress,
     })
   }
 
@@ -236,7 +130,11 @@ export default class TriageController {
           .limit(10)
       : []
 
-    const triageTransition = latestTriageTransition(encounter.encounterQueueTransitions, 'queued')
+    const triageTransition = latestStageTransition(
+      encounter.encounterQueueTransitions,
+      EncounterStage.Triage,
+      'queued'
+    )
     const openTriageLog = [...(encounter.encounterStageLogs ?? [])]
       .filter((log) => log.stageName === EncounterStage.Triage && !log.completedAt)
       .sort((a, b) => b.id - a.id)[0] ?? null
@@ -382,7 +280,11 @@ export default class TriageController {
 
     if (encounter.currentStage !== EncounterStage.Triage) {
       if (wantsJson) {
-        return response.json({ ok: true, saved_at: new Date().toISOString() })
+        return response.json({
+          ok: false,
+          stale: true,
+          message: 'This encounter is no longer at the triage stage.',
+        })
       }
       session.flash('error', 'This encounter is no longer at the triage stage.')
       return response.redirect().toPath(`/triage/${encounter.id}`)
@@ -570,9 +472,13 @@ export default class TriageController {
   async storeStartupMedication({ params, request, response, session, auth, bouncer }: HttpContext) {
     const user = auth.getUserOrFail()
     const encounter = await Encounter.findOrFail(params.encounter)
+    const expectedStage =
+      encounter.currentStage === EncounterStage.Screening
+        ? EncounterStage.Screening
+        : EncounterStage.Triage
     await (bouncer as any)
       .with('EncounterPolicy')
-      .authorize('editInStage', encounter, EncounterStage.Triage)
+      .authorize('editInStage', encounter, expectedStage)
 
     const data = await request.validateUsing(startupMedicationValidator)
     const triage = await getTriageRecord(encounter.id)
@@ -673,9 +579,13 @@ export default class TriageController {
     auth.getUserOrFail()
     const medication = await StartupMedication.findOrFail(params.medication)
     const encounter = await Encounter.findOrFail(medication.encounterId)
+    const expectedStage =
+      encounter.currentStage === EncounterStage.Screening
+        ? EncounterStage.Screening
+        : EncounterStage.Triage
     await (bouncer as any)
       .with('EncounterPolicy')
-      .authorize('editInStage', encounter, EncounterStage.Triage)
+      .authorize('editInStage', encounter, expectedStage)
 
     await medication.delete()
 

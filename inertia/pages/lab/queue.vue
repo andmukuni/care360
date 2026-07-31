@@ -7,6 +7,7 @@ import QueueTable from '~/components/staff/queue/QueueTable.vue'
 import QueueEmptyState from '~/components/staff/queue/QueueEmptyState.vue'
 import QueueReceiveButton from '~/components/staff/queue/QueueReceiveButton.vue'
 import QueueRecordButton from '~/components/staff/queue/QueueRecordButton.vue'
+import QueueForwardButton from '~/components/staff/queue/QueueForwardButton.vue'
 import QueuePagination from '~/components/staff/queue/QueuePagination.vue'
 import QueueEncounterCell from '~/components/staff/queue/QueueEncounterCell.vue'
 import QueuePatientCell from '~/components/staff/queue/QueuePatientCell.vue'
@@ -161,7 +162,10 @@ function labRequestSegments(row: Row) {
               <td><div class="queue-cell-sub font-medium">{{ row.received_by_name || 'Unknown user' }}</div></td>
               <td class="queue-action-col">
                 <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
-                <QueueRecordButton v-else-if="row.can_manage" :href="`/lab/${row.id}`" label="Record" />
+                <div v-else-if="row.can_manage" class="flex flex-col items-end gap-2 sm:flex-row">
+                  <QueueForwardButton :href="`/lab/${row.id}?queue=1`" label="Complete" />
+                  <QueueRecordButton :href="`/lab/${row.id}`" label="Record" />
+                </div>
                 <span v-else class="queue-assigned">Assigned to {{ row.received_by_name || 'another user' }}</span>
               </td>
             </tr>

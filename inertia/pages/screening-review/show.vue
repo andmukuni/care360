@@ -145,6 +145,9 @@ function cartItemToApi(item: PrescriptionCartItem) {
     duration_unit: item.duration_unit?.trim() || null,
     quantity_prescribed: quantity != null && !Number.isNaN(quantity) ? quantity : null,
     route: item.route?.trim() || null,
+    start_date: item.start_date?.trim() || null,
+    end_date: item.end_date?.trim() || null,
+    is_passer_by: item.is_passer_by,
     instructions: item.instructions?.trim() || null,
   }
 }
@@ -347,7 +350,7 @@ async function queueTriage() {
 async function endEncounter() {
   dismissQueueHint()
   form.items = prescriptionItemsForPayload()
-  if (!(await flushAutosavesBeforeAction({ required: false }))) return
+  if (!(await flushAutosavesBeforeAction({ required: true }))) return
   endingEncounter.value = true
   router.post(
     `/screening-review/${props.encounter.id}/close`,

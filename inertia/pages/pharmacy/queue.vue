@@ -9,6 +9,7 @@ import QueueTable from '~/components/staff/queue/QueueTable.vue'
 import QueueEmptyState from '~/components/staff/queue/QueueEmptyState.vue'
 import QueueReceiveButton from '~/components/staff/queue/QueueReceiveButton.vue'
 import QueueRecordButton from '~/components/staff/queue/QueueRecordButton.vue'
+import QueueForwardButton from '~/components/staff/queue/QueueForwardButton.vue'
 import QueuePagination from '~/components/staff/queue/QueuePagination.vue'
 import QueueEncounterCell from '~/components/staff/queue/QueueEncounterCell.vue'
 import QueuePatientCell from '~/components/staff/queue/QueuePatientCell.vue'
@@ -296,10 +297,16 @@ onMounted(() => {
               <td>
                 <QueueInlineCell :segments="labResultsSegments(row)" :emphasize-first="false" />
               </td>
+              <td>
+                <QueueInlineCell :segments="prescriptionSegments(row)" :emphasize-first="false" />
+              </td>
               <td><div class="queue-cell-sub font-medium">{{ row.received_by_name || 'Unknown user' }}</div></td>
               <td class="queue-action-col">
                 <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
-                <QueueRecordButton v-else-if="row.can_manage" :href="`/pharmacy/${row.id}`" label="Open" />
+                <div v-else-if="row.can_manage" class="flex flex-col items-end gap-2 sm:flex-row">
+                  <QueueForwardButton :href="`/pharmacy/${row.id}?queue=1`" />
+                  <QueueRecordButton :href="`/pharmacy/${row.id}`" label="Open" />
+                </div>
                 <span v-else class="queue-assigned">Assigned to {{ row.received_by_name || 'another user' }}</span>
               </td>
             </tr>
@@ -357,7 +364,10 @@ onMounted(() => {
               <td><div class="queue-cell-sub font-medium">{{ row.received_by_name || 'Unknown user' }}</div></td>
               <td class="queue-action-col">
                 <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
-                <QueueRecordButton v-else :href="`/pharmacy/${row.id}`" label="Open" />
+                <div v-else class="flex flex-col items-end gap-2 sm:flex-row">
+                  <QueueForwardButton :href="`/pharmacy/${row.id}?queue=1`" />
+                  <QueueRecordButton :href="`/pharmacy/${row.id}`" label="Open" />
+                </div>
               </td>
             </tr>
           </QueueTable>

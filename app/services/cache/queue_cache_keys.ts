@@ -20,7 +20,7 @@ export function stageQueuePageKey(parts: {
   const partial =
     parts.partiallyDispensedPage !== undefined ? `:pd${parts.partiallyDispensedPage}` : ''
   const order = parts.orderBy ? `:${parts.orderBy}` : ''
-  return `queue:${parts.stage}${scope}${order}:q${parts.queuedPage}:p${parts.progressPage}${partial}`
+  return `queue:${parts.stage}${scope}${order}:v3:q${parts.queuedPage}:p${parts.progressPage}${partial}`
 }
 
 export function closedQueuePageKey(stage: string, closedPage: number, closedSearch: string): string {

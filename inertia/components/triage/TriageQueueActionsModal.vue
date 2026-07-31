@@ -40,7 +40,6 @@ function close() {
 function selectQueue() {
   if (anyLoading.value) return
   emit('complete')
-  close()
 }
 
 function selectEnd() {

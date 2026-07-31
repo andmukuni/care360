@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import ReturnedChip from '~/components/encounter/ReturnedChip.vue'
 import QueuePageShell from '~/components/staff/queue/QueuePageShell.vue'
@@ -41,29 +41,39 @@ const props = defineProps<{
   cat: Category
   isQueuePreview: boolean
   counts: { adult: number; pediatric: number }
-  queues: Record<Category, { queued: Paginator; inProgress: Paginator }>
+  queued: Paginator
+  inProgress: Paginator
 }>()
 
 const { tab, receivingId, receive } = useStageQueue('/screening/queue', {
-  pollOnly: ['queues', 'counts'],
+  pollOnly: ['queued', 'inProgress', 'counts', 'cat'],
 })
 
 const activeCat = ref<Category>(props.cat)
 const barcodeSearch = ref('')
-
-const queued = computed(() => props.queues[activeCat.value].queued)
-const inProgress = computed(() => props.queues[activeCat.value].inProgress)
 
 function switchCategory(nextCat: Category) {
   if (activeCat.value === nextCat) {
     return
   }
 
-  activeCat.value = nextCat
-
-  const url = new URL(window.location.href)
-  url.searchParams.set('cat', nextCat)
-  window.history.replaceState(window.history.state, '', url.toString())
+  router.get(
+    '/screening/queue',
+    {
+      cat: nextCat,
+      queued_page: 1,
+      progress_page: 1,
+    },
+    {
+      only: ['queued', 'inProgress', 'counts', 'cat'],
+      preserveScroll: true,
+      preserveState: true,
+      showProgress: false,
+      onSuccess: () => {
+        activeCat.value = nextCat
+      },
+    }
+  )
 }
 
 function matchesRow(row: Row) {
@@ -84,15 +94,15 @@ function patientDetails(row: Row) {
     .join(' · ')
 }
 
-const visibleQueued = computed(() => queued.value.data.filter(matchesRow))
-const visibleInProgress = computed(() => inProgress.value.data.filter(matchesRow))
+const visibleQueued = computed(() => props.queued.data.filter(matchesRow))
+const visibleInProgress = computed(() => props.inProgress.data.filter(matchesRow))
 
 function queuePageUrl(pageParam: 'queued_page' | 'progress_page', page: number) {
   const params = new URLSearchParams(window.location.search)
-  params.set('queued_page', String(pageParam === 'queued_page' ? page : queued.value.meta.current_page))
+  params.set('queued_page', String(pageParam === 'queued_page' ? page : props.queued.meta.current_page))
   params.set(
     'progress_page',
-    String(pageParam === 'progress_page' ? page : inProgress.value.meta.current_page)
+    String(pageParam === 'progress_page' ? page : props.inProgress.meta.current_page)
   )
   params.set('cat', activeCat.value)
   return `/screening/queue?${params.toString()}`
@@ -103,7 +113,7 @@ function navigateQueuePage(pageParam: 'queued_page' | 'progress_page', page: num
     queuePageUrl(pageParam, page),
     {},
     {
-      only: ['queues', 'counts'],
+      only: ['queued', 'inProgress', 'counts', 'cat'],
       preserveScroll: true,
       preserveState: true,
       showProgress: false,
@@ -114,6 +124,13 @@ function navigateQueuePage(pageParam: 'queued_page' | 'progress_page', page: num
 onMounted(() => {
   barcodeSearch.value = new URLSearchParams(window.location.search).get('barcode') ?? ''
 })
+
+watch(
+  () => props.cat,
+  (nextCat) => {
+    activeCat.value = nextCat
+  }
+)
 </script>
 
 <template>
