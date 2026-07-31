@@ -69,6 +69,11 @@ export default await Env.create(new URL('../', import.meta.url), {
   REDIS_PORT: Env.schema.number.optional(),
   REDIS_PASSWORD: Env.schema.string.optional(),
   REDIS_DB: Env.schema.number.optional(),
+  // Isolate Care360 keys when sharing one Redis host with other systems
+  REDIS_KEY_PREFIX: Env.schema.string.optional(),
+  REDIS_CONNECT_TIMEOUT_MS: Env.schema.number.optional(),
+  REDIS_COMMAND_TIMEOUT_MS: Env.schema.number.optional(),
+  REDIS_MAX_RETRIES_PER_REQUEST: Env.schema.number.optional(),
   CACHE_STORE: Env.schema.enum(['redis', 'memory'] as const),
   CACHE_REF_DATA_TTL: Env.schema.string.optional(),
   CACHE_PATIENTS_FULL_LIST: Env.schema.boolean.optional(),

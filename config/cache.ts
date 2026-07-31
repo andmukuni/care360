@@ -2,9 +2,9 @@ import env from '#start/env'
 import { defineConfig, store, drivers } from '@adonisjs/cache'
 
 /**
- * Default is in-memory only. Redis L2 is opt-in via CACHE_STORE=redis and
- * requires the redis provider (see adonisrc.ts). Prefer memory on single-instance
- * deploys so a dead Redis never takes the app down.
+ * Use CACHE_STORE=redis for shared/multi-instance cache (same Redis host is fine
+ * when REDIS_KEY_PREFIX / REDIS_DB isolate Care360). Soft-fail wrappers keep
+ * requests alive if Redis is slow or down. Use CACHE_STORE=memory to skip Redis.
  */
 const useRedis = env.get('CACHE_STORE') === 'redis'
 const defaultStore = useRedis ? 'redis' : 'memory'

@@ -137,16 +137,29 @@ node ace generate:key   # paste into APP_KEY in .env.docker
 docker compose -f docker-compose.local.yml up -d --build
 ```
 
-Optional Redis (shared cache across instances only — **off by default**):
+### Shared Redis (recommended for multi-instance / system-wide Redis)
+
+Care360 can share one Redis host with other apps. Isolation + crash safety:
+
+| Env | Purpose |
+|---|---|
+| `CACHE_STORE=redis` | Enable Redis L2 cache + invalidation bus |
+| `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | Shared Redis endpoint |
+| `REDIS_KEY_PREFIX=care360:` | Namespace so Care360 keys never collide with other apps |
+| `REDIS_DB` | Optional logical DB split (e.g. Care360 on `1`, other apps on `0`) |
+| `REDIS_CONNECT_TIMEOUT_MS=2000` | Fail fast instead of hanging the Node process |
+| `REDIS_COMMAND_TIMEOUT_MS=2000` | Same for commands |
+| `CACHE_PATIENTS_FULL_LIST=false` | Avoid stuffing huge lists into shared Redis memory |
+
+Soft-fail cache wrappers fall back to Postgres if Redis is down — sessions, jobs,
+and Transmit still do **not** use Redis.
+
+Local optional Redis container:
 
 ```bash
-# Also set CACHE_STORE=redis and REDIS_HOST=redis in .env.docker
+# Set CACHE_STORE=redis, REDIS_HOST=redis, REDIS_KEY_PREFIX=care360: in .env.docker
 docker compose -f docker-compose.local.yml --profile with-redis up -d
 ```
-
-Production Coolify should keep `CACHE_STORE=memory` unless you run multiple app
-replicas that need a shared cache and Redis is reliably available. Sessions, jobs,
-and Transmit do not use Redis.
 
 First-time dictionary seed:
 
@@ -294,7 +307,7 @@ After fixing cookies, ensure a staff user exists in the database (migrations do 
 | Item | Status |
 |---|---|
 | Separate queue worker container | Not needed — inline queue |
-| Redis required | No — default `CACHE_STORE=memory`; Redis only if explicitly opted in |
+| Redis required | Optional — shared Redis supported via `CACHE_STORE=redis` + `REDIS_KEY_PREFIX` |
 | S3 object storage | Disk volumes for now |
 | CI pipeline | Use Coolify Git integration |
 
