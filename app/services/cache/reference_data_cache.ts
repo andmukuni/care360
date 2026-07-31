@@ -7,11 +7,31 @@ import {
   medicationIdKey,
   testTypeIdKey,
 } from '#services/cache/reference_data_keys'
+import { safeCacheGetOrSet } from '#services/cache/safe_cache'
 
 const REFDATA_TTL = env.get('CACHE_REF_DATA_TTL', '24h')
 
 function isPatientsFullListEnabled(): boolean {
-  return env.get('CACHE_PATIENTS_FULL_LIST', true)
+  return env.get('CACHE_PATIENTS_FULL_LIST', false)
+}
+
+async function getOrSetTagged<T>(
+  label: string,
+  key: string,
+  tags: string[],
+  factory: () => Promise<T>
+): Promise<T> {
+  return safeCacheGetOrSet(
+    label,
+    () =>
+      cache.getOrSet({
+        key,
+        ttl: REFDATA_TTL,
+        tags,
+        factory,
+      }),
+    factory
+  )
 }
 
 export default class ReferenceDataCache {
@@ -28,120 +48,124 @@ export default class ReferenceDataCache {
       return factory()
     }
 
-    return cache.getOrSet({
-      key: REFDATA_KEYS.patientsAll,
-      ttl: REFDATA_TTL,
-      tags: [REFDATA_TAGS.patients],
-      factory,
-    })
+    return getOrSetTagged(
+      'refdata.patientsAll',
+      REFDATA_KEYS.patientsAll,
+      [REFDATA_TAGS.patients],
+      factory
+    )
   }
 
   static async patientsKpis<T>(factory: () => Promise<T>): Promise<T> {
-    return cache.getOrSet({
-      key: REFDATA_KEYS.patientsKpis,
-      ttl: REFDATA_TTL,
-      tags: [REFDATA_TAGS.patients],
-      factory,
-    })
+    return getOrSetTagged(
+      'refdata.patientsKpis',
+      REFDATA_KEYS.patientsKpis,
+      [REFDATA_TAGS.patients],
+      factory
+    )
   }
 
   static async patientByRef<T>(ref: string, factory: () => Promise<T>): Promise<T> {
-    return cache.getOrSet({
-      key: `refdata:patients:ref:${ref.trim()}`,
-      ttl: REFDATA_TTL,
-      tags: [REFDATA_TAGS.patients],
-      factory,
-    })
+    return getOrSetTagged(
+      `refdata.patientByRef:${ref}`,
+      `refdata:patients:ref:${ref.trim()}`,
+      [REFDATA_TAGS.patients],
+      factory
+    )
   }
 
   static async lookupByCode<T>(code: string, factory: () => Promise<T>): Promise<T> {
-    return cache.getOrSet({
-      key: lookupCodeKey(code),
-      ttl: REFDATA_TTL,
-      tags: [REFDATA_TAGS.patients],
-      factory,
-    })
+    return getOrSetTagged(
+      `refdata.lookupByCode:${code}`,
+      lookupCodeKey(code),
+      [REFDATA_TAGS.patients],
+      factory
+    )
   }
 
   static async householdsAll<T>(factory: () => Promise<T>): Promise<T> {
-    return cache.getOrSet({
-      key: REFDATA_KEYS.householdsAll,
-      ttl: REFDATA_TTL,
-      tags: [REFDATA_TAGS.households],
-      factory,
-    })
+    if (!isPatientsFullListEnabled()) {
+      return factory()
+    }
+
+    return getOrSetTagged(
+      'refdata.householdsAll',
+      REFDATA_KEYS.householdsAll,
+      [REFDATA_TAGS.households],
+      factory
+    )
   }
 
   static async householdsKpis<T>(factory: () => Promise<T>): Promise<T> {
-    return cache.getOrSet({
-      key: REFDATA_KEYS.householdsKpis,
-      ttl: REFDATA_TTL,
-      tags: [REFDATA_TAGS.households],
-      factory,
-    })
+    return getOrSetTagged(
+      'refdata.householdsKpis',
+      REFDATA_KEYS.householdsKpis,
+      [REFDATA_TAGS.households],
+      factory
+    )
   }
 
   static async householdByRef<T>(ref: string, factory: () => Promise<T>): Promise<T> {
-    return cache.getOrSet({
-      key: `refdata:households:ref:${ref.trim()}`,
-      ttl: REFDATA_TTL,
-      tags: [REFDATA_TAGS.households],
-      factory,
-    })
+    return getOrSetTagged(
+      `refdata.householdByRef:${ref}`,
+      `refdata:households:ref:${ref.trim()}`,
+      [REFDATA_TAGS.households],
+      factory
+    )
   }
 
   static async medicationsAll<T>(factory: () => Promise<T>): Promise<T> {
-    return cache.getOrSet({
-      key: REFDATA_KEYS.medicationsAll,
-      ttl: REFDATA_TTL,
-      tags: [REFDATA_TAGS.medications],
-      factory,
-    })
+    return getOrSetTagged(
+      'refdata.medicationsAll',
+      REFDATA_KEYS.medicationsAll,
+      [REFDATA_TAGS.medications],
+      factory
+    )
   }
 
   static async medicationCategories<T>(factory: () => Promise<T>): Promise<T> {
-    return cache.getOrSet({
-      key: REFDATA_KEYS.medicationsCategories,
-      ttl: REFDATA_TTL,
-      tags: [REFDATA_TAGS.medications],
-      factory,
-    })
+    return getOrSetTagged(
+      'refdata.medicationCategories',
+      REFDATA_KEYS.medicationsCategories,
+      [REFDATA_TAGS.medications],
+      factory
+    )
   }
 
   static async medicationById<T>(id: number | string, factory: () => Promise<T>): Promise<T> {
-    return cache.getOrSet({
-      key: medicationIdKey(id),
-      ttl: REFDATA_TTL,
-      tags: [REFDATA_TAGS.medications],
-      factory,
-    })
+    return getOrSetTagged(
+      `refdata.medicationById:${id}`,
+      medicationIdKey(id),
+      [REFDATA_TAGS.medications],
+      factory
+    )
   }
 
   static async testTypesAll<T>(factory: () => Promise<T>): Promise<T> {
-    return cache.getOrSet({
-      key: REFDATA_KEYS.testTypesAll,
-      ttl: REFDATA_TTL,
-      tags: [REFDATA_TAGS.testTypes],
-      factory,
-    })
+    return getOrSetTagged(
+      'refdata.testTypesAll',
+      REFDATA_KEYS.testTypesAll,
+      [REFDATA_TAGS.testTypes],
+      factory
+    )
   }
 
   static async testTypeCategories<T>(factory: () => Promise<T>): Promise<T> {
-    return cache.getOrSet({
-      key: REFDATA_KEYS.testTypesCategories,
-      ttl: REFDATA_TTL,
-      tags: [REFDATA_TAGS.testTypes],
-      factory,
-    })
+    return getOrSetTagged(
+      'refdata.testTypeCategories',
+      REFDATA_KEYS.testTypesCategories,
+      [REFDATA_TAGS.testTypes],
+      factory
+    )
   }
 
   static async testTypeById<T>(id: number | string, factory: () => Promise<T>): Promise<T> {
-    return cache.getOrSet({
-      key: testTypeIdKey(id),
-      ttl: REFDATA_TTL,
-      tags: [REFDATA_TAGS.testTypes],
-      factory,
-    })
+    return getOrSetTagged(
+      `refdata.testTypeById:${id}`,
+      testTypeIdKey(id),
+      [REFDATA_TAGS.testTypes],
+      factory
+    )
   }
 
   /**

@@ -13,6 +13,7 @@ import {
   type HouseholdRefAliases,
   type PatientRefAliases,
 } from '#services/cache/reference_data_keys'
+import { safeCacheMutation } from '#services/cache/safe_cache'
 
 export default class ReferenceDataInvalidator {
   static async invalidatePatient(
@@ -33,11 +34,12 @@ export default class ReferenceDataInvalidator {
       }
     }
 
-    if (keys.size > 0) {
-      await cache.deleteMany({ keys: [...keys] })
-    }
-
-    await cache.deleteByTag({ tags: [REFDATA_TAGS.patients] })
+    await safeCacheMutation('refdata.invalidatePatient', async () => {
+      if (keys.size > 0) {
+        await cache.deleteMany({ keys: [...keys] })
+      }
+      await cache.deleteByTag({ tags: [REFDATA_TAGS.patients] })
+    })
   }
 
   static async invalidateHousehold(
@@ -49,21 +51,26 @@ export default class ReferenceDataInvalidator {
       ...(previous ? householdRefKeys(previous) : []),
     ])
 
-    if (keys.size > 0) {
-      await cache.deleteMany({ keys: [...keys] })
-    }
-
-    await cache.deleteByTag({ tags: [REFDATA_TAGS.households] })
+    await safeCacheMutation('refdata.invalidateHousehold', async () => {
+      if (keys.size > 0) {
+        await cache.deleteMany({ keys: [...keys] })
+      }
+      await cache.deleteByTag({ tags: [REFDATA_TAGS.households] })
+    })
   }
 
   static async invalidateMedication(id: number | string): Promise<void> {
-    await cache.deleteMany({ keys: [medicationIdKey(id)] })
-    await cache.deleteByTag({ tags: [REFDATA_TAGS.medications] })
+    await safeCacheMutation(`refdata.invalidateMedication:${id}`, async () => {
+      await cache.deleteMany({ keys: [medicationIdKey(id)] })
+      await cache.deleteByTag({ tags: [REFDATA_TAGS.medications] })
+    })
   }
 
   static async invalidateTestType(id: number | string): Promise<void> {
-    await cache.deleteMany({ keys: [testTypeIdKey(id)] })
-    await cache.deleteByTag({ tags: [REFDATA_TAGS.testTypes] })
+    await safeCacheMutation(`refdata.invalidateTestType:${id}`, async () => {
+      await cache.deleteMany({ keys: [testTypeIdKey(id)] })
+      await cache.deleteByTag({ tags: [REFDATA_TAGS.testTypes] })
+    })
   }
 
   static async patientChangedFromRow(
@@ -107,6 +114,8 @@ export default class ReferenceDataInvalidator {
   }
 
   static async invalidatePatientsAndHouseholds(): Promise<void> {
-    await cache.deleteByTag({ tags: [REFDATA_TAGS.patients, REFDATA_TAGS.households] })
+    await safeCacheMutation('refdata.invalidatePatientsAndHouseholds', () =>
+      cache.deleteByTag({ tags: [REFDATA_TAGS.patients, REFDATA_TAGS.households] })
+    )
   }
 }

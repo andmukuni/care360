@@ -137,11 +137,16 @@ node ace generate:key   # paste into APP_KEY in .env.docker
 docker compose -f docker-compose.local.yml up -d --build
 ```
 
-Optional Redis (future queue/transmit):
+Optional Redis (shared cache across instances only — **off by default**):
 
 ```bash
+# Also set CACHE_STORE=redis and REDIS_HOST=redis in .env.docker
 docker compose -f docker-compose.local.yml --profile with-redis up -d
 ```
+
+Production Coolify should keep `CACHE_STORE=memory` unless you run multiple app
+replicas that need a shared cache and Redis is reliably available. Sessions, jobs,
+and Transmit do not use Redis.
 
 First-time dictionary seed:
 
@@ -289,7 +294,7 @@ After fixing cookies, ensure a staff user exists in the database (migrations do 
 | Item | Status |
 |---|---|
 | Separate queue worker container | Not needed — inline queue |
-| Redis required | Optional in local compose only |
+| Redis required | No — default `CACHE_STORE=memory`; Redis only if explicitly opted in |
 | S3 object storage | Disk volumes for now |
 | CI pipeline | Use Coolify Git integration |
 

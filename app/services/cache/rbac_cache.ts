@@ -1,5 +1,6 @@
 import cache from '@adonisjs/cache/services/main'
 import env from '#start/env'
+import { safeCacheGet, safeCacheMutation } from '#services/cache/safe_cache'
 
 export const RBAC_TAG = 'rbac'
 
@@ -32,32 +33,41 @@ export default class RbacCache {
     userId: number,
     factory: () => Promise<RbacSnapshotPayload>
   ): Promise<RbacSnapshotPayload> {
-    const cached = await cache.get<RbacSnapshotPayload>({ key: rbacUserKey(userId) })
+    const key = rbacUserKey(userId)
+    const cached = await safeCacheGet<RbacSnapshotPayload>(`rbac.get:${key}`, () =>
+      cache.get<RbacSnapshotPayload>({ key })
+    )
     if (cached) {
       return cached
     }
 
     const snapshot = await factory()
-    await cache.set({
-      key: rbacUserKey(userId),
-      value: snapshot,
-      ttl: RBAC_TTL,
-      tags: [
-        RBAC_TAG,
-        rbacUserTag(userId),
-        ...snapshot.roleNames.map((role) => rbacRoleTag(role)),
-      ],
-    })
+    await safeCacheMutation(`rbac.set:${key}`, () =>
+      cache.set({
+        key,
+        value: snapshot,
+        ttl: RBAC_TTL,
+        tags: [
+          RBAC_TAG,
+          rbacUserTag(userId),
+          ...snapshot.roleNames.map((role) => rbacRoleTag(role)),
+        ],
+      })
+    )
 
     return snapshot
   }
 
   static async forgetUser(userId: number): Promise<void> {
-    await cache.deleteMany({ keys: [rbacUserKey(userId)] })
-    await cache.deleteByTag({ tags: [rbacUserTag(userId)] })
+    await safeCacheMutation(`rbac.forgetUser:${userId}`, async () => {
+      await cache.deleteMany({ keys: [rbacUserKey(userId)] })
+      await cache.deleteByTag({ tags: [rbacUserTag(userId)] })
+    })
   }
 
   static async forgetRole(roleName: string): Promise<void> {
-    await cache.deleteByTag({ tags: [rbacRoleTag(roleName)] })
+    await safeCacheMutation(`rbac.forgetRole:${roleName}`, () =>
+      cache.deleteByTag({ tags: [rbacRoleTag(roleName)] })
+    )
   }
 }

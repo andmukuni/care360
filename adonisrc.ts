@@ -59,7 +59,10 @@ export default defineConfig({
     () => import('@adonisjs/inertia/inertia_provider'),
     () => import('@adonisjs/bouncer/bouncer_provider'),
     () => import('@adonisjs/transmit/transmit_provider'),
-    () => import('@adonisjs/redis/redis_provider'),
+    // Redis is optional — only load when CACHE_STORE=redis (avoids crash risk when Redis is unused).
+    ...(process.env.CACHE_STORE === 'redis'
+      ? [() => import('@adonisjs/redis/redis_provider')]
+      : []),
     () => import('@adonisjs/cache/cache_provider'),
   ],
 
