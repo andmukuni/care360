@@ -1,5 +1,5 @@
 <h1>
-  {{ error.code }} - Server error
+  {{ error.code ?? error.status ?? 'Error' }} - Server error
 </h1>
 <p>
   This template is rendered by the

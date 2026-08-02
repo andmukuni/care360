@@ -40,7 +40,7 @@ export default class Encounter extends compose(BaseModel, SoftDeletes) {
   declare encounterNumber: string
 
   @column()
-  declare patientId: number | null
+  declare patientId: number | null = null
 
   @column()
   declare appointmentId: number | null

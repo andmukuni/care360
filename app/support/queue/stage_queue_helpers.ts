@@ -122,7 +122,11 @@ export type ClosedEncounterRow = {
 /** Encounters missing patient_id break Lucid patient preloads — exclude from queues. */
 function queueEncounterQuery() {
   const table = Encounter.table
-  return Encounter.query().whereNotNull(`${table}.patient_id`)
+  return Encounter.query().whereRaw(`"${table}"."patient_id" IS NOT NULL`)
+}
+
+function queueEncounterTable() {
+  return Encounter.table
 }
 
 export function parseQueuePages(
@@ -446,9 +450,10 @@ export async function screeningCategoryCounts(
   inProgressTotal: number
 ) {
   const countFor = async (category: 'adult' | 'pediatric') => {
+    const table = queueEncounterTable()
     const query = queueEncounterQuery()
-      .where('current_stage', EncounterStage.Screening)
-      .whereIn('current_status', [EncounterStatus.Queued, EncounterStatus.InProgress])
+      .where(`${table}.current_stage`, EncounterStage.Screening)
+      .whereIn(`${table}.current_status`, [EncounterStatus.Queued, EncounterStatus.InProgress])
     applyScreeningCategoryFilter(query, category)
     const rows = await query.count('* as total')
     return Number((rows[0] as any).$extras.total)
@@ -980,6 +985,7 @@ export async function paginateStageQueue(options: {
   preload?: (query: any) => void
 }) {
   const perPage = options.perPage ?? 20
+  const table = queueEncounterTable()
 
   const base = () => {
     const query = queueEncounterQuery()
@@ -989,7 +995,7 @@ export async function paginateStageQueue(options: {
       )
 
     if (options.preload) options.preload(query)
-    query.where('current_stage', options.stage)
+    query.where(`${table}.current_stage`, options.stage)
     if (options.applyFilter) options.applyFilter(query)
     return query
   }
@@ -1004,15 +1010,15 @@ export async function paginateStageQueue(options: {
     if (options.orderBy === 'clinical') {
       return Encounter.orderByClinicalPriority(query, 'updated_at')
     }
-    return query.orderBy('updated_at', 'asc')
+    return query.orderBy(`${table}.updated_at`, 'asc')
   }
 
   const queuedPaginator = await applyOrder(
-    base().where('current_status', EncounterStatus.Queued)
+    base().where(`${table}.current_status`, EncounterStatus.Queued)
   ).paginate(options.queuedPage, perPage)
 
   const inProgressPaginator = await applyOrder(
-    base().where('current_status', EncounterStatus.InProgress)
+    base().where(`${table}.current_status`, EncounterStatus.InProgress)
   ).paginate(options.progressPage, perPage)
 
   return { queuedPaginator, inProgressPaginator }
@@ -1025,6 +1031,7 @@ export async function paginatePharmacyPrimaryQueue(options: {
   preload?: (query: any) => void
 }) {
   const perPage = options.perPage ?? 20
+  const table = queueEncounterTable()
 
   const base = () => {
     const query = queueEncounterQuery()
@@ -1034,19 +1041,19 @@ export async function paginatePharmacyPrimaryQueue(options: {
       )
 
     if (options.preload) options.preload(query)
-    query.where('current_stage', EncounterStage.Pharmacy)
+    query.where(`${table}.current_stage`, EncounterStage.Pharmacy)
     return query
   }
 
   const applyOrder = (query: any) => Encounter.orderByClinicalPriority(query, 'updated_at')
 
   const [queuedPaginator, inProgressPaginator] = await Promise.all([
-    applyOrder(base().where('current_status', EncounterStatus.Queued)).paginate(
+    applyOrder(base().where(`${table}.current_status`, EncounterStatus.Queued)).paginate(
       options.queuedPage,
       perPage
     ),
     applyOrder(
-      applyPharmacyInProgressFilter(base().where('current_status', EncounterStatus.InProgress))
+      applyPharmacyInProgressFilter(base().where(`${table}.current_status`, EncounterStatus.InProgress))
     ).paginate(options.progressPage, perPage),
   ])
 
