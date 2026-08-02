@@ -89,6 +89,13 @@ export function useAutosave(options: UseAutosaveOptions) {
 
       const data = await res.json().catch(() => ({}))
 
+      if (res.status === 403) {
+        status.value = 'error'
+        errorMessage.value =
+          'Session expired — refresh the page and sign in again if needed.'
+        return
+      }
+
       if (!res.ok || data.ok === false) {
         status.value = 'error'
         const validationMessage = Array.isArray(data.errors)

@@ -1,6 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import app from '@adonisjs/core/services/app'
-import vine from '@vinejs/vine'
+import vine, { errors as vineErrors } from '@vinejs/vine'
 import db from '@adonisjs/lucid/services/db'
 import { DateTime } from 'luxon'
 import Encounter from '#models/encounter'
@@ -43,6 +43,12 @@ import {
   parseQueuePages,
   screeningCategoryCounts,
 } from '#support/queue/stage_queue_helpers'
+import { normalizeScreeningAssessmentPayload } from '#support/encounter/coerce'
+
+async function validateScreeningAssessmentRequest(request: HttpContext['request']) {
+  const normalized = normalizeScreeningAssessmentPayload(request.all() as Record<string, unknown>)
+  return request.validateUsing(screeningAssessmentValidator, { data: normalized })
+}
 import {
   buildPatientHeaderEncounter,
   serializeTriageRecord,
@@ -654,7 +660,20 @@ export default class ScreeningController {
       .with('EncounterPolicy')
       .authorize('editInStage', encounter, EncounterStage.Screening)
 
-    const data = await request.validateUsing(screeningAssessmentValidator)
+    let data
+    try {
+      data = await validateScreeningAssessmentRequest(request)
+    } catch (error) {
+      if (error instanceof vineErrors.E_VALIDATION_ERROR) {
+        const firstMessage = error.messages[0]?.message ?? 'Validation failed'
+        return response.status(422).json({
+          ok: false,
+          message: firstMessage,
+          errors: error.messages,
+        })
+      }
+      throw error
+    }
     const labRequested = !!data.lab_requested
 
     if (
@@ -721,7 +740,7 @@ export default class ScreeningController {
       return response.redirect().toPath('/screening/queue')
     }
 
-    const data = await request.validateUsing(screeningAssessmentValidator)
+    const data = await validateScreeningAssessmentRequest(request)
     const destination = forcedDestination ?? (data.lab_requested ? 'lab' : 'pharmacy')
 
     try {
@@ -778,7 +797,7 @@ export default class ScreeningController {
 
     // Persist assessment draft when the close payload includes valid screening fields.
     try {
-      const data = await request.validateUsing(screeningAssessmentValidator)
+      const data = await validateScreeningAssessmentRequest(request)
       await this.persistAssessment(
         encounter,
         this.normalizeAssessmentData(data as Record<string, any>),
