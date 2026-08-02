@@ -28,6 +28,10 @@ export function closedQueuePageKey(stage: string, closedPage: number, closedSear
   return `queue:${stage}:closed:${search}:c${closedPage}`
 }
 
+export function pharmacyPartiallyDispensedPageKey(page: number): string {
+  return `queue:pharmacy:partially-dispensed:v1:p${page}`
+}
+
 export function apiStageQueueKey(stage: string): string {
   return `queue:api:${stage}`
 }

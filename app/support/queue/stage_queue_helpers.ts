@@ -17,7 +17,12 @@ import {
 } from '#support/encounter/reopen_encounter_policy'
 import { serializeId, serializeIdOrNull } from '#support/serialize_id'
 import QueueCache from '#services/cache/queue_cache'
-import { apiStageQueueKey, closedQueuePageKey, stageQueuePageKey } from '#services/cache/queue_cache_keys'
+import {
+  apiStageQueueKey,
+  closedQueuePageKey,
+  pharmacyPartiallyDispensedPageKey,
+  stageQueuePageKey,
+} from '#services/cache/queue_cache_keys'
 
 export type QueuePaginatorPayload<T> = {
   data: T[]
@@ -193,6 +198,62 @@ function applyPharmacyInProgressFilter(query: any) {
         )
       })
   })
+}
+
+function pharmacyPartiallyDispensedBase(preload?: (query: any) => void) {
+  const query = Encounter.query()
+    .preload('patient')
+    .preload('encounterQueueTransitions', (q: any) =>
+      q.preload('queuedByUser').preload('receivedByUser')
+    )
+
+  if (preload) preload(query)
+  return query
+}
+
+export function preloadPharmacyQueueEncounter(query: any) {
+  query.preload('screeningRecords', (q: any) =>
+    q.whereIn('screening_type', ['initial', 'review_after_lab'])
+  )
+  query.preload('labRequests', (q: any) => {
+    q.preload('labRequestItems')
+    q.preload('labResults', (r: any) => r.preload('recordedByUser'))
+  })
+  query.preload('pharmacyPrescriptions', (q: any) => {
+    q.preload('pharmacyPrescriptionItems')
+  })
+  query.preload('pharmacyDispenses', (q: any) => {
+    q.preload('pharmacyDispenseItems')
+  })
+}
+
+export async function countPharmacyPartiallyDispensedEncounters(): Promise<number> {
+  const query = applyPartialDispenseOnLatestPrescriptionFilter(
+    applyPharmacyPartiallyDispensedStageFilter(pharmacyPartiallyDispensedBase())
+  )
+  const rows = await query.count('* as total')
+  return Number((rows[0] as any).$extras.total)
+}
+
+export async function countPharmacyClosedEncounters(closedSearch = ''): Promise<number> {
+  const search = closedSearch.trim()
+  const query = Encounter.query()
+    .where('is_locked', true)
+    .where('current_stage', EncounterStage.Completed)
+    .where('closed_at', '>=', closedEncounterDayStart().toSQL()!)
+
+  if (search !== '') {
+    query.where((w) => {
+      w.whereILike('encounter_number', `%${search}%`).orWhereHas('patient', (patientQuery) => {
+        patientQuery
+          .whereILike('full_name', `%${search}%`)
+          .orWhereILike('patient_id', `%${search}%`)
+      })
+    })
+  }
+
+  const rows = await query.count('* as total')
+  return Number((rows[0] as any).$extras.total)
 }
 
 export async function isRegistrationClerk(auth: HttpContext['auth']): Promise<boolean> {
@@ -951,10 +1012,9 @@ export async function paginateStageQueue(options: {
   return { queuedPaginator, inProgressPaginator }
 }
 
-export async function paginatePharmacyQueue(options: {
+export async function paginatePharmacyPrimaryQueue(options: {
   queuedPage: number
   progressPage: number
-  partiallyDispensedPage: number
   perPage?: number
   preload?: (query: any) => void
 }) {
@@ -974,32 +1034,59 @@ export async function paginatePharmacyQueue(options: {
 
   const applyOrder = (query: any) => Encounter.orderByClinicalPriority(query, 'updated_at')
 
-  const queuedPaginator = await applyOrder(
-    base().where('current_status', EncounterStatus.Queued)
-  ).paginate(options.queuedPage, perPage)
+  const [queuedPaginator, inProgressPaginator] = await Promise.all([
+    applyOrder(base().where('current_status', EncounterStatus.Queued)).paginate(
+      options.queuedPage,
+      perPage
+    ),
+    applyOrder(
+      applyPharmacyInProgressFilter(base().where('current_status', EncounterStatus.InProgress))
+    ).paginate(options.progressPage, perPage),
+  ])
 
-  const inProgressPaginator = await applyOrder(
-    applyPharmacyInProgressFilter(base().where('current_status', EncounterStatus.InProgress))
-  ).paginate(options.progressPage, perPage)
+  return { queuedPaginator, inProgressPaginator }
+}
 
-  const partiallyDispensedBase = () => {
-    const query = Encounter.query()
-      .preload('patient')
-      .preload('encounterQueueTransitions', (q: any) =>
-        q.preload('queuedByUser').preload('receivedByUser')
-      )
+export async function paginatePharmacyPartiallyDispensedQueue(options: {
+  partiallyDispensedPage: number
+  perPage?: number
+  preload?: (query: any) => void
+}) {
+  const perPage = options.perPage ?? 20
+  const applyOrder = (query: any) => Encounter.orderByClinicalPriority(query, 'updated_at')
 
-    if (options.preload) options.preload(query)
-    return query
-  }
-
-  const partiallyDispensedPaginator = await applyOrder(
+  return applyOrder(
     applyPartialDispenseOnLatestPrescriptionFilter(
-      applyPharmacyPartiallyDispensedStageFilter(partiallyDispensedBase())
+      applyPharmacyPartiallyDispensedStageFilter(pharmacyPartiallyDispensedBase(options.preload))
     )
   ).paginate(options.partiallyDispensedPage, perPage)
+}
 
-  return { queuedPaginator, inProgressPaginator, partiallyDispensedPaginator }
+export async function paginatePharmacyQueue(options: {
+  queuedPage: number
+  progressPage: number
+  partiallyDispensedPage: number
+  perPage?: number
+  preload?: (query: any) => void
+}) {
+  const [primary, partiallyDispensedPaginator] = await Promise.all([
+    paginatePharmacyPrimaryQueue({
+      queuedPage: options.queuedPage,
+      progressPage: options.progressPage,
+      perPage: options.perPage,
+      preload: options.preload,
+    }),
+    paginatePharmacyPartiallyDispensedQueue({
+      partiallyDispensedPage: options.partiallyDispensedPage,
+      perPage: options.perPage,
+      preload: options.preload,
+    }),
+  ])
+
+  return {
+    ...primary,
+    partiallyDispensedPaginator,
+  }
 }
 
 export async function paginateClosedEncounters(options: {
@@ -1030,10 +1117,9 @@ export async function paginateClosedEncounters(options: {
   return query.orderBy('closed_at', 'desc').paginate(options.closedPage, perPage)
 }
 
-export async function paginateCachedPharmacyQueue(options: {
+export async function paginateCachedPharmacyPrimaryQueue(options: {
   queuedPage: number
   progressPage: number
-  partiallyDispensedPage: number
   currentUserId: number | null
   forceManage?: boolean
   preload?: (query: any) => void
@@ -1042,18 +1128,15 @@ export async function paginateCachedPharmacyQueue(options: {
     stage: EncounterStage.Pharmacy,
     queuedPage: options.queuedPage,
     progressPage: options.progressPage,
-    partiallyDispensedPage: options.partiallyDispensedPage,
     orderBy: 'clinical',
   })
 
   const cached = await QueueCache.getOrSet(cacheKey, EncounterStage.Pharmacy, async () => {
-    const { queuedPaginator, inProgressPaginator, partiallyDispensedPaginator } =
-      await paginatePharmacyQueue({
-        queuedPage: options.queuedPage,
-        progressPage: options.progressPage,
-        partiallyDispensedPage: options.partiallyDispensedPage,
-        preload: options.preload,
-      })
+    const { queuedPaginator, inProgressPaginator } = await paginatePharmacyPrimaryQueue({
+      queuedPage: options.queuedPage,
+      progressPage: options.progressPage,
+      preload: options.preload,
+    })
 
     return {
       queued: paginatorPayload(queuedPaginator, (encounter) =>
@@ -1062,20 +1145,65 @@ export async function paginateCachedPharmacyQueue(options: {
       inProgress: paginatorPayload(inProgressPaginator, (encounter) =>
         pharmacyQueueRow(encounter, { currentUserId: null, inProgress: true })
       ),
-      partiallyDispensed: paginatorPayload(partiallyDispensedPaginator, (encounter) =>
-        pharmacyQueueRow(encounter, { currentUserId: null, inProgress: true })
-      ),
     }
   })
 
   return {
     queued: patchQueueCanManage(cached.queued, options.currentUserId, options.forceManage),
     inProgress: patchQueueCanManage(cached.inProgress, options.currentUserId, options.forceManage),
-    partiallyDispensed: patchQueueCanManage(
-      cached.partiallyDispensed,
-      options.currentUserId,
-      options.forceManage
-    ),
+  }
+}
+
+export async function paginateCachedPharmacyPartiallyDispensed(options: {
+  partiallyDispensedPage: number
+  currentUserId: number | null
+  forceManage?: boolean
+  preload?: (query: any) => void
+}) {
+  const cacheKey = pharmacyPartiallyDispensedPageKey(options.partiallyDispensedPage)
+
+  const cached = await QueueCache.getOrSet(cacheKey, EncounterStage.Pharmacy, async () => {
+    const partiallyDispensedPaginator = await paginatePharmacyPartiallyDispensedQueue({
+      partiallyDispensedPage: options.partiallyDispensedPage,
+      preload: options.preload,
+    })
+
+    return paginatorPayload(partiallyDispensedPaginator, (encounter) =>
+      pharmacyQueueRow(encounter, { currentUserId: null, inProgress: true })
+    )
+  })
+
+  return patchQueueCanManage(cached, options.currentUserId, options.forceManage)
+}
+
+/** @deprecated Use paginateCachedPharmacyPrimaryQueue + paginateCachedPharmacyPartiallyDispensed */
+export async function paginateCachedPharmacyQueue(options: {
+  queuedPage: number
+  progressPage: number
+  partiallyDispensedPage: number
+  currentUserId: number | null
+  forceManage?: boolean
+  preload?: (query: any) => void
+}) {
+  const [primary, partiallyDispensed] = await Promise.all([
+    paginateCachedPharmacyPrimaryQueue({
+      queuedPage: options.queuedPage,
+      progressPage: options.progressPage,
+      currentUserId: options.currentUserId,
+      forceManage: options.forceManage,
+      preload: options.preload,
+    }),
+    paginateCachedPharmacyPartiallyDispensed({
+      partiallyDispensedPage: options.partiallyDispensedPage,
+      currentUserId: options.currentUserId,
+      forceManage: options.forceManage,
+      preload: options.preload,
+    }),
+  ])
+
+  return {
+    ...primary,
+    partiallyDispensed,
   }
 }
 

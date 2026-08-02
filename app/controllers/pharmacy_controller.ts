@@ -25,14 +25,18 @@ import {
 } from '#validators/staff/pharmacy'
 import {
   closedEncounterRow,
+  countPharmacyClosedEncounters,
+  countPharmacyPartiallyDispensedEncounters,
   initialScreeningRecord,
   isQueuePreviewForStage,
   isSuperAdminUser,
   latestStageTransition,
   paginateCachedClosedEncounters,
-  paginateCachedPharmacyQueue,
+  paginateCachedPharmacyPartiallyDispensed,
+  paginateCachedPharmacyPrimaryQueue,
   parseQueuePages,
   pharmacyQueueRow,
+  preloadPharmacyQueueEncounter,
   reviewScreeningRecord,
 } from '#support/queue/stage_queue_helpers'
 import QueueEncounterToTreatmentRoomAction from '#actions/encounter/queue_encounter_to_treatment_room_action'
@@ -61,37 +65,25 @@ export default class PharmacyController {
     )
     const closedSearch = String(request.qs().closed_search ?? '').trim()
     const currentUserId = auth.use('web').user?.id ?? null
-    const forceManage = await isSuperAdminUser(auth)
-    const isQueuePreview = await isQueuePreviewForStage(auth, EncounterStage.Pharmacy)
 
-    const pharmacyPreload = (query: any) => {
-      query.preload('screeningRecords')
-      query.preload('labRequests', (q: any) => {
-        q.preload('labRequestItems')
-        q.preload('labResults', (r: any) => r.preload('recordedByUser'))
-      })
-      query.preload('pharmacyPrescriptions', (q: any) => {
-        q.preload('pharmacyPrescriptionItems')
-        q.preload('prescribedByUser')
-      })
-      query.preload('pharmacyDispenses', (q: any) => {
-        q.preload('pharmacyDispenseItems')
-      })
-    }
+    const [forceManage, isQueuePreview] = await Promise.all([
+      isSuperAdminUser(auth),
+      isQueuePreviewForStage(auth, EncounterStage.Pharmacy),
+    ])
 
-    const { queued, inProgress, partiallyDispensed } = await paginateCachedPharmacyQueue({
-      queuedPage,
-      progressPage,
-      partiallyDispensedPage,
-      currentUserId,
-      forceManage,
-      preload: pharmacyPreload,
-    })
+    const [primaryQueue, partiallyDispensedCount, closedEncountersCount] = await Promise.all([
+      paginateCachedPharmacyPrimaryQueue({
+        queuedPage,
+        progressPage,
+        currentUserId,
+        forceManage,
+        preload: preloadPharmacyQueueEncounter,
+      }),
+      countPharmacyPartiallyDispensedEncounters(),
+      countPharmacyClosedEncounters(closedSearch),
+    ])
 
-    const closedEncounters = await paginateCachedClosedEncounters({
-      closedPage,
-      closedSearch,
-    })
+    const { queued, inProgress } = primaryQueue
 
     return inertia.render('pharmacy/queue', {
       isQueuePreview,
@@ -102,8 +94,22 @@ export default class PharmacyController {
       })),
       queued,
       inProgress,
-      partiallyDispensed,
-      closedEncounters,
+      partiallyDispensedCount,
+      closedEncountersCount,
+      partiallyDispensed: inertia.defer(async () =>
+        paginateCachedPharmacyPartiallyDispensed({
+          partiallyDispensedPage,
+          currentUserId,
+          forceManage,
+          preload: preloadPharmacyQueueEncounter,
+        })
+      ),
+      closedEncounters: inertia.defer(async () =>
+        paginateCachedClosedEncounters({
+          closedPage,
+          closedSearch,
+        })
+      ),
     })
   }
 

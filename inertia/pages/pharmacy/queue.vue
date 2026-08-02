@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { router } from '@inertiajs/vue3'
-import { onMounted, reactive, ref } from 'vue'
+import { Deferred, router } from '@inertiajs/vue3'
+import { computed, onMounted, reactive, ref } from 'vue'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import EncounterBadge from '~/components/encounter/EncounterBadge.vue'
 import { shouldShowPriorityBadge } from '~/support/priority_badges'
@@ -60,12 +60,28 @@ const props = defineProps<{
   reopenStages: { value: string; label: string }[]
   queued: Paginator<Row>
   inProgress: Paginator<Row>
-  partiallyDispensed: Paginator<Row>
-  closedEncounters: Paginator<ClosedRow>
+  partiallyDispensedCount: number
+  closedEncountersCount: number
+  partiallyDispensed?: Paginator<Row>
+  closedEncounters?: Paginator<ClosedRow>
 }>()
 
+const partiallyDispensedTotal = computed(
+  () => props.partiallyDispensed?.meta.total ?? props.partiallyDispensedCount
+)
+const closedEncountersTotal = computed(
+  () => props.closedEncounters?.meta.total ?? props.closedEncountersCount
+)
+
 const { tab, queueUrl, receive, isReceiving } = useStageQueue('/pharmacy/queue', {
-  pollOnly: ['queued', 'inProgress', 'partiallyDispensed', 'closedEncounters'],
+  pollOnly: [
+    'queued',
+    'inProgress',
+    'partiallyDispensed',
+    'closedEncounters',
+    'partiallyDispensedCount',
+    'closedEncountersCount',
+  ],
 })
 const { processingId: reopeningId, runFor: runReopen } = useAsyncAction<number>()
 const searchInput = ref(props.closedSearch)
@@ -101,7 +117,7 @@ function submitClosedSearch() {
     closed_page: 1,
     queued_page: props.queued.meta.current_page,
     progress_page: props.inProgress.meta.current_page,
-    partially_dispensed_page: props.partiallyDispensed.meta.current_page,
+    partially_dispensed_page: props.partiallyDispensed?.meta.current_page ?? 1,
   }, { preserveScroll: true })
 }
 
@@ -114,7 +130,7 @@ function closedListUrl(page: number) {
   const params = new URLSearchParams()
   params.set('queued_page', String(props.queued.meta.current_page))
   params.set('progress_page', String(props.inProgress.meta.current_page))
-  params.set('partially_dispensed_page', String(props.partiallyDispensed.meta.current_page))
+  params.set('partially_dispensed_page', String(props.partiallyDispensed?.meta.current_page ?? 1))
   params.set('closed_page', String(page))
   if (props.closedSearch) params.set('closed_search', props.closedSearch)
   return `/pharmacy/queue?${params.toString()}`
@@ -205,8 +221,8 @@ onMounted(() => {
       :tab="tab"
       :queued-total="queued.meta.total"
       :in-progress-total="inProgress.meta.total"
-      :partially-dispensed-total="partiallyDispensed.meta.total"
-      :closed-total="closedEncounters.meta.total"
+      :partially-dispensed-total="partiallyDispensedTotal"
+      :closed-total="closedEncountersTotal"
       waiting-label="Awaiting dispensing"
       partially-dispensed-label="Partially dispensed"
       closed-label="Closed today / reopen"
@@ -320,13 +336,20 @@ onMounted(() => {
       </div>
 
       <div v-show="tab === 'partially_dispensed'" class="space-y-3">
-        <QueueEmptyState
-          v-if="partiallyDispensed.data.length === 0"
-          title="Nothing partially dispensed"
-          description="Encounters with some medications dispensed but more items remaining appear here, including patients already queued to treatment room."
-        />
-        <template v-else>
-          <QueueTable>
+        <Deferred data="partiallyDispensed">
+          <template #fallback>
+            <QueueEmptyState
+              title="Loading partially dispensed queue…"
+              description="Fetching encounters with remaining prescription items."
+            />
+          </template>
+          <QueueEmptyState
+            v-if="!partiallyDispensed || partiallyDispensed.data.length === 0"
+            title="Nothing partially dispensed"
+            description="Encounters with some medications dispensed but more items remaining appear here, including patients already queued to treatment room."
+          />
+          <template v-else>
+            <QueueTable>
             <template #head>
               <tr>
                 <th>Encounter</th>
@@ -376,7 +399,8 @@ onMounted(() => {
             :previous-href="partiallyDispensed.meta.current_page > 1 ? queueUrl('partially_dispensed_page', partiallyDispensed.meta.current_page - 1, listPaginationProps()) : null"
             :next-href="partiallyDispensed.meta.current_page < partiallyDispensed.meta.last_page ? queueUrl('partially_dispensed_page', partiallyDispensed.meta.current_page + 1, listPaginationProps()) : null"
           />
-        </template>
+          </template>
+        </Deferred>
       </div>
 
       <div v-show="tab === 'closed'" class="space-y-3">
@@ -406,8 +430,16 @@ onMounted(() => {
           </div>
         </div>
 
+        <Deferred data="closedEncounters">
+          <template #fallback>
+            <QueueEmptyState
+              title="Loading closed encounters…"
+              description="Fetching encounters closed today."
+            />
+          </template>
+
         <QueueEmptyState
-          v-if="closedEncounters.data.length === 0"
+          v-if="!closedEncounters || closedEncounters.data.length === 0"
           title="No closed encounters today"
           :description="closedSearch ? 'No closed encounters from today match your search.' : 'Encounters closed today appear here. Reopen is only available within 12 hours of visit start.'"
         />
@@ -488,6 +520,7 @@ onMounted(() => {
             :next-href="closedEncounters.meta.current_page < closedEncounters.meta.last_page ? closedListUrl(closedEncounters.meta.current_page + 1) : null"
           />
         </template>
+        </Deferred>
       </div>
     </QueuePageShell>
   </StaffLayout>
