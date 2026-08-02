@@ -64,7 +64,7 @@ const props = defineProps<{
   closedEncounters: Paginator<ClosedRow>
 }>()
 
-const { tab, receivingId, queueUrl, receive } = useStageQueue('/pharmacy/queue', {
+const { tab, queueUrl, receive, isReceiving } = useStageQueue('/pharmacy/queue', {
   pollOnly: ['queued', 'inProgress', 'partiallyDispensed', 'closedEncounters'],
 })
 const { processingId: reopeningId, runFor: runReopen } = useAsyncAction<number>()
@@ -252,7 +252,7 @@ onMounted(() => {
               <td><div class="queue-cell-sub font-medium">{{ row.sent_by_name }}</div></td>
               <td class="queue-action-col">
                 <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
-                <QueueReceiveButton v-else :processing="receivingId === row.id" @click="receive('/pharmacy/:id/receive', row.id)" />
+                <QueueReceiveButton v-else :processing="isReceiving(row.id)" @click="receive('/pharmacy/:id/receive', row.id)" />
               </td>
             </tr>
           </QueueTable>

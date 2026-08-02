@@ -36,7 +36,7 @@ const props = defineProps<{
   inProgress: Paginator
 }>()
 
-const { tab, receivingId, queueUrl, receive } = useStageQueue('/lab/queue')
+const { tab, queueUrl, receive, isReceiving } = useStageQueue('/lab/queue')
 
 function labRequestSegments(row: Row) {
   if (!row.lab_request_number) {
@@ -108,7 +108,7 @@ function labRequestSegments(row: Row) {
               <td><div class="queue-cell-sub font-medium">{{ row.queued_by_name ?? 'Unknown user' }}</div></td>
               <td class="queue-action-col">
                 <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
-                <QueueReceiveButton v-else :processing="receivingId === row.id" @click="receive('/lab/:id/receive', row.id)" />
+                <QueueReceiveButton v-else :processing="isReceiving(row.id)" @click="receive('/lab/:id/receive', row.id)" />
               </td>
             </tr>
           </QueueTable>

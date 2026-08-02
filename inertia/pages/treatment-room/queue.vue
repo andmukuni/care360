@@ -37,7 +37,7 @@ const props = defineProps<{
   inProgress: Paginator
 }>()
 
-const { tab, receivingId, queueUrl, receive } = useStageQueue('/treatment-room/queue')
+const { tab, queueUrl, receive, isReceiving } = useStageQueue('/treatment-room/queue')
 
 function routeChipClass(route: string | null) {
   const normalized = String(route ?? '').toUpperCase()
@@ -118,7 +118,7 @@ function routeChipClass(route: string | null) {
                   v-else
                   theme="treatment"
                   label="Receive"
-                  :processing="receivingId === row.id"
+                  :processing="isReceiving(row.id)"
                   @click="receive('/treatment-room/:id/receive', row.id)"
                 />
               </td>

@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import EncounterBadge from '~/components/encounter/EncounterBadge.vue'
 import QueuePrioritySelect from '~/components/staff/queue/QueuePrioritySelect.vue'
 import { shouldShowPriorityBadge } from '~/support/priority_badges'
+import { coerceNumericId } from '~/support/coerce_id'
 
 const props = defineProps<{
   encounterNumber: string
@@ -10,13 +11,14 @@ const props = defineProps<{
   timeRelative?: string | null
   extra?: string | null
   priority?: string | null
-  encounterId?: number
+  encounterId?: number | string
   canChangePriority?: boolean
 }>()
 
 const showBadge = computed(() => shouldShowPriorityBadge(props.priority))
+const resolvedEncounterId = computed(() => coerceNumericId(props.encounterId))
 const showPriorityControl = computed(
-  () => Boolean(props.canChangePriority && props.encounterId)
+  () => Boolean(props.canChangePriority && resolvedEncounterId.value !== null)
 )
 </script>
 
@@ -25,7 +27,7 @@ const showPriorityControl = computed(
     <span class="queue-cell-main">{{ encounterNumber }}</span>
     <QueuePrioritySelect
       v-if="showPriorityControl"
-      :encounter-id="encounterId!"
+      :encounter-id="resolvedEncounterId!"
       :priority="priority"
     />
     <EncounterBadge

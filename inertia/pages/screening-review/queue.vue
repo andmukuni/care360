@@ -46,7 +46,7 @@ const props = defineProps<{
   inProgress: Paginator
 }>()
 
-const { tab, receivingId, queueUrl, receive } = useStageQueue('/screening-review/queue')
+const { tab, queueUrl, receive, isReceiving } = useStageQueue('/screening-review/queue')
 
 function patientDetails(row: Row) {
   return row.patient_age !== null ? `${row.patient_age} y/o` : null
@@ -133,7 +133,7 @@ function attributionSegments(row: Row) {
               </td>
               <td class="queue-action-col">
                 <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
-                <QueueReceiveButton v-else :processing="receivingId === row.id" @click="receive('/screening-review/:id/receive', row.id)" />
+                <QueueReceiveButton v-else :processing="isReceiving(row.id)" @click="receive('/screening-review/:id/receive', row.id)" />
               </td>
             </tr>
           </QueueTable>

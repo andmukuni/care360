@@ -46,7 +46,7 @@ const props = defineProps<{
   inProgress: Paginator
 }>()
 
-const { tab, receivingId, queueUrl, receive } = useStageQueue('/triage/queue')
+const { tab, queueUrl, receive, isReceiving } = useStageQueue('/triage/queue')
 </script>
 
 <template>
@@ -105,7 +105,7 @@ const { tab, receivingId, queueUrl, receive } = useStageQueue('/triage/queue')
               </td>
               <td class="queue-action-col">
                 <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
-                <QueueReceiveButton v-else :processing="receivingId === row.id" @click="receive('/triage/:id/receive', row.id)" />
+                <QueueReceiveButton v-else :processing="isReceiving(row.id)" @click="receive('/triage/:id/receive', row.id)" />
               </td>
             </tr>
           </QueueTable>

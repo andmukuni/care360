@@ -75,6 +75,7 @@ export default defineConfig({
   |
   */
   preloads: [
+    () => import('#start/pg_types'),
     () => import('#start/routes'),
     () => import('#start/kernel'),
     () => import('#start/transmit'),

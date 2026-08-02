@@ -2,12 +2,15 @@
 import { computed, ref, watch } from 'vue'
 import { router } from '@inertiajs/vue3'
 import { normalizePriority } from '~/support/priority_badges'
+import { coerceNumericId } from '~/support/coerce_id'
 
 const props = defineProps<{
-  encounterId: number
+  encounterId: number | string
   priority?: string | null
   disabled?: boolean
 }>()
+
+const resolvedEncounterId = computed(() => coerceNumericId(props.encounterId))
 
 const OPTIONS = [
   { value: 'normal', label: 'Normal' },
@@ -42,8 +45,14 @@ function onChange(event: Event) {
   const previous = localValue.value
   localValue.value = next
   saving.value = true
+  const encounterId = resolvedEncounterId.value
+  if (encounterId === null) {
+    localValue.value = previous
+    saving.value = false
+    return
+  }
   router.patch(
-    `/encounters/${props.encounterId}/priority`,
+    `/encounters/${encounterId}/priority`,
     { priority_level: next },
     {
       preserveScroll: true,

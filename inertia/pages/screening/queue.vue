@@ -45,7 +45,7 @@ const props = defineProps<{
   inProgress: Paginator
 }>()
 
-const { tab, receivingId, receive } = useStageQueue('/screening/queue', {
+const { tab, receive, isReceiving } = useStageQueue('/screening/queue', {
   pollOnly: ['queued', 'inProgress', 'counts', 'cat'],
 })
 
@@ -232,7 +232,7 @@ watch(
               </td>
               <td class="queue-action-col">
                 <span v-if="isQueuePreview" class="queue-readonly">Read only</span>
-                <QueueReceiveButton v-else :processing="receivingId === row.id" @click="receive('/screening/:id/receive', row.id)" />
+                <QueueReceiveButton v-else :processing="isReceiving(row.id)" @click="receive('/screening/:id/receive', row.id)" />
               </td>
             </tr>
           </QueueTable>

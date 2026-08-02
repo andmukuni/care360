@@ -15,6 +15,7 @@ import {
   encounterDurationHours,
   reopenEligibility,
 } from '#support/encounter/reopen_encounter_policy'
+import { serializeId, serializeIdOrNull } from '#support/serialize_id'
 import QueueCache from '#services/cache/queue_cache'
 import { apiStageQueueKey, closedQueuePageKey, stageQueuePageKey } from '#services/cache/queue_cache_keys'
 
@@ -341,7 +342,7 @@ export function baseQueueRow(
   )
 
   return {
-    id: encounter.id,
+    id: serializeId(encounter.id),
     encounter_number: encounter.encounterNumber,
     patient_name: encounter.patient?.fullName ?? null,
     patient_code: encounter.patient?.patientId ?? null,
@@ -353,7 +354,7 @@ export function baseQueueRow(
     received_by_name: transition?.receivedByUser?.name ?? null,
     has_allergies: Boolean(encounter.patient?.allergies?.trim()),
     can_manage: canManageEncounter(transition, options.currentUserId),
-    received_by_id: transition?.receivedBy ?? null,
+    received_by_id: serializeIdOrNull(transition?.receivedBy),
     patient_age: patientAgeYears(encounter.patient?.dateOfBirth),
   }
 }
@@ -774,7 +775,7 @@ export function closedEncounterRow(encounter: Encounter): ClosedEncounterRow {
   const durationHours = encounter.closedAt ? encounterDurationHours(encounter) : null
 
   return {
-    id: encounter.id,
+    id: serializeId(encounter.id),
     encounter_number: encounter.encounterNumber,
     patient_name: encounter.patient?.fullName ?? null,
     patient_code: encounter.patient?.patientId ?? null,

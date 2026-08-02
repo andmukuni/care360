@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { router } from '@inertiajs/vue3'
 import { useLiveQueueRefresh } from '~/composables/useLiveQueueRefresh'
+import { coerceNumericId, sameNumericId } from '~/support/coerce_id'
 
 export type QueueTab = 'waiting' | 'progress' | 'partially_dispensed' | 'closed'
 
@@ -83,10 +84,14 @@ export function useStageQueue(
     return `${basePath}?${params.toString()}`
   }
 
-  function receive(receivePath: string, id: number) {
-    receivingId.value = id
+  function receive(receivePath: string, id: number | string) {
+    const numericId = coerceNumericId(id)
+    if (numericId === null) {
+      return
+    }
+    receivingId.value = numericId
     router.post(
-      receivePath.replace(':id', String(id)),
+      receivePath.replace(':id', String(numericId)),
       {},
       {
         onFinish: () => {
@@ -96,10 +101,15 @@ export function useStageQueue(
     )
   }
 
+  function isReceiving(id: unknown) {
+    return receivingId.value !== null && sameNumericId(receivingId.value, id)
+  }
+
   return {
     tab,
     receivingId,
     queueUrl,
     receive,
+    isReceiving,
   }
 }
