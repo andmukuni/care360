@@ -121,7 +121,8 @@ export type ClosedEncounterRow = {
 
 /** Encounters missing patient_id break Lucid patient preloads — exclude from queues. */
 function queueEncounterQuery() {
-  return Encounter.query().whereNotNull('patient_id')
+  const table = Encounter.table
+  return Encounter.query().whereNotNull(`${table}.patient_id`)
 }
 
 export function parseQueuePages(
