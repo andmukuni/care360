@@ -78,6 +78,7 @@ export function useAutosave(options: UseAutosaveOptions) {
     try {
       const res = await fetch(options.url, {
         method: 'POST',
+        credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',

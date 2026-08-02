@@ -12,7 +12,7 @@ import NavigationSpinner from '~/components/ui/NavigationSpinner.vue'
 import ToastContainer from '~/components/ui/ToastContainer.vue'
 import ConfirmDialog from '~/components/ui/ConfirmDialog.vue'
 import { initNavigationLoading } from '~/composables/useNavigationLoading'
-import { hasBlockingAutosaveState } from '~/composables/useAutosaveRegistry'
+import { flushAllAutosaves, hasBlockingAutosaveState } from '~/composables/useAutosaveRegistry'
 import { confirmDialog } from '~/composables/useConfirm'
 import { installFlashToasts, processInitialFlash } from '~/support/flash_toasts'
 
@@ -60,16 +60,24 @@ router.on('before', (event) => {
 
   event.preventDefault()
   const visit = event.detail.visit
-  void confirmDialog({
-    title: 'Unsaved changes',
-    message: 'You have unsaved changes that have not been saved. Leave this page anyway?',
-    confirmLabel: 'Leave page',
-    variant: 'danger',
-  }).then((ok) => {
+  void (async () => {
+    const flushed = await flushAllAutosaves()
+    if (flushed) {
+      router.visit(visit.url, visit)
+      return
+    }
+
+    const ok = await confirmDialog({
+      title: 'Unsaved changes',
+      message:
+        'Your latest changes could not be saved. Leave this page anyway? Unsaved work may be lost.',
+      confirmLabel: 'Leave page',
+      variant: 'danger',
+    })
     if (!ok) return
     allowLeaveWithUnsaved = true
     router.visit(visit.url, visit)
-  })
+  })()
 })
 
 router.on('success', (event) => {

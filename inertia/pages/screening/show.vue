@@ -31,6 +31,7 @@ import { confirmDialog } from '~/composables/useConfirm'
 import { formatApiErrors } from '~/support/api_errors'
 import { formatDiagnosisLabel } from '~/support/screening/screening_json_fields'
 import { readXsrfToken } from '~/support/xsrf'
+import { normalizeScreeningPayload } from '~/support/screening_payload'
 import {
   bmiBadge as computeBmiBadge,
   diastolicBpBadge,
@@ -656,10 +657,10 @@ const recheckVitalBadges = computed(() => ({
 function screeningPayload() {
   syncPrescriptions()
   syncLabItems()
-  return form.data()
+  return normalizeScreeningPayload(form.data() as Record<string, unknown>)
 }
 
-const { status: autosaveStatus, indicatorText: autosaveText } = useAutosave({
+const { status: autosaveStatus, indicatorText: autosaveText, saveNow: saveScreeningNow } = useAutosave({
     url: `/screening/${props.encounter.id}/save-draft`,
     getPayload: screeningPayload,
     enabled: showEditableForm,
@@ -683,6 +684,14 @@ const { status: autosaveStatus, indicatorText: autosaveText } = useAutosave({
       }
     },
   })
+
+watch(
+  () => [rxCart.value, labCart.value] as const,
+  () => {
+    void saveScreeningNow()
+  },
+  { deep: true }
+)
 
 function recheckHasValue() {
   return [
