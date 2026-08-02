@@ -210,8 +210,12 @@ function applyPharmacyInProgressFilter(query: any) {
   })
 }
 
+function pharmacyPartiallyDispensedScope() {
+  return queueEncounterQuery()
+}
+
 function pharmacyPartiallyDispensedBase(preload?: (query: any) => void) {
-  const query = queueEncounterQuery()
+  const query = pharmacyPartiallyDispensedScope()
     .preload('patient')
     .preload('encounterQueueTransitions', (q: any) =>
       q.preload('queuedByUser').preload('receivedByUser')
@@ -239,7 +243,7 @@ export function preloadPharmacyQueueEncounter(query: any) {
 
 export async function countPharmacyPartiallyDispensedEncounters(): Promise<number> {
   const query = applyPartialDispenseOnLatestPrescriptionFilter(
-    applyPharmacyPartiallyDispensedStageFilter(pharmacyPartiallyDispensedBase())
+    applyPharmacyPartiallyDispensedStageFilter(pharmacyPartiallyDispensedScope())
   )
   const rows = await query.count('* as total')
   return Number((rows[0] as any).$extras.total)
