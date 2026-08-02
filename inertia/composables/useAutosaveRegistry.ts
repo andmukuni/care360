@@ -63,7 +63,7 @@ export function getGlobalAutosaveSnapshot() {
 
 export function hasBlockingAutosaveState() {
   const { status, visible } = getGlobalAutosaveSnapshot()
-  return visible && (status === 'pending' || status === 'error' || status === 'saving')
+  return visible && (status === 'pending' || status === 'saving')
 }
 
 export async function retryFailedAutosaves() {

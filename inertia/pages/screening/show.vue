@@ -6,7 +6,6 @@ import PatientHeader from '~/components/encounter/PatientHeader.vue'
 import HandoverNotesCard from '~/components/encounter/HandoverNotesCard.vue'
 import WardWingBadge from '~/components/encounter/WardWingBadge.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
-import AutosaveIndicator from '~/components/ui/AutosaveIndicator.vue'
 import VitalInputWithBadge from '~/components/ui/VitalInputWithBadge.vue'
 import GynObsTab from '~/components/screening/GynObsTab.vue'
 import ScreeningQueueActionsModal from '~/components/screening/ScreeningQueueActionsModal.vue'
@@ -21,17 +20,14 @@ import ComplaintsHistoriesTab from '~/components/screening/ComplaintsHistoriesTa
 import ExaminationTab from '~/components/screening/ExaminationTab.vue'
 import PaediatricTab from '~/components/screening/PaediatricTab.vue'
 import { useAsyncAction } from '~/composables/useAsyncAction'
-import { useAutosave } from '~/composables/useAutosave'
 import { usePrescriptionCart, type PrescriptionCartItem } from '~/composables/usePrescriptionCart'
 import { useLabCart, type LabCartItem } from '~/composables/useLabCart'
 import { useQueueFooterHint } from '~/composables/useQueueFooterHint'
 import { useQueueActionsDeepLink } from '~/composables/useQueueActionsDeepLink'
-import { flushAutosavesBeforeAction } from '~/composables/useFlushAutosave'
 import { confirmDialog } from '~/composables/useConfirm'
 import { formatApiErrors } from '~/support/api_errors'
 import { formatDiagnosisLabel } from '~/support/screening/screening_json_fields'
 import { readXsrfToken } from '~/support/xsrf'
-import { normalizeScreeningPayload } from '~/support/screening_payload'
 import {
   bmiBadge as computeBmiBadge,
   diastolicBpBadge,
@@ -577,7 +573,6 @@ type VitalRecheckRow = {
 }
 
 const rechecksList = ref<VitalRecheckRow[]>([...props.vitalRechecks])
-const currentRecheckId = ref<number | null>(null)
 
 watch(
   () => props.vitalRechecks,
@@ -640,7 +635,7 @@ const hasScreeningAssessment = computed(
   () => !!props.screening?.id || !!String(form.complaints ?? '').trim()
 )
 
-const canAutosaveVitalRecheck = computed(
+const canSaveVitalRecheck = computed(
   () => showEditableForm.value && hasScreeningAssessment.value
 )
 
@@ -654,45 +649,6 @@ const recheckVitalBadges = computed(() => ({
   spo2: oxygenSaturationBadge(recheck.spo2),
 }))
 
-function screeningPayload() {
-  syncPrescriptions()
-  syncLabItems()
-  return normalizeScreeningPayload(form.data() as Record<string, unknown>)
-}
-
-const { status: autosaveStatus, indicatorText: autosaveText, saveNow: saveScreeningNow } = useAutosave({
-    url: `/screening/${props.encounter.id}/save-draft`,
-    getPayload: screeningPayload,
-    enabled: showEditableForm,
-    watchSource: computed(() => ({
-      form: form.data(),
-      rxCart: rxCart.value,
-      labCart: labCart.value,
-      labPriority: labPriority.value,
-      labRequestNotes: labRequestNotes.value,
-    })),
-    onSaved(payload) {
-      const prescriptions = payload.prescriptions
-      if (typeof prescriptions === 'string' && prescriptions.length > 0) {
-        clearRxCart()
-        router.reload({ only: ['prescription'] })
-      }
-      const labItems = payload.lab_items
-      if (typeof labItems === 'string' && labItems.length > 0 && labCart.value.length > 0) {
-        clearLabCart()
-        router.reload({ only: ['labRequest', 'screening'] })
-      }
-    },
-  })
-
-watch(
-  () => [rxCart.value, labCart.value] as const,
-  () => {
-    void saveScreeningNow()
-  },
-  { deep: true }
-)
-
 function recheckHasValue() {
   return [
     recheck.weight,
@@ -705,33 +661,24 @@ function recheckHasValue() {
   ].some((value) => value !== null && value !== '') || recheck.notes.trim().length > 0
 }
 
-const { status: recheckStatus, indicatorText: recheckText } = useAutosave({
-  url: `/screening/${props.encounter.id}/vital-recheck/autosave`,
-  enabled: canAutosaveVitalRecheck,
-  getPayload: () => {
-    if (!recheckHasValue()) return null
-    const raw = recheck.data() as Record<string, unknown>
-    const numericKeys = ['weight', 'height', 'bp_systolic', 'bp_diastolic', 'pulse', 'temperature', 'spo2']
-    const cleaned: Record<string, unknown> = { id: currentRecheckId.value }
-    for (const [key, value] of Object.entries(raw)) {
-      if (numericKeys.includes(key)) {
-        cleaned[key] = value === '' || value === null || value === undefined ? null : Number(value)
-      } else {
-        cleaned[key] = value
-      }
-    }
-    return cleaned
-  },
-  watchSource: computed(() => recheck.data()),
-  onSaved(_payload, response) {
-    const row = response?.recheck as VitalRecheckRow | null | undefined
-    if (!row) return
-    currentRecheckId.value = row.id
-    const idx = rechecksList.value.findIndex((r) => r.id === row.id)
-    if (idx >= 0) rechecksList.value.splice(idx, 1, row)
-    else rechecksList.value.unshift(row)
-  },
-})
+const { loading: savingRecheck, run: runSaveRecheck } = useAsyncAction()
+
+function saveVitalRecheck() {
+  if (!recheckHasValue()) {
+    window.alert('Enter at least one vital sign or note before saving.')
+    return
+  }
+  runSaveRecheck(({ done }) => {
+    recheck.post(`/screening/${props.encounter.id}/vital-recheck`, {
+      preserveScroll: true,
+      onSuccess: () => {
+        newRecheck()
+        router.reload({ only: ['vitalRechecks'] })
+      },
+      onFinish: done,
+    })
+  })
+}
 
 const patientAge = computed(() => {
   const dob = props.encounter.patient?.date_of_birth
@@ -841,7 +788,6 @@ async function queueToLab() {
   form.lab_requested = true
   syncPrescriptions()
   syncLabItems()
-  if (!(await flushAutosavesBeforeAction({ required: false }))) return
   runQueueLab(({ done }) => {
     form.post(`/screening/${props.encounter.id}/queue-lab`, {
       onSuccess: () => {
@@ -858,7 +804,6 @@ async function queueToPharmacy() {
   form.lab_requested = false
   syncPrescriptions()
   syncLabItems()
-  if (!(await flushAutosavesBeforeAction({ required: false }))) return
   runQueuePharmacy(({ done }) => {
     form.post(`/screening/${props.encounter.id}/queue-pharmacy`, {
       onSuccess: () => {
@@ -874,7 +819,6 @@ async function endEncounter() {
   dismissQueueHint()
   syncPrescriptions()
   syncLabItems()
-  if (!(await flushAutosavesBeforeAction({ required: false }))) return
   endingEncounter.value = true
   form
     .transform((data) => ({
@@ -911,14 +855,12 @@ function setLabDisposition() {
 function newRecheck() {
   recheck.reset()
   recheckBmiDisplay.value = ''
-  currentRecheckId.value = null
 }
 
 async function queueTreatmentRoom() {
   dismissQueueHint()
   syncPrescriptions()
   syncLabItems()
-  if (!(await flushAutosavesBeforeAction())) return
   runQueueTreatment(({ done }) => {
     router.post(
       `/screening/${props.encounter.id}/queue-treatment-room`,
@@ -932,7 +874,6 @@ async function queueTriage() {
   dismissQueueHint()
   syncPrescriptions()
   syncLabItems()
-  if (!(await flushAutosavesBeforeAction())) return
   runQueueTriage(({ done }) => {
     router.post(
       `/screening/${props.encounter.id}/queue-triage`,
@@ -999,7 +940,7 @@ function openQueueActionsModal() {
 useQueueActionsDeepLink(openQueueActionsModal)
 
 function onScreeningSuggestionApplied() {
-  // Autosave watchSource picks up form changes.
+  // Form edits are submitted with queue/close actions.
 }
 
 function addSuggestedPrescriptions(items: PrescriptionCartItem[]) {
@@ -1652,13 +1593,7 @@ onUnmounted(() => {
       <div class="lg:col-span-9 lg:order-1">
         <form class="theme-surface rounded-lg shadow-sm" @submit.prevent>
           <div class="stage-tab-nav-sticky stage-tab-nav-sticky--card">
-            <div
-              v-if="showEditableForm && activeTab !== 'vital-recheck'"
-              class="mx-6 mt-5 flex justify-end"
-            >
-              <AutosaveIndicator :status="autosaveStatus" :text="autosaveText" />
-            </div>
-            <div class="tab-nav mx-6 mb-2" :class="showEditableForm && activeTab !== 'vital-recheck' ? 'mt-2' : 'mt-5'">
+            <div class="tab-nav mx-6 mb-2 mt-5">
             <button type="button" class="tab-btn" :class="activeTab === 'complaints' ? 'active' : ''" @click="activeTab = 'complaints'">
               <svg class="tab-btn__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -1749,11 +1684,8 @@ onUnmounted(() => {
             <div v-if="showEditableForm && !hasScreeningAssessment" class="rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
               Save the screening assessment (Complaints tab) before recording a vital recheck.
             </div>
-            <div v-if="showEditableForm" class="section-card">
-              <div class="flex items-center justify-between gap-3">
-                <div class="section-card-title !mb-0">Record vital recheck</div>
-                <AutosaveIndicator :status="recheckStatus" :text="recheckText" />
-              </div>
+            <div v-if="showEditableForm && canSaveVitalRecheck" class="section-card">
+              <div class="section-card-title">Record vital recheck</div>
               <div class="mt-4 grid grid-cols-2 gap-4 md:grid-cols-3">
                 <div>
                   <label class="field-label">Weight <span class="unit">kg</span></label>
@@ -1846,11 +1778,21 @@ onUnmounted(() => {
                 </div>
               </div>
               <div class="mt-4"><label class="field-label">Notes</label><textarea v-model="recheck.notes" rows="2" class="field-input" placeholder="Optional notes…" /></div>
-              <div class="mt-3 flex items-center gap-3">
+              <div class="mt-3 flex flex-wrap items-center gap-3">
+                <ActionButton
+                  type="button"
+                  variant="primary"
+                  class="!text-xs"
+                  :loading="savingRecheck"
+                  loading-text="Saving…"
+                  :disabled="!recheckHasValue()"
+                  @click="saveVitalRecheck"
+                >
+                  Save recheck
+                </ActionButton>
                 <ActionButton type="button" variant="outline" class="!text-xs" @click="newRecheck">
                   + New recheck
                 </ActionButton>
-                <p class="text-xs text-neutral-500">Changes save automatically.</p>
               </div>
             </div>
             <div v-if="rechecksList.length" class="section-card">

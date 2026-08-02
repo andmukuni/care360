@@ -13,7 +13,6 @@ import ToastContainer from '~/components/ui/ToastContainer.vue'
 import ConfirmDialog from '~/components/ui/ConfirmDialog.vue'
 import { initNavigationLoading } from '~/composables/useNavigationLoading'
 import { flushAllAutosaves, hasBlockingAutosaveState } from '~/composables/useAutosaveRegistry'
-import { confirmDialog } from '~/composables/useConfirm'
 import { installFlashToasts, processInitialFlash } from '~/support/flash_toasts'
 
 const CLINIC_BRANDING_KEY = 'hms-clinic-branding'
@@ -67,14 +66,6 @@ router.on('before', (event) => {
       return
     }
 
-    const ok = await confirmDialog({
-      title: 'Unsaved changes',
-      message:
-        'Your latest changes could not be saved. Leave this page anyway? Unsaved work may be lost.',
-      confirmLabel: 'Leave page',
-      variant: 'danger',
-    })
-    if (!ok) return
     allowLeaveWithUnsaved = true
     router.visit(visit.url, visit)
   })()
