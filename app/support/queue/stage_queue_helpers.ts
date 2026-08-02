@@ -119,6 +119,11 @@ export type ClosedEncounterRow = {
   encounter_duration_hours: number | null
 }
 
+/** Encounters missing patient_id break Lucid patient preloads — exclude from queues. */
+function queueEncounterQuery() {
+  return Encounter.query().whereNotNull('patient_id')
+}
+
 export function parseQueuePages(
   request: HttpContext['request'],
   options: { includeClosed?: boolean; includePartiallyDispensed?: boolean } = {}
@@ -201,7 +206,7 @@ function applyPharmacyInProgressFilter(query: any) {
 }
 
 function pharmacyPartiallyDispensedBase(preload?: (query: any) => void) {
-  const query = Encounter.query()
+  const query = queueEncounterQuery()
     .preload('patient')
     .preload('encounterQueueTransitions', (q: any) =>
       q.preload('queuedByUser').preload('receivedByUser')
@@ -237,7 +242,7 @@ export async function countPharmacyPartiallyDispensedEncounters(): Promise<numbe
 
 export async function countPharmacyClosedEncounters(closedSearch = ''): Promise<number> {
   const search = closedSearch.trim()
-  const query = Encounter.query()
+  const query = queueEncounterQuery()
     .where('is_locked', true)
     .where('current_stage', EncounterStage.Completed)
     .where('closed_at', '>=', closedEncounterDayStart().toSQL()!)
@@ -440,7 +445,7 @@ export async function screeningCategoryCounts(
   inProgressTotal: number
 ) {
   const countFor = async (category: 'adult' | 'pediatric') => {
-    const query = Encounter.query()
+    const query = queueEncounterQuery()
       .where('current_stage', EncounterStage.Screening)
       .whereIn('current_status', [EncounterStatus.Queued, EncounterStatus.InProgress])
     applyScreeningCategoryFilter(query, category)
@@ -976,7 +981,7 @@ export async function paginateStageQueue(options: {
   const perPage = options.perPage ?? 20
 
   const base = () => {
-    const query = Encounter.query()
+    const query = queueEncounterQuery()
       .preload('patient')
       .preload('encounterQueueTransitions', (q: any) =>
         q.preload('queuedByUser').preload('receivedByUser')
@@ -1021,7 +1026,7 @@ export async function paginatePharmacyPrimaryQueue(options: {
   const perPage = options.perPage ?? 20
 
   const base = () => {
-    const query = Encounter.query()
+    const query = queueEncounterQuery()
       .preload('patient')
       .preload('encounterQueueTransitions', (q: any) =>
         q.preload('queuedByUser').preload('receivedByUser')
@@ -1097,7 +1102,7 @@ export async function paginateClosedEncounters(options: {
   const perPage = options.perPage ?? 15
   const search = options.closedSearch?.trim() ?? ''
 
-  const query = Encounter.query()
+  const query = queueEncounterQuery()
     .preload('patient')
     .preload('closedByUser')
     .where('is_locked', true)
