@@ -9,8 +9,9 @@ import { InvalidEncounterTransitionException } from '#support/encounter/exceptio
  * Short-circuit path: Registration → Triage → Screening → Pharmacy → Completed  (no lab)
  * Treatment branch:  Pharmacy → TreatmentRoom → Completed
  *                     Screening → TreatmentRoom → Completed  (direct, no pharmacy)
- * Return paths:      ScreeningReview → Lab | Triage | TreatmentRoom
+ * Return paths:      Lab → Screening (no lab request) | ScreeningReview → Lab | Triage | TreatmentRoom
  *                     TreatmentRoom → ScreeningReview
+ *                     Pharmacy → Screening (recommendation review or missing prescription)
  */
 export class EncounterStageMap {
   /**
@@ -30,7 +31,7 @@ export class EncounterStageMap {
           EncounterStage.Triage,
         ]
       case EncounterStage.Lab:
-        return [EncounterStage.ScreeningReview]
+        return [EncounterStage.ScreeningReview, EncounterStage.Screening]
       case EncounterStage.ScreeningReview:
         return [
           EncounterStage.Pharmacy,
@@ -73,7 +74,7 @@ export class EncounterStageMap {
       case EncounterStage.Triage:
         return [EncounterStage.Registration]
       case EncounterStage.Screening:
-        return [EncounterStage.Triage, EncounterStage.Pharmacy]
+        return [EncounterStage.Triage, EncounterStage.Pharmacy, EncounterStage.Lab]
       case EncounterStage.Lab:
         return [EncounterStage.Screening, EncounterStage.ScreeningReview]
       case EncounterStage.ScreeningReview:
