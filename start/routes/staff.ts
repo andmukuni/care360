@@ -336,6 +336,7 @@ router
     router.post('/lab/:encounter/results/:result/update', [LabController, 'updateResult']).as('lab.results.update').use(perm('lab.update-results'))
     router.post('/lab/:encounter/items/:item/result-meta', [LabController, 'updateResultMeta']).as('lab.results.meta').use(perm('lab.update-results'))
     router.post('/lab/:encounter/complete', [LabController, 'complete']).as('lab.complete').use(perm('lab.complete'))
+    router.post('/lab/:encounter/queue-screening', [LabController, 'queueBackToScreening']).as('lab.queue-screening').use(perm('lab.complete'))
 
     // ── Screening review ───────────────────────────────────────────────────
     router.get('/screening-review/queue', [ScreeningReviewController, 'queue']).as('screening-review.queue')

@@ -460,6 +460,14 @@ const dispenseFooterLabel = computed(() => {
 })
 
 const prescribedItemCount = computed(() => props.prescription?.items.length ?? 0)
+const canReturnToScreeningMissingRx = computed(
+  () => props.encounter.can_edit && prescribedItemCount.value === 0
+)
+const returnToScreeningLabel = computed(() =>
+  prescribedItemCount.value > 0
+    ? 'Return to Screening'
+    : 'Return to Screening (no prescription)'
+)
 </script>
 
 <template>
@@ -484,6 +492,26 @@ const prescribedItemCount = computed(() => props.prescription?.items.length ?? 0
       class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200"
     >
       This encounter is locked. Pharmacy edits are restricted until it is reopened.
+    </div>
+
+    <div
+      v-if="canReturnToScreeningMissingRx"
+      class="mb-4 rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"
+    >
+      <p class="font-medium">No prescription on this encounter.</p>
+      <p class="mt-1 text-amber-800 dark:text-amber-200">
+        Return the patient to Screening so the clinician can add medications.
+      </p>
+      <ActionButton
+        type="button"
+        variant="outline"
+        class="mt-3 !rounded !px-4 !py-2 text-sm"
+        :loading="queueingScreening"
+        loading-text="Returning…"
+        @click="queueScreening"
+      >
+        Return to Screening
+      </ActionButton>
     </div>
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
@@ -960,7 +988,7 @@ const prescribedItemCount = computed(() => props.prescription?.items.length ?? 0
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                     </svg>
                   </template>
-                  Return to Screening
+                  {{ returnToScreeningLabel }}
                 </ActionButton>
               </div>
               <ComingSoonWardQueueOptions />

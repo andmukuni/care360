@@ -1,4 +1,3 @@
-import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import type Encounter from '#models/encounter'
 import type EncounterQueueTransition from '#models/encounter_queue_transition'
@@ -9,14 +8,13 @@ import { EncounterLockService } from '#services/encounter/encounter_lock_service
 import { EncounterNotifier } from '#services/encounter/encounter_notifier'
 import { EncounterQueueService } from '#services/encounter/encounter_queue_service'
 import { EncounterWorkflowService } from '#services/encounter/encounter_workflow_service'
-import { getInitialScreeningRecord } from '#services/encounter/encounter_records'
-import { hasLabRequestWithItems } from '#support/encounter/stage_prerequisites'
+import { getLatestDispense } from '#services/encounter/encounter_records'
 
 /**
- * Completes initial screening and queues the encounter to Lab.
- * Ported from App\Actions\Encounter\QueueEncounterToLabAction.
+ * Returns an in-progress Lab or Pharmacy encounter to Screening when the
+ * downstream work (lab request / prescription) was never authored.
  */
-export default class QueueEncounterToLabAction {
+export default class ReturnEncounterToInitialScreeningAction {
   private readonly workflowService = new EncounterWorkflowService()
   private readonly queueService = new EncounterQueueService()
   private readonly auditService = new EncounterAuditService()
@@ -25,66 +23,52 @@ export default class QueueEncounterToLabAction {
 
   async handle(
     encounter: Encounter,
-    clinicianId: number,
+    actorId: number,
+    fromStage: EncounterStage.Lab | EncounterStage.Pharmacy,
     notes: string | null = null
   ): Promise<EncounterQueueTransition> {
     const transition = await db.transaction(async (trx) => {
       this.lockService.assertNotLocked(encounter)
-      this.workflowService.assertStageIs(encounter, EncounterStage.Screening)
+      this.workflowService.assertStageIs(encounter, fromStage)
       this.workflowService.assertStatusIs(encounter, EncounterStatus.InProgress)
 
-      const screeningRecord = await getInitialScreeningRecord(encounter.id, trx)
-      if (!screeningRecord) {
-        throw new Error('A screening assessment must be recorded before queuing to Lab.')
+      if (fromStage === EncounterStage.Pharmacy) {
+        const dispense = await getLatestDispense(encounter.id, trx)
+        if (dispense) {
+          throw new Error(
+            'Encounter already has a dispense record and cannot be returned to Screening.'
+          )
+        }
       }
 
-      if (!screeningRecord.labRequested) {
-        throw new Error('Lab must be requested on the screening record before queuing to Lab.')
-      }
-
-      if (!(await hasLabRequestWithItems(encounter.id, trx))) {
-        throw new Error('Add at least one lab test to the request before queuing to Lab.')
-      }
-
-      // 1. Stamp lab referral + completion on the screening record.
-      screeningRecord.useTransaction(trx)
-      screeningRecord.referredToLabAt = DateTime.now()
-      screeningRecord.screeningCompletedAt = DateTime.now()
-      await screeningRecord.save()
-
-      // 2. Complete the incoming (triage → screening) transition.
       const openTransition = await this.queueService.getOpenTransition(encounter, trx)
       if (openTransition) {
         await this.queueService.complete(openTransition, trx)
       }
 
-      // 3. Close the screening stage log.
-      await this.workflowService.completeStageLog(encounter, clinicianId, notes, trx)
+      await this.workflowService.completeStageLog(encounter, actorId, notes, trx)
 
-      // 4. Create screening → lab transition.
       const created = await this.queueService.queueTo(
         encounter,
-        EncounterStage.Lab,
-        clinicianId,
+        EncounterStage.Screening,
+        actorId,
         notes,
         trx
       )
 
-      // 5. Advance encounter to lab.
       await this.workflowService.advanceToStage(
         encounter,
-        EncounterStage.Lab,
+        EncounterStage.Screening,
         EncounterStatus.Queued,
         trx
       )
 
-      // 6. Audit.
       await this.auditService.record({
         encounter,
-        actionName: 'queued_to_lab',
-        actionStage: EncounterStage.Screening,
-        actionBy: clinicianId,
-        newValues: { to_stage: EncounterStage.Lab },
+        actionName: 'returned_to_initial_screening',
+        actionStage: fromStage,
+        actionBy: actorId,
+        newValues: { to_stage: EncounterStage.Screening, from_stage: fromStage },
         notes,
         client: trx,
       })
@@ -94,9 +78,9 @@ export default class QueueEncounterToLabAction {
 
     await this.notifier.notifyStageTransition(
       encounter,
+      fromStage,
       EncounterStage.Screening,
-      EncounterStage.Lab,
-      clinicianId
+      actorId
     )
 
     return transition

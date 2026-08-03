@@ -111,6 +111,7 @@ const activeTab = ref<TabId>('results')
 const { showQueueHint, dismissQueueHint } = useQueueFooterHint('lab', props.encounter.id)
 const { loading: savingResults, run: runSaveResults } = useAsyncAction()
 const { loading: completing, run: runComplete } = useAsyncAction()
+const { loading: queueingScreening, run: runQueueScreening } = useAsyncAction()
 
 const canEdit = computed(() => props.encounter.can_edit && !props.encounter.is_locked)
 
@@ -223,6 +224,15 @@ function itemHasResult(itemId: number) {
 const pendingResultCount = computed(
   () => (props.labRequest?.items ?? []).filter((item) => !itemHasResult(item.id)).length
 )
+
+const hasLabRequestWithItems = computed(() => (props.labRequest?.items?.length ?? 0) > 0)
+const canReturnToScreening = computed(() => canEdit.value && !hasLabRequestWithItems.value)
+
+function queueBackToScreening() {
+  runQueueScreening(({ done }) => {
+    router.post(`/lab/${props.encounter.id}/queue-screening`, {}, { onFinish: done })
+  })
+}
 </script>
 
 <template>
@@ -238,6 +248,27 @@ const pendingResultCount = computed(
       class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200"
     >
       This encounter is locked. Lab edits are restricted until it is reopened.
+    </div>
+
+    <div
+      v-if="canReturnToScreening"
+      class="mb-4 rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"
+    >
+      <p class="font-medium">No lab test request on this encounter.</p>
+      <p class="mt-1 text-amber-800 dark:text-amber-200">
+        Return the patient to Screening so the clinician can add investigations, or create a lab request here if
+        appropriate.
+      </p>
+      <ActionButton
+        type="button"
+        variant="outline"
+        class="mt-3 !rounded !px-4 !py-2 text-sm"
+        :loading="queueingScreening"
+        loading-text="Returning…"
+        @click="queueBackToScreening"
+      >
+        Return to Screening
+      </ActionButton>
     </div>
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
@@ -548,11 +579,22 @@ const pendingResultCount = computed(
 
         <div v-else class="theme-surface rounded-lg shadow-sm">
           <div class="sc-bd">
-            <div class="empty-state p-8 text-center">
-              <p class="text-sm text-neutral-500">No lab request found for this encounter.</p>
-              <ActionLink v-if="canEdit" :href="`/lab/${encounter.id}/add-tests`" variant="primary" class="mt-4">
-                Create lab request
-              </ActionLink>
+            <div class="empty-state space-y-3 p-8 text-center">
+              <p class="text-sm text-neutral-500">No lab test request found for this encounter.</p>
+              <div v-if="canEdit" class="flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
+                <ActionButton
+                  type="button"
+                  class="!rounded !px-4 !py-2 text-sm"
+                  :loading="queueingScreening"
+                  loading-text="Returning…"
+                  @click="queueBackToScreening"
+                >
+                  Return to Screening
+                </ActionButton>
+                <ActionLink :href="`/lab/${encounter.id}/add-tests`" variant="outline">
+                  Create lab request
+                </ActionLink>
+              </div>
             </div>
           </div>
         </div>

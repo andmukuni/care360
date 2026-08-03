@@ -1,4 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
+import vine from '@vinejs/vine'
 import { DateTime } from 'luxon'
 import Encounter from '#models/encounter'
 import LabRequest from '#models/lab_request'
@@ -13,6 +14,8 @@ import ReceiveLabQueueAction from '#actions/encounter/receive_lab_queue_action'
 import RecordLabSamplesAction from '#actions/encounter/record_lab_samples_action'
 import RecordLabResultsAction from '#actions/encounter/record_lab_results_action'
 import QueueEncounterBackToScreeningAction from '#actions/encounter/queue_encounter_back_to_screening_action'
+import ReturnEncounterToInitialScreeningAction from '#actions/encounter/return_encounter_to_initial_screening_action'
+import { hasLabRequestWithItems } from '#support/encounter/stage_prerequisites'
 import { getLabRequest } from '#services/encounter/encounter_records'
 import {
   labSamplesValidator,
@@ -710,6 +713,44 @@ export default class LabController {
     }
 
     session.flash('success', `Encounter ${encounter.encounterNumber} returned to Screening Review.`)
+    return response.redirect().toPath('/lab/queue')
+  }
+
+  // POST /lab/:encounter/queue-screening
+  async queueBackToScreening({ params, request, response, session, auth, bouncer }: HttpContext) {
+    const user = auth.getUserOrFail()
+    const encounter = await Encounter.findOrFail(params.encounter)
+    await (bouncer as any)
+      .with('EncounterPolicy')
+      .authorize('editInStage', encounter, EncounterStage.Lab)
+
+    const validator = vine.compile(
+      vine.object({ notes: vine.string().trim().maxLength(500).optional().nullable() })
+    )
+    const { notes } = await request.validateUsing(validator)
+
+    if (await hasLabRequestWithItems(encounter.id)) {
+      session.flash(
+        'error',
+        'This encounter has lab tests ordered. Complete lab work or use Complete to send results to Screening Review.'
+      )
+      return response.redirect().back()
+    }
+
+    try {
+      await new ReturnEncounterToInitialScreeningAction().handle(
+        encounter,
+        user.id,
+        EncounterStage.Lab,
+        notes ?? 'Returned to Screening — no lab test request was found on this encounter.'
+      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to return to Screening.'
+      session.flash('error', message)
+      return response.redirect().back()
+    }
+
+    session.flash('success', `Encounter ${encounter.encounterNumber} returned to Screening.`)
     return response.redirect().toPath('/lab/queue')
   }
 }

@@ -10,6 +10,7 @@ import { EncounterNotifier } from '#services/encounter/encounter_notifier'
 import { EncounterQueueService } from '#services/encounter/encounter_queue_service'
 import { EncounterWorkflowService } from '#services/encounter/encounter_workflow_service'
 import { getInitialScreeningRecord } from '#services/encounter/encounter_records'
+import { hasPrescriptionWithItems } from '#support/encounter/stage_prerequisites'
 
 /**
  * Completes screening and queues the encounter directly to Pharmacy (no lab).
@@ -41,6 +42,12 @@ export default class QueueEncounterToPharmacyFromScreeningAction {
       if (screeningRecord.labRequested) {
         throw new Error(
           'Lab has been requested — cannot queue directly to Pharmacy. Use QueueEncounterToLabAction.'
+        )
+      }
+
+      if (!(await hasPrescriptionWithItems(encounter.id, trx))) {
+        throw new Error(
+          'Add at least one medication to the prescription before queuing to Pharmacy.'
         )
       }
 

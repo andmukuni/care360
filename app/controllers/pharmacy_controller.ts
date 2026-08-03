@@ -15,6 +15,8 @@ import DispenseMedicationAction from '#actions/encounter/dispense_medication_act
 import AppendPharmacyPrescriptionItemsAction from '#actions/encounter/append_pharmacy_prescription_items_action'
 import CloseEncounterAction from '#actions/encounter/close_encounter_action'
 import QueueEncounterFromPharmacyToScreeningAction from '#actions/encounter/queue_encounter_from_pharmacy_to_screening_action'
+import ReturnEncounterToInitialScreeningAction from '#actions/encounter/return_encounter_to_initial_screening_action'
+import { hasPrescriptionWithItems } from '#support/encounter/stage_prerequisites'
 import { serializePrescriptionItem } from '#support/encounter/prescription_item_payload'
 import { serializeLabItemsWithResults } from '#support/encounter/lab_item_payload'
 import {
@@ -591,15 +593,26 @@ export default class PharmacyController {
       notes ?? 'Returned by Pharmacy for screening medication recommendation approval.'
 
     try {
-      await new QueueEncounterFromPharmacyToScreeningAction().handle(encounter, user.id, message)
+      const hasPrescription = await hasPrescriptionWithItems(encounter.id)
+      if (hasPrescription) {
+        await new QueueEncounterFromPharmacyToScreeningAction().handle(encounter, user.id, message)
+      } else {
+        await new ReturnEncounterToInitialScreeningAction().handle(
+          encounter,
+          user.id,
+          EncounterStage.Pharmacy,
+          notes ?? 'Returned to Screening — no prescription was found on this encounter.'
+        )
+      }
     } catch (error) {
-      session.flash('error', error.message)
+      const errMessage = error instanceof Error ? error.message : 'Unable to return to Screening.'
+      session.flash('error', errMessage)
       return response.redirect().back()
     }
 
     session.flash(
       'success',
-      `Encounter ${encounter.encounterNumber} queued back to Screening for recommendation approval.`
+      `Encounter ${encounter.encounterNumber} queued back to Screening for clinician review.`
     )
     return response.redirect().toPath('/pharmacy/queue')
   }

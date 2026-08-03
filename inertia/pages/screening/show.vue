@@ -631,6 +631,19 @@ const dimmerVisible = computed(
 
 const showEditableForm = computed(() => props.isAtScreening && props.encounter.can_edit)
 
+const savedLabItemCount = computed(
+  () => (props.labRequest?.items?.length ?? 0) + labCart.value.length
+)
+const savedRxItemCount = computed(
+  () => (props.prescription?.items?.length ?? 0) + rxCart.value.length
+)
+const canQueueToLab = computed(
+  () => showEditableForm.value && !!form.lab_requested && savedLabItemCount.value > 0
+)
+const canQueueToPharmacy = computed(
+  () => showEditableForm.value && !form.lab_requested && savedRxItemCount.value > 0
+)
+
 const hasScreeningAssessment = computed(
   () => !!props.screening?.id || !!String(form.complaints ?? '').trim()
 )
@@ -785,6 +798,10 @@ function formatRxDose(item: {
 
 async function queueToLab() {
   dismissQueueHint()
+  if (!canQueueToLab.value) {
+    window.alert('Add at least one lab test before queuing to Lab.')
+    return
+  }
   form.lab_requested = true
   syncPrescriptions()
   syncLabItems()
@@ -801,6 +818,10 @@ async function queueToLab() {
 
 async function queueToPharmacy() {
   dismissQueueHint()
+  if (!canQueueToPharmacy.value) {
+    window.alert('Add at least one medication before queuing to Pharmacy.')
+    return
+  }
   form.lab_requested = false
   syncPrescriptions()
   syncLabItems()
@@ -2104,6 +2125,8 @@ onUnmounted(() => {
       :treatment-loading="queueingTreatment"
       :triage-loading="queueingTriage"
       :end-loading="endingEncounter && form.processing"
+      :can-queue-to-lab="canQueueToLab"
+      :can-queue-to-pharmacy="canQueueToPharmacy"
       @queue-lab="queueToLab"
       @queue-pharmacy="queueToPharmacy"
       @queue-treatment="queueTreatmentRoom"
