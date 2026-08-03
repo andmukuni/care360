@@ -6,6 +6,7 @@ import User from '#models/user'
 import DashboardController from '#controllers/dashboard_controller'
 import RbacService from '#services/auth/rbac_service'
 import { landingPathForRoles } from '#support/staff/role_nav_profiles'
+import { countPatientsAttendedToday } from '#support/dashboard/today_patients_seen'
 
 /**
  * Staff authentication. Ported from App\Http\Controllers\AuthController.
@@ -155,12 +156,7 @@ export default class AuthController {
       .from('households')
       .whereRaw('DATE(COALESCE(source_created_at, created_at)) = ?', [today])
       .count('* as count')
-    const shiftRow = await db
-      .from('shift_reports')
-      .whereRaw('DATE(report_date) = ?', [today])
-      .sum('total_patients_seen as total')
-      .first()
-    const todayShiftPatients = Number(shiftRow?.total ?? 0)
+    const todayShiftPatients = await countPatientsAttendedToday()
 
     const recentRegistrations = await db
       .from('patients')

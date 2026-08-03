@@ -4,6 +4,7 @@ import { DateTime } from 'luxon'
 import Encounter from '#models/encounter'
 import { EncounterStage } from '#enums/encounter_stage'
 import DashboardInsightFlashes from '#support/dashboard_insight_flashes'
+import { countPatientsAttendedToday } from '#support/dashboard/today_patients_seen'
 import { resolveRoleNav } from '#support/staff/role_nav_profiles'
 
 /**
@@ -28,12 +29,7 @@ export default class DashboardController {
     const [{ count: totalPatients }] = await db.from('patients').count('* as count')
     const [{ count: totalHouseholds }] = await db.from('households').count('* as count')
 
-    const todayShiftRow = await db
-      .from('shift_reports')
-      .whereRaw('DATE(report_date) = ?', [DateTime.now().toISODate()])
-      .sum('total_patients_seen as total')
-      .first()
-    const todayShiftPatients = Number(todayShiftRow?.total ?? 0)
+    const todayShiftPatients = await countPatientsAttendedToday()
 
     const recentPatients = await db
       .from('patients')
