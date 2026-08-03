@@ -3,7 +3,9 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Link, useForm, router } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import PatientHeader from '~/components/encounter/PatientHeader.vue'
+import EncounterBadge from '~/components/encounter/EncounterBadge.vue'
 import HandoverNotesCard from '~/components/encounter/HandoverNotesCard.vue'
+import QueuePrioritySelect from '~/components/staff/queue/QueuePrioritySelect.vue'
 import WardWingBadge from '~/components/encounter/WardWingBadge.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
 import VitalInputWithBadge from '~/components/ui/VitalInputWithBadge.vue'
@@ -1454,6 +1456,22 @@ onUnmounted(() => {
     </div>
 
     <PatientHeader :encounter="encounter" :triage="triage" />
+
+    <div
+      v-if="isAtScreening"
+      class="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900/50"
+    >
+      <span class="text-xs font-bold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+        Clinical priority
+      </span>
+      <QueuePrioritySelect
+        v-if="encounter.can_edit && !encounter.is_locked"
+        :encounter-id="encounter.id"
+        :priority="encounter.priority"
+      />
+      <EncounterBadge v-else type="priority" :value="encounter.priority ?? 'normal'" />
+      <span class="text-xs text-neutral-400">Sets queue order for lab, pharmacy, and other stages</span>
+    </div>
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
       <div class="space-y-4 lg:col-span-3 lg:order-2">
