@@ -22,6 +22,7 @@ import {
   dispenseValidator,
   closeEncounterValidator,
   pharmacyDispenseDraftValidator,
+  pharmacyRecommendMedicationValidator,
 } from '#validators/staff/pharmacy'
 import {
   closedEncounterRow,
@@ -178,6 +179,11 @@ export default class PharmacyController {
         r.preload('releasedByUser')
       })
     })
+    await encounter.load('pharmacyRecommendations', (q) => {
+      q.preload('sourceItem')
+      q.preload('recommendedItem')
+      q.preload('recommendedByUser')
+    })
 
     const rx = (encounter.pharmacyPrescriptions ?? []).slice().sort((a, b) => b.id - a.id)[0] ?? null
     const latestDispense =
@@ -226,7 +232,11 @@ export default class PharmacyController {
     let dispenseDraft: {
       dispensing_notes: string | null
       counseling_notes: string | null
-      items: { pharmacy_prescription_item_id: number | null; quantity_dispensed: number | null }[]
+      items: {
+        pharmacy_prescription_item_id: number | null
+        quantity_dispensed: number | null
+        selected_for_dispense?: boolean | null
+      }[]
     } | null = null
 
     if (dispenseDraftAudit?.newValues) {
@@ -307,6 +317,24 @@ export default class PharmacyController {
           }
         : null,
       clinicalSuggestions: await loadClinicalSuggestions(encounter.id, 'pharmacy'),
+      recommendations: (encounter.pharmacyRecommendations ?? [])
+        .filter((r) => ['accepted', 'approved'].includes(r.status))
+        .sort((a, b) => b.id - a.id)
+        .map((recommendation) => ({
+          id: recommendation.id,
+          status: recommendation.status,
+          note: recommendation.recommendationNote,
+          source_item_id: recommendation.sourcePrescriptionItemId,
+          recommended_item_id: recommendation.recommendedPrescriptionItemId,
+          recommended_by: recommendation.recommendedByUser?.name ?? null,
+          source: recommendation.sourceItem
+            ? serializePrescriptionItem(recommendation.sourceItem)
+            : null,
+          recommended: recommendation.recommendedItem
+            ? serializePrescriptionItem(recommendation.recommendedItem)
+            : null,
+        }))
+        .filter((row) => row.recommended || row.source),
     })
   }
 
@@ -471,6 +499,37 @@ export default class PharmacyController {
     }
 
     session.flash('success', 'Prescription saved.')
+    return response.redirect().toPath(`/pharmacy/${encounter.id}`)
+  }
+
+  // POST /pharmacy/:encounter/recommend-medication
+  async recommendMedication({ params, request, response, session, auth, bouncer }: HttpContext) {
+    const user = auth.getUserOrFail()
+    const encounter = await Encounter.findOrFail(params.encounter)
+    await (bouncer as any)
+      .with('EncounterPolicy')
+      .authorize('editInStage', encounter, EncounterStage.Pharmacy)
+
+    const data = await request.validateUsing(pharmacyRecommendMedicationValidator)
+    const item = data.items[0]
+    if (!item.source_prescription_item_id) {
+      session.flash('error', 'Source prescription item is required for a recommendation.')
+      return response.redirect().back()
+    }
+
+    try {
+      await new CreatePrescriptionAction().handle(
+        encounter,
+        { notes: data.notes ?? null, items: data.items },
+        user.id
+      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to save recommendation.'
+      session.flash('error', message)
+      return response.redirect().back()
+    }
+
+    session.flash('success', 'Medication recommendation saved.')
     return response.redirect().toPath(`/pharmacy/${encounter.id}`)
   }
 

@@ -16,6 +16,8 @@ const prescriptionItem = vine.object({
   end_date: vine.string().trim().maxLength(20).optional().nullable(),
   is_passer_by: vine.any().optional().nullable(),
   instructions: vine.string().trim().maxLength(1000).optional().nullable(),
+  source_prescription_item_id: vine.number().optional(),
+  recommendation_note: vine.string().trim().maxLength(500).optional().nullable(),
 })
 
 export const pharmacyPrescriptionValidator = vine.compile(
@@ -61,8 +63,16 @@ export const pharmacyDispenseDraftValidator = vine.compile(
           pharmacy_prescription_item_id: vine.number().optional().nullable(),
           drug_name: vine.string().trim().maxLength(255).optional().nullable(),
           quantity_dispensed: vine.number().min(0).optional().nullable(),
+          selected_for_dispense: vine.boolean().optional(),
         })
       )
       .optional(),
+  })
+)
+
+export const pharmacyRecommendMedicationValidator = vine.compile(
+  vine.object({
+    notes: vine.string().trim().maxLength(2000).optional().nullable(),
+    items: vine.array(prescriptionItem).minLength(1).maxLength(1),
   })
 )

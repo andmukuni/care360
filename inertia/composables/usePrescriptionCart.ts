@@ -41,6 +41,30 @@ export type PrescriptionCartItem = {
   instructions: string
 }
 
+export type RecommendContext = {
+  sourceItemId: number
+  sourceDrugName: string
+}
+
+export type PrescriptionItemLike = {
+  id: number
+  drug_name: string
+  formulation?: string | null
+  dose?: string | null
+  item_per_dose?: number | null
+  frequency?: string | number | null
+  time_per?: string | null
+  frequency_unit?: string | null
+  duration?: string | number | null
+  duration_unit?: string | null
+  start_date?: string | null
+  end_date?: string | null
+  quantity_prescribed?: number | null
+  route?: string | null
+  is_passer_by?: boolean
+  instructions?: string | null
+}
+
 function emptyForm(): PrescriptionCartItem {
   return {
     drug_name: '',
@@ -98,6 +122,9 @@ export function usePrescriptionCart(
 ) {
   const cart = ref<PrescriptionCartItem[]>([])
   const showModal = ref(false)
+  const modalMode = ref<'add' | 'recommend'>('add')
+  const recommendContext = ref<RecommendContext | null>(null)
+  const recommendationNote = ref('')
   const form = ref<PrescriptionCartItem>(emptyForm())
   const showError = ref(false)
   const errorMsg = ref('')
@@ -285,29 +312,94 @@ export function usePrescriptionCart(
     selectedUnitDetails.value = []
     showError.value = false
     errorMsg.value = ''
+    recommendationNote.value = ''
   }
 
-  function addToCart() {
+  function validateMedicationForm(): boolean {
     if (!form.value.drug_name.trim()) {
       errorMsg.value = 'General Drug is required.'
       showError.value = true
-      return
+      return false
     }
     if (!form.value.dose.trim()) {
       errorMsg.value = 'Dosage is required.'
       showError.value = true
-      return
+      return false
     }
     if (!form.value.formulation) {
       errorMsg.value = 'Dispense Unit is required.'
       showError.value = true
-      return
+      return false
     }
     if (!form.value.quantity_prescribed) {
       errorMsg.value = 'Quantity is required. Fill duration & frequency or enter manually.'
       showError.value = true
-      return
+      return false
     }
+    showError.value = false
+    return true
+  }
+
+  function formItemToApi(extra: Record<string, unknown> = {}) {
+    const quantity =
+      form.value.quantity_prescribed === '' ? null : Number(form.value.quantity_prescribed)
+    return {
+      drug_name: form.value.drug_name.trim(),
+      formulation: form.value.formulation?.trim() || null,
+      dose: form.value.dose?.trim() || null,
+      item_per_dose: form.value.item_per_dose ? Number(form.value.item_per_dose) : null,
+      frequency:
+        form.value.frequency !== '' && form.value.frequency != null
+          ? String(form.value.frequency)
+          : null,
+      frequency_unit: form.value.frequency_unit?.trim() || null,
+      time_per: form.value.time_per?.trim() || null,
+      duration:
+        form.value.duration !== '' && form.value.duration != null
+          ? String(form.value.duration)
+          : null,
+      duration_unit: form.value.duration_unit?.trim() || null,
+      quantity_prescribed: quantity != null && !Number.isNaN(quantity) ? quantity : null,
+      route: form.value.route?.trim() || null,
+      start_date: form.value.start_date?.trim() || null,
+      end_date: form.value.end_date?.trim() || null,
+      is_passer_by: form.value.is_passer_by,
+      instructions: form.value.instructions?.trim() || null,
+      ...extra,
+    }
+  }
+
+  function buildRecommendItemPayload() {
+    if (!recommendContext.value) return null
+    if (!validateMedicationForm()) return null
+    return formItemToApi({
+      source_prescription_item_id: recommendContext.value.sourceItemId,
+      recommendation_note: recommendationNote.value.trim() || null,
+    })
+  }
+
+  function prescriptionItemToForm(item: PrescriptionItemLike): PrescriptionCartItem {
+    return {
+      drug_name: item.drug_name,
+      formulation: item.formulation ?? '',
+      dose: item.dose ?? '',
+      item_per_dose: Number(item.item_per_dose ?? 1) || 1,
+      frequency: item.frequency ?? '',
+      time_per: item.time_per ?? '',
+      frequency_unit: item.frequency_unit ?? '',
+      duration: item.duration ?? '',
+      duration_unit: item.duration_unit ?? '',
+      route: item.route ?? '',
+      start_date: item.start_date ?? new Date().toISOString().slice(0, 10),
+      end_date: item.end_date ?? '',
+      quantity_prescribed: item.quantity_prescribed ?? '',
+      is_passer_by: item.is_passer_by ? '1' : '0',
+      instructions: item.instructions ?? '',
+    }
+  }
+
+  function addToCart() {
+    if (!validateMedicationForm()) return
     const signature = `${form.value.drug_name.trim()}|${form.value.dose.trim()}|${form.value.formulation}`
     if (
       cart.value.some(
@@ -320,10 +412,11 @@ export function usePrescriptionCart(
       showError.value = true
       return
     }
-    showError.value = false
     cart.value.push({ ...form.value })
     onCartChange?.()
     resetModal()
+    modalMode.value = 'add'
+    recommendContext.value = null
     showModal.value = false
   }
 
@@ -338,10 +431,34 @@ export function usePrescriptionCart(
   }
 
   function openModal() {
+    modalMode.value = 'add'
+    recommendContext.value = null
+    resetModal()
+    showModal.value = true
+  }
+
+  function openRecommendModal(item: PrescriptionItemLike) {
+    modalMode.value = 'recommend'
+    recommendContext.value = {
+      sourceItemId: item.id,
+      sourceDrugName: item.drug_name,
+    }
+    form.value = prescriptionItemToForm(item)
+    drugSearch.value = item.drug_name
+    drugResults.value = []
+    drugPopoverOpen.value = false
+    drugActiveIdx.value = -1
+    selectedDrugUnits.value = []
+    selectedUnitDetails.value = []
+    showError.value = false
+    errorMsg.value = ''
+    recommendationNote.value = ''
     showModal.value = true
   }
 
   function closeModal() {
+    modalMode.value = 'add'
+    recommendContext.value = null
     resetModal()
     showModal.value = false
   }
@@ -357,6 +474,9 @@ export function usePrescriptionCart(
   return {
     cart,
     showModal,
+    modalMode,
+    recommendContext,
+    recommendationNote,
     form,
     showError,
     errorMsg,
@@ -375,9 +495,12 @@ export function usePrescriptionCart(
     pickDrugActive,
     resetModal,
     addToCart,
+    buildRecommendItemPayload,
+    validateMedicationForm,
     removeFromCart,
     clearCart,
     openModal,
+    openRecommendModal,
     closeModal,
     closeDrugPopover,
     computeQuantity,

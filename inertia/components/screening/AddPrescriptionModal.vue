@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
 import type { MedSearchResult } from '~/composables/usePrescriptionCart'
 
 const show = defineModel<boolean>('show', { required: true })
+const recommendationNote = defineModel<string>('recommendationNote', { default: '' })
 
 const props = defineProps<{
+  mode?: 'add' | 'recommend'
+  sourceLabel?: string | null
   form: {
     drug_name: string
     formulation: string
@@ -34,6 +37,14 @@ const props = defineProps<{
   quantityFormulaHint: string
 }>()
 
+const mode = computed(() => props.mode ?? 'add')
+const modalTitle = computed(() =>
+  mode.value === 'recommend' ? 'Recommend Drug' : 'Add Prescription Request'
+)
+const primaryLabel = computed(() =>
+  mode.value === 'recommend' ? 'Save recommendation' : 'Add to Cart'
+)
+
 const emit = defineEmits<{
   'update:drugSearch': [value: string]
   'update:form': [value: typeof props.form]
@@ -46,6 +57,7 @@ const emit = defineEmits<{
   setDrugActiveIdx: [idx: number]
   computeQuantity: []
   addToCart: []
+  saveRecommendation: []
   close: []
 }>()
 
@@ -76,7 +88,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
       <div
         class="flex flex-shrink-0 items-center justify-between theme-card-header px-6 py-4"
       >
-        <h3 class="text-base font-bold text-neutral-900 dark:text-white">Add Prescription Request</h3>
+        <h3 class="text-base font-bold text-neutral-900 dark:text-white">{{ modalTitle }}</h3>
         <button
           type="button"
           class="flex h-7 w-7 items-center justify-center rounded transition hover:bg-neutral-100 dark:hover:bg-neutral-800"
@@ -89,6 +101,13 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
       </div>
 
       <div class="flex-1 space-y-4 overflow-y-auto p-6">
+        <div
+          v-if="mode === 'recommend' && sourceLabel"
+          class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100"
+        >
+          Substituting: <strong>{{ sourceLabel }}</strong>
+        </div>
+
         <div class="relative" data-rx-drug-search>
           <label class="field-label">General Drug <span class="text-red-500">*</span></label>
           <div class="relative">
@@ -457,6 +476,16 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
           />
         </div>
 
+        <div v-if="mode === 'recommend'">
+          <label class="field-label">Recommendation note</label>
+          <textarea
+            v-model="recommendationNote"
+            rows="2"
+            class="field-input"
+            placeholder="Reason for substitution (optional)…"
+          />
+        </div>
+
         <p v-if="showError" class="text-xs font-medium text-red-500">{{ errorMsg }}</p>
       </div>
 
@@ -464,11 +493,15 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
         class="flex flex-shrink-0 justify-end gap-3 border-t border-neutral-200 px-6 py-4"
       >
         <button type="button" class="btn-secondary px-4 py-2 text-xs" @click="emit('close')">Close</button>
-        <ActionButton type="button" class="!px-4 !py-2 text-xs" @click="emit('addToCart')">
+        <ActionButton
+          type="button"
+          class="!px-4 !py-2 text-xs"
+          @click="mode === 'recommend' ? emit('saveRecommendation') : emit('addToCart')"
+        >
           <svg class="mr-1 h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
           </svg>
-          Add to Cart
+          {{ primaryLabel }}
         </ActionButton>
       </div>
     </div>

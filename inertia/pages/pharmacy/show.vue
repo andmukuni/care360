@@ -25,10 +25,18 @@ import {
   formatRxDuration,
   formatRxFrequency,
 } from '~/support/pharmacy/prescription_formatters'
+import {
+  buildPrescriptionDisplayGroups,
+  defaultSelectedForDispense,
+  dispensableItemIds,
+  filterSelectedDispenseItems,
+  type PharmacyRecommendationRow,
+} from '~/support/pharmacy/pharmacy_dispense_selection'
 
 type TabId = 'prescription' | 'notes' | 'next'
 
-const props = defineProps<{
+const props = withDefaults(
+  defineProps<{
   encounter: {
     id: number
     encounter_number: string
@@ -94,8 +102,13 @@ const props = defineProps<{
   dispenseDraft: {
     dispensing_notes: string | null
     counseling_notes: string | null
-    items: { pharmacy_prescription_item_id: number | null; quantity_dispensed: number | null }[]
+    items: {
+      pharmacy_prescription_item_id: number | null
+      quantity_dispensed: number | null
+      selected_for_dispense?: boolean | null
+    }[]
   } | null
+  recommendations?: PharmacyRecommendationRow[]
   billingPreview: {
     lines: { description: string; lineTotal: string }[]
     estimatedTotal: string
@@ -124,7 +137,11 @@ const props = defineProps<{
     fields: Record<string, { id: number; text: string; source?: Record<string, unknown> }[]>
     prescriptions: { id: number; items: Record<string, unknown>[]; source?: Record<string, unknown> }[]
   }
-}>()
+}>(),
+  {
+    recommendations: () => [],
+  }
+)
 
 const activeTab = ref<TabId>('prescription')
 const { showQueueHint: showDispenseHint, dismissQueueHint: dismissDispenseHint } = useQueueFooterHint(
@@ -140,25 +157,49 @@ const { showQueueHint: showCloseHint, dismissQueueHint: dismissCloseHint } = use
 
 const dispensedItemIdSet = computed(() => new Set(props.dispensed_item_ids ?? []))
 
+const displayGroups = computed(() =>
+  buildPrescriptionDisplayGroups(props.prescription?.items ?? [], props.recommendations ?? [])
+)
+
+const dispensableIdsList = computed(() =>
+  dispensableItemIds(displayGroups.value, dispensedItemIdSet.value)
+)
+
 function isItemDispensed(itemId: number) {
   return dispensedItemIdSet.value.has(itemId)
 }
 
-const pendingPrescriptionItems = computed(() =>
-  (props.prescription?.items ?? []).filter((item) => !isItemDispensed(item.id))
+function findPrescriptionItem(itemId: number) {
+  return props.prescription?.items.find((item) => item.id === itemId) ?? null
+}
+
+const selectedForDispense = reactive<Record<number, boolean>>(
+  defaultSelectedForDispense(
+    dispensableItemIds(
+      buildPrescriptionDisplayGroups(props.prescription?.items ?? [], props.recommendations ?? []),
+      props.dispensed_item_ids ?? []
+    ),
+    props.dispenseDraft?.items
+  )
+)
+
+const hasRecommendations = computed(() => (props.recommendations?.length ?? 0) > 0)
+
+const selectedDispenseCount = computed(
+  () => dispensableIdsList.value.filter((id) => selectedForDispense[id]).length
 )
 
 const canManagePrescription = computed(
   () => props.encounter.can_edit && !!props.prescription && !props.encounter.is_locked
 )
 const canEditDispenseQty = computed(
-  () => canManagePrescription.value && pendingPrescriptionItems.value.length > 0
+  () => canManagePrescription.value && dispensableIdsList.value.length > 0
 )
 const canEditNotes = computed(() => canManagePrescription.value)
 const hasAnyDispensed = computed(() => dispensedItemIdSet.value.size > 0)
 const allItemsDispensed = computed(
   () =>
-    (props.prescription?.items ?? []).length > 0 && pendingPrescriptionItems.value.length === 0
+    (props.prescription?.items ?? []).length > 0 && dispensableIdsList.value.length === 0
 )
 const isDispensed = computed(() => hasAnyDispensed.value)
 
@@ -228,10 +269,15 @@ const {
   pickDrugActive: pickRxDrugActive,
   addToCart: addToRxCart,
   openModal: openRxModal,
+  openRecommendModal,
   closeModal: closeRxModal,
   closeDrugPopover: closeRxDrugPopover,
   computeQuantity: computeRxQuantity,
   setDrugActiveIdx: setRxDrugActiveIdx,
+  modalMode: rxModalMode,
+  recommendContext: rxRecommendContext,
+  recommendationNote: rxRecommendationNote,
+  buildRecommendItemPayload,
 } = usePrescriptionCart(undefined, {
   isAlreadyRequested: (signature) =>
     (props.prescription?.items ?? []).some(
@@ -241,6 +287,42 @@ const {
 })
 
 const { loading: savingMedications, run: runSaveMedications } = useAsyncAction()
+const { loading: savingRecommendation, run: runSaveRecommendation } = useAsyncAction()
+
+function selectAllForDispense() {
+  for (const id of dispensableIdsList.value) {
+    if (!isItemDispensed(id)) selectedForDispense[id] = true
+  }
+}
+
+function clearAllForDispense() {
+  for (const id of dispensableIdsList.value) {
+    selectedForDispense[id] = false
+  }
+}
+
+function canRecommendGroup(group: (typeof displayGroups.value)[number]) {
+  return (
+    canManagePrescription.value &&
+    !isItemDispensed(group.source.id) &&
+    !group.recommendation
+  )
+}
+
+function saveRecommendation() {
+  const payloadItem = buildRecommendItemPayload()
+  if (!payloadItem) return
+  runSaveRecommendation(({ done }) => {
+    router.post(
+      `/pharmacy/${props.encounter.id}/recommend-medication`,
+      { items: [payloadItem] },
+      {
+        onSuccess: () => closeRxModal(),
+        onFinish: done,
+      }
+    )
+  })
+}
 
 function clearRxCart() {
   rxCart.value = []
@@ -277,11 +359,15 @@ function addSuggestedPrescriptions(items: PrescriptionCartItem[]) {
 }
 
 function dispensePayload() {
-  const items = pendingPrescriptionItems.value.map((it) => ({
-    pharmacy_prescription_item_id: it.id,
-    drug_name: it.drug_name,
-    quantity_dispensed: dispenseInputs[it.id] ?? 0,
-  }))
+  const items = dispensableIdsList.value.map((id) => {
+    const item = findPrescriptionItem(id)
+    return {
+      pharmacy_prescription_item_id: id,
+      drug_name: item?.drug_name ?? '',
+      quantity_dispensed: dispenseInputs[id] ?? 0,
+      selected_for_dispense: selectedForDispense[id] ?? false,
+    }
+  })
   return {
     dispensing_notes: dispenseForm.dispensing_notes,
     counseling_notes: dispenseForm.counseling_notes,
@@ -296,6 +382,7 @@ const { status: autosaveStatus, indicatorText: autosaveText } = useAutosave({
   watchSource: computed(() => ({
     ...dispenseForm.data(),
     dispenseInputs: { ...dispenseInputs },
+    selectedForDispense: { ...selectedForDispense },
   })),
 })
 
@@ -306,13 +393,17 @@ const { loading: queueingScreening, run: runQueueScreening } = useAsyncAction()
 async function dispense() {
   dismissDispenseHint()
   if (!(await flushAutosavesBeforeAction({ required: false }))) return
-  const items = pendingPrescriptionItems.value
-    .map((it) => ({
-      pharmacy_prescription_item_id: it.id,
-      drug_name: it.drug_name,
-      quantity_dispensed: dispenseInputs[it.id] ?? 0,
-    }))
-    .filter((it) => it.quantity_dispensed >= 1)
+  const items = filterSelectedDispenseItems(
+    dispensableIdsList.value.map((id) => {
+      const item = findPrescriptionItem(id)
+      return {
+        pharmacy_prescription_item_id: id,
+        drug_name: item?.drug_name ?? '',
+        quantity_dispensed: dispenseInputs[id] ?? 0,
+      }
+    }),
+    selectedForDispense
+  )
   if (!items.length) return
   runDispense(({ done }) => {
     router.post(
@@ -355,14 +446,18 @@ function openQueueActions() {
 
 useQueueActionsDeepLink(openQueueActions)
 
-const showDispenseFooter = computed(() => canEditDispenseQty.value)
+const showDispenseFooter = computed(
+  () => canEditDispenseQty.value && selectedDispenseCount.value > 0
+)
 const showCloseFooter = computed(
   () => props.encounter.can_edit && hasAnyDispensed.value && allItemsDispensed.value
 )
 
-const dispenseFooterLabel = computed(() =>
-  hasAnyDispensed.value ? 'Dispense remaining' : 'Dispense'
-)
+const dispenseFooterLabel = computed(() => {
+  const base = hasAnyDispensed.value ? 'Dispense remaining' : 'Dispense'
+  const count = selectedDispenseCount.value
+  return count > 0 ? `${base} (${count} selected)` : base
+})
 
 const prescribedItemCount = computed(() => props.prescription?.items.length ?? 0)
 </script>
@@ -614,10 +709,32 @@ const prescribedItemCount = computed(() => props.prescription?.items.length ?? 0
                 </p>
               </div>
 
+              <div
+                v-if="hasRecommendations"
+                class="border-b border-neutral-100 px-5 py-3 text-xs text-neutral-600 dark:border-white/[0.04] dark:text-neutral-400"
+              >
+                Original in <span class="font-semibold text-red-700 dark:text-red-400">red</span>,
+                substitute in <span class="font-semibold text-green-700 dark:text-green-400">green</span>
+                — select available items to dispense.
+              </div>
+
+              <div
+                v-if="canEditDispenseQty && dispensableIdsList.length > 1"
+                class="flex items-center justify-end gap-3 border-b border-neutral-100 px-5 py-2 text-xs dark:border-white/[0.04]"
+              >
+                <button type="button" class="font-semibold text-blue-700 hover:underline dark:text-blue-300" @click="selectAllForDispense">
+                  Select all
+                </button>
+                <button type="button" class="font-semibold text-neutral-500 hover:underline" @click="clearAllForDispense">
+                  Clear all
+                </button>
+              </div>
+
               <div class="overflow-x-auto">
                 <table class="screening-rx-table w-full text-sm">
                   <thead class="bg-blue-50 dark:bg-blue-950/30">
                     <tr>
+                      <th v-if="canEditDispenseQty" class="w-10 px-2 py-2.5 text-center text-[10px] font-bold uppercase text-neutral-600">Select</th>
                       <th class="px-3 py-2.5 text-left text-[10px] font-bold uppercase text-neutral-600">Drug</th>
                       <th class="px-3 py-2.5 text-left text-[10px] font-bold uppercase text-neutral-600">Dose</th>
                       <th class="px-3 py-2.5 text-left text-[10px] font-bold uppercase text-neutral-600">Frequency</th>
@@ -627,50 +744,126 @@ const prescribedItemCount = computed(() => props.prescription?.items.length ?? 0
                       <th class="px-3 py-2.5 text-left text-[10px] font-bold uppercase text-neutral-600">Dates</th>
                       <th class="px-3 py-2.5 text-left text-[10px] font-bold uppercase text-neutral-600">Comment</th>
                       <th v-if="canEditDispenseQty" class="px-3 py-2.5 text-left text-[10px] font-bold uppercase text-neutral-600">Dispense</th>
+                      <th v-if="canManagePrescription" class="w-12 px-2 py-2.5 text-center text-[10px] font-bold uppercase text-neutral-600">Action</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-neutral-100 dark:divide-white/[0.04]">
-                    <tr
-                      v-for="it in prescription.items"
-                      :key="it.id"
-                      class="bg-blue-50/50 dark:bg-blue-950/20"
-                      :class="isItemDispensed(it.id) ? 'opacity-80' : ''"
-                    >
-                      <td class="px-3 py-2.5 text-xs font-medium text-neutral-900 dark:text-white">
-                        {{ it.drug_name }}
-                        <span
-                          v-if="isItemDispensed(it.id)"
-                          class="ml-1 rounded bg-emerald-100 px-1 py-0.5 text-[9px] font-bold uppercase text-emerald-800"
-                        >
-                          Dispensed
-                        </span>
-                        <span
-                          v-if="it.is_passer_by"
-                          class="ml-1 rounded bg-amber-100 px-1 py-0.5 text-[9px] font-bold uppercase text-amber-800"
-                        >
-                          Passer-by
-                        </span>
-                      </td>
-                      <td class="px-3 py-2.5 text-xs text-neutral-600">{{ formatRxDose(it) }}</td>
-                      <td class="px-3 py-2.5 text-xs text-neutral-600">{{ formatRxFrequency(it) }}</td>
-                      <td class="px-3 py-2.5 text-xs text-neutral-600">{{ formatRxDuration(it) }}</td>
-                      <td class="px-3 py-2.5 text-xs font-semibold text-neutral-700">{{ it.quantity_prescribed ?? '—' }}</td>
-                      <td class="px-3 py-2.5 text-xs text-neutral-600">{{ it.route ?? '—' }}</td>
-                      <td class="px-3 py-2.5 text-xs text-neutral-500">
-                        {{ [it.start_date, it.end_date].filter(Boolean).join(' → ') || '—' }}
-                      </td>
-                      <td class="px-3 py-2.5 text-xs text-neutral-500">{{ it.instructions ?? '—' }}</td>
-                      <td v-if="canEditDispenseQty" class="px-3 py-2.5">
-                        <input
-                          v-if="!isItemDispensed(it.id)"
-                          v-model.number="dispenseInputs[it.id]"
-                          type="number"
-                          min="0"
-                          class="field-input w-20 py-1 text-xs"
-                        />
-                        <span v-else class="text-xs font-semibold text-emerald-700">✓</span>
-                      </td>
-                    </tr>
+                    <template v-for="group in displayGroups" :key="group.source.id">
+                      <tr
+                        class="bg-blue-50/50 dark:bg-blue-950/20"
+                        :class="[
+                          group.recommendation ? 'pharmacy-reco-source-row' : '',
+                          isItemDispensed(group.source.id) ? 'opacity-80' : '',
+                        ]"
+                      >
+                        <td v-if="canEditDispenseQty" class="px-2 py-2.5 text-center">
+                          <input
+                            v-if="!group.recommendation && !isItemDispensed(group.source.id)"
+                            v-model="selectedForDispense[group.source.id]"
+                            type="checkbox"
+                            class="h-4 w-4 rounded border-neutral-300 text-blue-600 focus:ring-blue-500"
+                          />
+                        </td>
+                        <td class="px-3 py-2.5 text-xs font-medium text-neutral-900 dark:text-white">
+                          <span :class="group.recommendation ? 'pharmacy-reco-drug-source' : ''">{{ group.source.drug_name }}</span>
+                          <span
+                            v-if="group.recommendation"
+                            class="pharmacy-reco-badge pharmacy-reco-badge--original"
+                          >
+                            Original
+                          </span>
+                          <span
+                            v-if="isItemDispensed(group.source.id)"
+                            class="ml-1 rounded bg-emerald-100 px-1 py-0.5 text-[9px] font-bold uppercase text-emerald-800"
+                          >
+                            Dispensed
+                          </span>
+                          <span
+                            v-if="group.source.is_passer_by"
+                            class="ml-1 rounded bg-amber-100 px-1 py-0.5 text-[9px] font-bold uppercase text-amber-800"
+                          >
+                            Passer-by
+                          </span>
+                        </td>
+                        <td class="px-3 py-2.5 text-xs text-neutral-600">{{ formatRxDose(group.source) }}</td>
+                        <td class="px-3 py-2.5 text-xs text-neutral-600">{{ formatRxFrequency(group.source) }}</td>
+                        <td class="px-3 py-2.5 text-xs text-neutral-600">{{ formatRxDuration(group.source) }}</td>
+                        <td class="px-3 py-2.5 text-xs font-semibold text-neutral-700">{{ group.source.quantity_prescribed ?? '—' }}</td>
+                        <td class="px-3 py-2.5 text-xs text-neutral-600">{{ group.source.route ?? '—' }}</td>
+                        <td class="px-3 py-2.5 text-xs text-neutral-500">
+                          {{ [group.source.start_date, group.source.end_date].filter(Boolean).join(' → ') || '—' }}
+                        </td>
+                        <td class="px-3 py-2.5 text-xs text-neutral-500">{{ group.source.instructions ?? '—' }}</td>
+                        <td v-if="canEditDispenseQty" class="px-3 py-2.5">
+                          <input
+                            v-if="!group.recommendation && !isItemDispensed(group.source.id) && selectedForDispense[group.source.id]"
+                            v-model.number="dispenseInputs[group.source.id]"
+                            type="number"
+                            min="0"
+                            class="field-input w-20 py-1 text-xs"
+                          />
+                          <span v-else-if="isItemDispensed(group.source.id)" class="text-xs font-semibold text-emerald-700">✓</span>
+                        </td>
+                        <td v-if="canManagePrescription" class="px-2 py-2.5 text-center">
+                          <button
+                            v-if="canRecommendGroup(group)"
+                            type="button"
+                            title="Recommend substitute"
+                            class="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-blue-200 bg-blue-600 text-white transition hover:bg-blue-700 dark:border-blue-800"
+                            @click="openRecommendModal(group.source)"
+                          >
+                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6" />
+                            </svg>
+                          </button>
+                        </td>
+                      </tr>
+
+                      <tr
+                        v-if="group.recommendation?.recommended"
+                        class="pharmacy-reco-subrow"
+                        :class="isItemDispensed(group.recommendation.recommended!.id) ? 'opacity-80' : ''"
+                      >
+                        <td v-if="canEditDispenseQty" class="px-2 py-2.5 text-center">
+                          <input
+                            v-if="!isItemDispensed(group.recommendation.recommended!.id)"
+                            v-model="selectedForDispense[group.recommendation.recommended!.id]"
+                            type="checkbox"
+                            class="h-4 w-4 rounded border-neutral-300 text-blue-600 focus:ring-blue-500"
+                          />
+                        </td>
+                        <td class="px-3 py-2.5 text-xs font-medium">
+                          <span class="pharmacy-reco-drug-recommended">{{ group.recommendation.recommended!.drug_name }}</span>
+                          <span class="pharmacy-reco-badge">Recommended</span>
+                          <span
+                            v-if="group.recommendation.status === 'approved'"
+                            class="pharmacy-reco-badge pharmacy-reco-badge--approved"
+                          >
+                            Approved
+                          </span>
+                        </td>
+                        <td class="px-3 py-2.5 text-xs text-green-800 dark:text-green-300">{{ formatRxDose(group.recommendation.recommended!) }}</td>
+                        <td class="px-3 py-2.5 text-xs text-green-800 dark:text-green-300">{{ formatRxFrequency(group.recommendation.recommended!) }}</td>
+                        <td class="px-3 py-2.5 text-xs text-green-800 dark:text-green-300">{{ formatRxDuration(group.recommendation.recommended!) }}</td>
+                        <td class="px-3 py-2.5 text-xs font-semibold text-green-800 dark:text-green-300">{{ group.recommendation.recommended!.quantity_prescribed ?? '—' }}</td>
+                        <td class="px-3 py-2.5 text-xs text-green-800 dark:text-green-300">{{ group.recommendation.recommended!.route ?? '—' }}</td>
+                        <td class="px-3 py-2.5 text-xs text-green-700 dark:text-green-400">
+                          {{ [group.recommendation.recommended!.start_date, group.recommendation.recommended!.end_date].filter(Boolean).join(' → ') || '—' }}
+                        </td>
+                        <td class="px-3 py-2.5 text-xs text-green-700 dark:text-green-400">{{ group.recommendation.recommended!.instructions ?? group.recommendation.note ?? '—' }}</td>
+                        <td v-if="canEditDispenseQty" class="px-3 py-2.5">
+                          <input
+                            v-if="!isItemDispensed(group.recommendation.recommended!.id) && selectedForDispense[group.recommendation.recommended!.id]"
+                            v-model.number="dispenseInputs[group.recommendation.recommended!.id]"
+                            type="number"
+                            min="0"
+                            class="field-input w-20 py-1 text-xs"
+                          />
+                          <span v-else-if="isItemDispensed(group.recommendation.recommended!.id)" class="text-xs font-semibold text-emerald-700">✓</span>
+                        </td>
+                        <td v-if="canManagePrescription" class="px-2 py-2.5 text-center text-xs text-neutral-400">—</td>
+                      </tr>
+                    </template>
                   </tbody>
                 </table>
               </div>
@@ -815,6 +1008,9 @@ const prescribedItemCount = computed(() => props.prescription?.items.length ?? 0
     v-if="canManagePrescription"
     v-model:show="rxModalOpen"
     v-model:drug-search="rxDrugSearch"
+    v-model:recommendation-note="rxRecommendationNote"
+    :mode="rxModalMode"
+    :source-label="rxRecommendContext?.sourceDrugName ?? null"
     :form="rxDraft"
     :drug-results="rxDrugResults"
     :drug-loading="rxDrugLoading"
@@ -834,6 +1030,7 @@ const prescribedItemCount = computed(() => props.prescription?.items.length ?? 0
     @close-drug-popover="closeRxDrugPopover"
     @compute-quantity="computeRxQuantity"
     @add-to-cart="addToRxCart"
+    @save-recommendation="saveRecommendation"
     @close="closeRxModal"
   />
 </template>
@@ -919,5 +1116,57 @@ const prescribedItemCount = computed(() => props.prescription?.items.length ?? 0
 }
 :global(.dark) .section-card-title {
   color: #f5f5f5;
+}
+.pharmacy-reco-source-row td {
+  background: #fff1f2;
+  border-bottom: 1px solid #fecdd3;
+}
+:global(.dark) .pharmacy-reco-source-row td {
+  background: rgba(127, 29, 29, 0.25);
+  border-bottom-color: #7f1d1d;
+}
+.pharmacy-reco-source-row .pharmacy-reco-drug-source {
+  color: #9f1239;
+  font-weight: 600;
+}
+:global(.dark) .pharmacy-reco-source-row .pharmacy-reco-drug-source {
+  color: #fda4af;
+}
+.pharmacy-reco-subrow td {
+  background: #f0fdf4;
+  border-bottom: 2px solid #bbf7d0;
+}
+:global(.dark) .pharmacy-reco-subrow td {
+  background: rgba(6, 78, 59, 0.25);
+  border-bottom-color: #166534;
+}
+.pharmacy-reco-badge {
+  display: inline-flex;
+  margin-left: 6px;
+  border-radius: 3px;
+  border: 1px solid #16a34a;
+  background: #dcfce7;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #166534;
+}
+.pharmacy-reco-badge--original {
+  border-color: #dc2626;
+  background: #fee2e2;
+  color: #991b1b;
+}
+.pharmacy-reco-badge--approved {
+  border-color: #16a34a;
+  background: #dcfce7;
+  color: #166534;
+}
+.pharmacy-reco-drug-recommended {
+  font-weight: 700;
+  color: #14532d;
+}
+:global(.dark) .pharmacy-reco-drug-recommended {
+  color: #86efac;
 }
 </style>

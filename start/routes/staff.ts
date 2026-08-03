@@ -358,6 +358,7 @@ router
     router.post('/pharmacy/:encounter/save-draft', [PharmacyController, 'saveDraft']).as('pharmacy.save-draft').use(perm('pharmacy.dispense|pharmacy.manage-prescription'))
     router.post('/pharmacy/:encounter/prescription', [PharmacyController, 'storePrescription']).as('pharmacy.prescription.store').use(perm('pharmacy.manage-prescription'))
     router.post('/pharmacy/:encounter/prescription-items', [PharmacyController, 'appendPrescriptionItems']).as('pharmacy.prescription-items.append').use(perm('pharmacy.manage-prescription'))
+    router.post('/pharmacy/:encounter/recommend-medication', [PharmacyController, 'recommendMedication']).as('pharmacy.recommend-medication').use(perm('pharmacy.manage-prescription'))
     router.post('/pharmacy/:encounter/dispense', [PharmacyController, 'dispense']).as('pharmacy.dispense').use(perm('pharmacy.dispense'))
     router.post('/pharmacy/:encounter/queue-screening', [PharmacyController, 'queueBackToScreening']).as('pharmacy.queue-screening').use(perm('pharmacy.manage-prescription'))
     router.post('/pharmacy/:encounter/queue-treatment-room', [PharmacyController, 'queueToTreatmentRoom']).as('pharmacy.queue-treatment-room').use(perm('pharmacy.dispense|pharmacy.close-encounter'))
