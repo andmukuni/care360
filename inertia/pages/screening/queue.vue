@@ -157,7 +157,7 @@ watch(
             :class="{ active: activeCat === 'adult' }"
             @click="switchCategory('adult')"
           >
-            Adult <span class="queue-category-count">{{ counts.adult }}</span>
+            Adult (6 yrs+) <span class="queue-category-count">{{ counts.adult }}</span>
           </button>
           <button
             type="button"
@@ -165,7 +165,7 @@ watch(
             :class="{ active: activeCat === 'pediatric' }"
             @click="switchCategory('pediatric')"
           >
-            Pediatric (under 5) <span class="queue-category-count">{{ counts.pediatric }}</span>
+            Pediatric (≤5 yrs) <span class="queue-category-count">{{ counts.pediatric }}</span>
           </button>
         </div>
       </template>

@@ -249,10 +249,10 @@ export default class EncounterPolicy extends BasePolicy {
 
     const canRole = (await this.isLegacyUserWithoutRbac(user)) || (await this.view(user, encounter))
 
-    // Screening Review is a shared pool — any authorized clinician may record,
-    // not only the clinician who originally requested labs or received the row.
+    // Lab and Screening Review are shared pools — any authorized staff in the
+    // department may record, not only whoever received the row.
     const receiverOk =
-      stage === EncounterStage.ScreeningReview || (await this.isCurrentStageReceiver(user, encounter))
+      this.isSharedDepartmentPool(stage) || (await this.isCurrentStageReceiver(user, encounter))
 
     return canRole && receiverOk && this.abac.canEditInProgress(encounter, stage)
   }
@@ -269,8 +269,13 @@ export default class EncounterPolicy extends BasePolicy {
     const canRole = (await this.isLegacyUserWithoutRbac(user)) || (await this.view(user, encounter))
 
     const receiverOk =
-      stage === EncounterStage.ScreeningReview || (await this.isCurrentStageReceiver(user, encounter))
+      this.isSharedDepartmentPool(stage) || (await this.isCurrentStageReceiver(user, encounter))
 
     return canRole && receiverOk && this.abac.canAdvanceToNextStage(encounter, stage)
+  }
+
+  /** Stages where any authorized department user may work the encounter. */
+  private isSharedDepartmentPool(stage: EncounterStage): boolean {
+    return stage === EncounterStage.ScreeningReview || stage === EncounterStage.Lab
   }
 }

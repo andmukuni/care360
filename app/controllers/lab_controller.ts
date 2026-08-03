@@ -2,13 +2,13 @@ import type { HttpContext } from '@adonisjs/core/http'
 import vine from '@vinejs/vine'
 import { DateTime } from 'luxon'
 import Encounter from '#models/encounter'
+import EncounterAudit from '#models/encounter_audit'
 import LabRequest from '#models/lab_request'
 import LabResult from '#models/lab_result'
 import LabTestCatalog from '#models/lab_test_catalog'
 import LabSpecimenType from '#models/lab_specimen_type'
 import TestType from '#models/test_type'
 import { EncounterStage } from '#enums/encounter_stage'
-import { EncounterStatus } from '#enums/encounter_status'
 import ClinicSettings from '#support/clinic_settings'
 import ReceiveLabQueueAction from '#actions/encounter/receive_lab_queue_action'
 import RecordLabSamplesAction from '#actions/encounter/record_lab_samples_action'
@@ -16,7 +16,9 @@ import RecordLabResultsAction from '#actions/encounter/record_lab_results_action
 import QueueEncounterBackToScreeningAction from '#actions/encounter/queue_encounter_back_to_screening_action'
 import ReturnEncounterToInitialScreeningAction from '#actions/encounter/return_encounter_to_initial_screening_action'
 import { hasLabRequestWithItems } from '#support/encounter/stage_prerequisites'
+import { EncounterAuditService } from '#services/encounter/encounter_audit_service'
 import { getLabRequest } from '#services/encounter/encounter_records'
+import { serializeLabActivity } from '#support/lab/lab_activity_payload'
 import {
   labSamplesValidator,
   labResultsValidator,
@@ -26,7 +28,6 @@ import {
 } from '#validators/staff/lab'
 import {
   isQueuePreviewForStage,
-  isSuperAdminUser,
   labQueueRow,
   latestStageTransition,
   paginateCachedStageQueue,
@@ -65,8 +66,9 @@ export default class LabController {
   async queue({ inertia, request, auth }: HttpContext) {
     const { queuedPage, progressPage } = parseQueuePages(request)
     const currentUserId = auth.use('web').user?.id ?? null
-    const forceManage = await isSuperAdminUser(auth)
     const isQueuePreview = await isQueuePreviewForStage(auth, EncounterStage.Lab)
+    // Shared lab pool: any non-preview lab user may open/record any in-progress row.
+    const forceManage = !isQueuePreview
 
     const { queued, inProgress } = await paginateCachedStageQueue({
       stage: EncounterStage.Lab,
@@ -187,15 +189,18 @@ export default class LabController {
   }
 
   // GET /lab/:encounter
-  async show({ params, inertia }: HttpContext) {
+  async show({ params, inertia, auth, bouncer }: HttpContext) {
+    auth.getUserOrFail()
     const encounter = await Encounter.findOrFail(params.encounter)
     await encounter.load('patient')
     await encounter.load('triageRecords')
     await encounter.load('screeningRecords', (q) => q.where('screening_type', 'initial'))
-    await encounter.load('encounterQueueTransitions', (q) => q.preload('queuedByUser'))
+    await encounter.load('encounterQueueTransitions', (q) =>
+      q.preload('queuedByUser').preload('receivedByUser')
+    )
     await encounter.load('labRequests', (q) => {
       q.preload('labRequestItems')
-      q.preload('labSamples')
+      q.preload('labSamples', (s) => s.preload('collectedByUser'))
       q.preload('labResults', (r) => r.preload('recordedByUser'))
     })
 
@@ -204,22 +209,43 @@ export default class LabController {
     const triage = encounter.triageRecords?.[0] ?? null
     const labTransition = latestStageTransition(encounter.encounterQueueTransitions, EncounterStage.Lab)
 
-    const [specimenCatalog, labResultForms] = await Promise.all([
+    const [specimenCatalog, labResultForms, labAudits] = await Promise.all([
       LabSpecimenType.query()
         .where('is_active', true)
         .orderBy('test_category')
         .orderBy('sort_order')
         .orderBy('name'),
       buildLabResultFormMaps(),
+      EncounterAudit.query()
+        .where('encounter_id', encounter.id)
+        .where((query) => {
+          query
+            .where('action_stage', EncounterStage.Lab)
+            .orWhereIn('action_name', [
+              'lab_received',
+              'lab_samples_collected',
+              'lab_results_saved',
+              'lab_result_updated',
+              'queued_back_to_screening_review',
+              'returned_to_initial_screening',
+              'lab_request_authored',
+              'queued_to_lab',
+            ])
+        })
+        .preload('actionByUser')
+        .orderBy('action_at', 'desc')
+        .limit(50),
     ])
+
+    const canEdit = await (bouncer as any)
+      .with('EncounterPolicy')
+      .allows('editInStage', encounter, EncounterStage.Lab)
 
     return inertia.render('lab/show', {
       encounter: {
         id: encounter.id,
         status: encounter.currentStatus,
-        can_edit:
-          encounter.currentStage === EncounterStage.Lab &&
-          encounter.currentStatus === EncounterStatus.InProgress,
+        can_edit: canEdit,
         ...(await buildPatientHeaderEncounter(encounter)),
       },
       triage: patientHeaderTriage(triage),
@@ -227,7 +253,10 @@ export default class LabController {
         notes: labTransition?.transitionNotes ?? null,
         queued_by_name: labTransition?.queuedByUser?.name ?? null,
         queued_at: labTransition?.queuedAt?.toFormat('dd LLL yyyy, HH:mm') ?? null,
+        received_by_name: labTransition?.receivedByUser?.name ?? null,
+        received_at: labTransition?.receivedAt?.toFormat('dd LLL yyyy, HH:mm') ?? null,
       },
+      activity: serializeLabActivity(labAudits),
       screening: sr
         ? {
             complaints: sr.complaints,
@@ -265,6 +294,9 @@ export default class LabController {
                       reference_range: result.referenceRange,
                       interpretation: result.interpretation,
                       remarks: result.remarks,
+                      recorded_by: result.recordedByUser?.name ?? null,
+                      recorded_at:
+                        result.resultRecordedAt?.toFormat('dd LLL yyyy, HH:mm') ?? null,
                     }
                   : null,
               }
@@ -274,6 +306,7 @@ export default class LabController {
               sample_type: s.sampleType,
               sample_label: s.sampleLabel,
               collected_at: s.collectedAt?.toFormat('dd LLL yyyy HH:mm') ?? null,
+              collected_by: s.collectedByUser?.name ?? null,
             })),
           }
         : null,
@@ -525,6 +558,18 @@ export default class LabController {
 
     if (data.samples && data.samples.length > 0) {
       await new RecordLabSamplesAction().handle(labRequest, { samples: data.samples }, user.id)
+      await new EncounterAuditService().record({
+        encounter,
+        actionName: 'lab_samples_collected',
+        actionStage: EncounterStage.Lab,
+        actionBy: user.id,
+        newValues: {
+          count: data.samples.length,
+          sample_types: data.samples
+            .map((row) => String(row.sample_type ?? '').trim())
+            .filter(Boolean),
+        },
+      })
     }
 
     session.flash('success', 'Sample collection recorded.')
@@ -560,6 +605,27 @@ export default class LabController {
       }
       session.flash('error', error.message)
       return response.redirect().back()
+    }
+
+    if (!wantsJson) {
+      await labRequest.load('labRequestItems')
+      const testNames = (data.results ?? [])
+        .map((row) => {
+          const itemId = row.lab_request_item_id
+          if (!itemId) return null
+          return labRequest.labRequestItems.find((item) => item.id === itemId)?.testName ?? null
+        })
+        .filter(Boolean)
+      await new EncounterAuditService().record({
+        encounter,
+        actionName: 'lab_results_saved',
+        actionStage: EncounterStage.Lab,
+        actionBy: user.id,
+        newValues: {
+          count: data.results?.length ?? 0,
+          tests: testNames,
+        },
+      })
     }
 
     if (wantsJson) {
@@ -611,6 +677,22 @@ export default class LabController {
         .query()
         .where('id', result.labRequestItemId)
         .update({ status: 'resulted' })
+
+      const item = await labRequest
+        .related('labRequestItems')
+        .query()
+        .where('id', result.labRequestItemId)
+        .first()
+      await new EncounterAuditService().record({
+        encounter,
+        actionName: 'lab_result_updated',
+        actionStage: EncounterStage.Lab,
+        actionBy: user.id,
+        newValues: {
+          test_name: item?.testName ?? null,
+          lab_request_item_id: result.labRequestItemId,
+        },
+      })
     }
 
     session.flash('success', 'Result updated successfully.')

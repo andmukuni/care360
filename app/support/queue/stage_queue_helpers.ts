@@ -16,6 +16,10 @@ import {
   reopenEligibility,
 } from '#support/encounter/reopen_encounter_policy'
 import { serializeId, serializeIdOrNull } from '#support/serialize_id'
+import {
+  patientAgeYears,
+  pediatricBirthDateCutoffIso,
+} from '#support/screening/screening_age_categories'
 import QueueCache from '#services/cache/queue_cache'
 import {
   apiStageQueueKey,
@@ -376,9 +380,20 @@ export function patchQueueCanManage<T extends CanManagePatchable>(
   }
 }
 
-export function patientAgeYears(dob: DateTime | null | undefined): number | null {
-  if (!dob) return null
-  return Math.floor(DateTime.now().diff(dob, 'years').years)
+export function applyScreeningCategoryFilter(query: any, cat: 'adult' | 'pediatric') {
+  const cutoff = pediatricBirthDateCutoffIso()
+
+  return query.whereHas('patient', (patientQuery: any) => {
+    if (cat === 'pediatric') {
+      // Age ≤ 5: date of birth strictly after the 6-year cutoff.
+      patientQuery.whereNotNull('date_of_birth').where('date_of_birth', '>', cutoff)
+    } else {
+      // Age ≥ 6, or unknown DOB.
+      patientQuery.where((w: any) =>
+        w.whereNull('date_of_birth').orWhere('date_of_birth', '<=', cutoff)
+      )
+    }
+  })
 }
 
 export function paginatorPayload<T>(
@@ -432,20 +447,6 @@ export function baseQueueRow(
     received_by_id: serializeIdOrNull(transition?.receivedBy),
     patient_age: patientAgeYears(encounter.patient?.dateOfBirth),
   }
-}
-
-export function applyScreeningCategoryFilter(query: any, cat: 'adult' | 'pediatric') {
-  const cutoff = DateTime.now().minus({ years: 5 }).toISODate()!
-
-  return query.whereHas('patient', (patientQuery: any) => {
-    if (cat === 'pediatric') {
-      patientQuery.whereNotNull('date_of_birth').where('date_of_birth', '>', cutoff)
-    } else {
-      patientQuery.where((w: any) =>
-        w.whereNull('date_of_birth').orWhere('date_of_birth', '<=', cutoff)
-      )
-    }
-  })
 }
 
 export async function screeningCategoryCounts(

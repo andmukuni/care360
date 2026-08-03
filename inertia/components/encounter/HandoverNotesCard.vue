@@ -4,6 +4,8 @@ defineProps<{
     notes: string | null
     queued_by_name: string | null
     queued_at: string | null
+    received_by_name?: string | null
+    received_at?: string | null
   }
 }>()
 </script>
@@ -23,9 +25,22 @@ defineProps<{
         <svg class="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
         </svg>
+        <span class="font-medium text-sky-600">Queued by</span>
         <span v-if="handover.queued_by_name" class="font-semibold text-sky-700">{{ handover.queued_by_name }}</span>
         <span v-if="handover.queued_at" class="text-sky-400">·</span>
         <span v-if="handover.queued_at">{{ handover.queued_at }}</span>
+      </div>
+      <div
+        v-if="handover.received_by_name || handover.received_at"
+        class="mt-2 flex items-center gap-1.5 text-xs text-sky-500"
+      >
+        <svg class="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+        <span class="font-medium text-sky-600">Received by</span>
+        <span v-if="handover.received_by_name" class="font-semibold text-sky-700">{{ handover.received_by_name }}</span>
+        <span v-if="handover.received_at" class="text-sky-400">·</span>
+        <span v-if="handover.received_at">{{ handover.received_at }}</span>
       </div>
     </div>
   </div>

@@ -4,6 +4,7 @@ import { Link, router, useForm } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import PatientHeader from '~/components/encounter/PatientHeader.vue'
 import HandoverNotesCard from '~/components/encounter/HandoverNotesCard.vue'
+import LabActivityCard from '~/components/lab/LabActivityCard.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
 import ActionLink from '~/components/ui/ActionLink.vue'
 import AutosaveIndicator from '~/components/ui/AutosaveIndicator.vue'
@@ -64,7 +65,18 @@ const props = defineProps<{
     notes: string | null
     queued_by_name: string | null
     queued_at: string | null
+    received_by_name: string | null
+    received_at: string | null
   }
+  activity: {
+    id: number
+    headline: string
+    stage_label: string
+    action_by: string | null
+    action_at: string | null
+    notes: string | null
+    detail: string | null
+  }[]
   screening: {
     complaints: string | null
     provisional_diagnosis: string | null
@@ -94,6 +106,8 @@ const props = defineProps<{
         reference_range: string | null
         interpretation: string | null
         remarks: string | null
+        recorded_by: string | null
+        recorded_at: string | null
       } | null
     }[]
     samples: {
@@ -101,6 +115,7 @@ const props = defineProps<{
       sample_type: string
       sample_label: string | null
       collected_at: string | null
+      collected_by: string | null
     }[]
   } | null
   labResultForms: LabResultFormMaps
@@ -274,6 +289,7 @@ function queueBackToScreening() {
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
       <div class="space-y-4 lg:col-span-3 lg:order-2">
         <HandoverNotesCard :handover="handover" />
+        <LabActivityCard :activity="activity" />
 
         <div
           v-if="screening"
@@ -481,6 +497,14 @@ function queueBackToScreening() {
                     :form-label="item.form_label"
                     :disabled="!canEdit"
                   />
+                  <p
+                    v-if="item.result?.recorded_by || item.result?.recorded_at"
+                    class="mt-2 text-[11px] text-neutral-500"
+                  >
+                    Last recorded
+                    <template v-if="item.result?.recorded_by"> by {{ item.result.recorded_by }}</template>
+                    <template v-if="item.result?.recorded_at"> · {{ item.result.recorded_at }}</template>
+                  </p>
                 </div>
 
                 <div v-if="!labRequest.items.length" class="px-4 py-8 text-center text-sm text-neutral-400">
@@ -501,6 +525,7 @@ function queueBackToScreening() {
                     <tr>
                       <th class="px-3 py-2.5 text-left text-[10px] font-bold uppercase text-neutral-600">Sample Type</th>
                       <th class="px-3 py-2.5 text-left text-[10px] font-bold uppercase text-neutral-600">Label</th>
+                      <th class="px-3 py-2.5 text-left text-[10px] font-bold uppercase text-neutral-600">Collected By</th>
                       <th class="px-3 py-2.5 text-left text-[10px] font-bold uppercase text-neutral-600">Collected At</th>
                     </tr>
                   </thead>
@@ -508,10 +533,11 @@ function queueBackToScreening() {
                     <tr v-for="sampleRow in labRequest.samples" :key="sampleRow.id">
                       <td class="px-3 py-2.5 text-xs font-medium text-neutral-900 dark:text-white">{{ sampleRow.sample_type }}</td>
                       <td class="px-3 py-2.5 text-xs text-neutral-600">{{ sampleRow.sample_label ?? '—' }}</td>
+                      <td class="px-3 py-2.5 text-xs text-neutral-600">{{ sampleRow.collected_by ?? '—' }}</td>
                       <td class="px-3 py-2.5 text-xs text-neutral-600">{{ sampleRow.collected_at ?? '—' }}</td>
                     </tr>
                     <tr v-if="!labRequest.samples.length">
-                      <td colspan="3" class="px-4 py-8 text-center text-sm text-neutral-400">No samples collected yet.</td>
+                      <td colspan="4" class="px-4 py-8 text-center text-sm text-neutral-400">No samples collected yet.</td>
                     </tr>
                   </tbody>
                 </table>

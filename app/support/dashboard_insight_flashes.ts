@@ -496,7 +496,7 @@ export default class DashboardInsightFlashes {
       SELECT
         CASE
           WHEN p.date_of_birth IS NOT NULL
-            AND p.date_of_birth > (CURRENT_DATE - INTERVAL '5 years')
+            AND p.date_of_birth > (CURRENT_DATE - INTERVAL '6 years')
           THEN 'pediatric'
           ELSE 'adult'
         END AS category,

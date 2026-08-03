@@ -27,6 +27,7 @@ import { useQueueActionsDeepLink } from '~/composables/useQueueActionsDeepLink'
 import { confirmDialog } from '~/composables/useConfirm'
 import { formatApiErrors } from '~/support/api_errors'
 import { formatDiagnosisLabel } from '~/support/screening/screening_json_fields'
+import { isPediatricAge, patientAgeYears } from '~/support/screening/screening_age_categories'
 import { readXsrfToken } from '~/support/xsrf'
 import {
   bmiBadge as computeBmiBadge,
@@ -693,23 +694,14 @@ function saveVitalRecheck() {
   })
 }
 
-const patientAge = computed(() => {
-  const dob = props.encounter.patient?.date_of_birth
-  if (!dob) return null
-  const birth = new Date(dob)
-  const now = new Date()
-  let years = now.getFullYear() - birth.getFullYear()
-  const monthDiff = now.getMonth() - birth.getMonth()
-  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) years--
-  return years
-})
+const patientAge = computed(() => patientAgeYears(props.encounter.patient?.date_of_birth ?? null))
 
 const showGynObsTab = computed(() => {
   const g = String(props.encounter.patient?.gender ?? '').toLowerCase()
   return g === 'female' || g === 'f'
 })
 
-const showPaediatricTab = computed(() => patientAge.value !== null && patientAge.value <= 5)
+const showPaediatricTab = computed(() => isPediatricAge(patientAge.value))
 
 const activeMedCount = computed(
   () => medications.value.filter((m) => m.status === 'active').length
