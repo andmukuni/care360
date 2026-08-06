@@ -75,11 +75,22 @@ function openLink() {
   patientResults.value = []
   mode.value = 'link'
 }
+function toDateInputValue(value: string | null): string {
+  if (!value) return ''
+  const isoPrefix = value.match(/^(\d{4}-\d{2}-\d{2})/)
+  if (isoPrefix) return isoPrefix[1]
+  const parsed = new Date(value)
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toISOString().slice(0, 10)
+  }
+  return ''
+}
+
 function openEdit(m: Member) {
   editingRef.value = m.patientId
   memberForm.full_name = m.fullName
   memberForm.gender = m.gender
-  memberForm.date_of_birth = m.dateOfBirth ? m.dateOfBirth.slice(0, 10) : ''
+  memberForm.date_of_birth = toDateInputValue(m.dateOfBirth)
   memberForm.phone_number = m.phoneNumber
   memberForm.nrc_number = m.nrcNumber
   memberForm.relationship_to_head = m.relationshipToHead || 'Member'

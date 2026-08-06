@@ -18,6 +18,7 @@ import {
   PatientNotEligibleForEncounterException,
 } from '#support/encounter/exceptions'
 import { startEncounterValidator } from '#validators/staff/registration'
+import { isUniqueEncounterNumberViolation } from '#support/encounter/encounter_number'
 
 /**
  * Registration desk API consumed by the Electron desktop app. Ported from
@@ -570,6 +571,12 @@ export default class RegistrationController {
           reason: error.reason,
           requires_inactive_confirmation:
             error.reason === PatientNotEligibleForEncounterException.REASON_INACTIVE,
+        })
+      }
+      if (isUniqueEncounterNumberViolation(error)) {
+        return response.conflict({
+          message: 'Could not start the encounter because the visit number was already taken. Please try again.',
+          reason: 'encounter_number_conflict',
         })
       }
       throw error

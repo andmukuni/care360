@@ -15,20 +15,66 @@ export function toDateTime(value: unknown): DateTime | null {
     return null
   }
   if (value instanceof DateTime) {
-    return value
+    return value.isValid ? value : null
   }
   if (value instanceof Date) {
-    return DateTime.fromJSDate(value)
+    const fromDate = DateTime.fromJSDate(value)
+    return fromDate.isValid ? fromDate : null
   }
   if (typeof value === 'string') {
-    const iso = DateTime.fromISO(value)
+    const trimmed = value.trim()
+    if (trimmed === '') {
+      return null
+    }
+
+    const iso = DateTime.fromISO(trimmed)
     if (iso.isValid) {
       return iso
     }
-    const sql = DateTime.fromSQL(value)
-    return sql.isValid ? sql : null
+
+    const sql = DateTime.fromSQL(trimmed)
+    if (sql.isValid) {
+      return sql
+    }
+
+    const rfc = DateTime.fromRFC2822(trimmed)
+    if (rfc.isValid) {
+      return rfc
+    }
+
+    const weekdayMonthDay = trimmed.match(/^[A-Za-z]{3}\s+([A-Za-z]{3})\s+(\d{1,2})(?:\s+(\d{4}))?$/)
+    if (weekdayMonthDay) {
+      const [, month, day, year] = weekdayMonthDay
+      const parsed = DateTime.fromFormat(
+        `${month} ${day} ${year ?? String(DateTime.now().year)}`,
+        'LLL d yyyy'
+      )
+      if (parsed.isValid) {
+        return parsed
+      }
+    }
+
+    const jsDate = new Date(trimmed)
+    if (!Number.isNaN(jsDate.getTime())) {
+      const fromJs = DateTime.fromJSDate(jsDate)
+      if (fromJs.isValid) {
+        return fromJs
+      }
+    }
+
+    for (const format of ['ccc LLL dd yyyy', 'ccc LLL dd', 'dd LLL yyyy', 'dd/MM/yyyy'] as const) {
+      const parsed = DateTime.fromFormat(trimmed, format)
+      if (parsed.isValid) {
+        return parsed
+      }
+    }
   }
   return null
+}
+
+/** Normalise request/UI values to YYYY-MM-DD for Postgres date columns. */
+export function toISODateString(value: unknown): string | null {
+  return toDateTime(value)?.toISODate() ?? null
 }
 
 /**

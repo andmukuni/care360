@@ -15,6 +15,10 @@ import {
 } from '#support/encounter/exceptions'
 import RegisterOrAttachPatientAction from '#actions/encounter/register_or_attach_patient_action'
 import { staffQueueBroadcast } from '#services/staff/staff_queue_broadcast_service'
+import {
+  generateEncounterNumber,
+  isUniqueEncounterNumberViolation,
+} from '#support/encounter/encounter_number'
 
 /**
  * Creates an encounter, opens the registration stage log, and writes a
@@ -36,9 +40,40 @@ export default class StartEncounterAction {
     client?: TransactionClientContract
   ): Promise<Encounter> {
     if (client) {
-      return this.run(data, registrarId, client)
+      return this.runWithEncounterNumberRetry(() => this.run(data, registrarId, client))
     }
-    return db.transaction((trx) => this.run(data, registrarId, trx))
+
+    const maxAttempts = 5
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        return await db.transaction((trx) => this.run(data, registrarId, trx))
+      } catch (error) {
+        if (isUniqueEncounterNumberViolation(error) && attempt < maxAttempts - 1) {
+          continue
+        }
+        throw error
+      }
+    }
+
+    throw new Error('Unable to allocate a unique encounter number.')
+  }
+
+  private async runWithEncounterNumberRetry(
+    runner: () => Promise<Encounter>
+  ): Promise<Encounter> {
+    const maxAttempts = 5
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        return await runner()
+      } catch (error) {
+        if (isUniqueEncounterNumberViolation(error) && attempt < maxAttempts - 1) {
+          continue
+        }
+        throw error
+      }
+    }
+
+    throw new Error('Unable to allocate a unique encounter number.')
   }
 
   private async run(
@@ -97,7 +132,7 @@ export default class StartEncounterAction {
     // 3. Create encounter
     const encounter = await Encounter.create(
       {
-        encounterNumber: await this.generateEncounterNumber(trx),
+        encounterNumber: await generateEncounterNumber(trx),
         patientId: patient.id,
         currentStage: EncounterStage.Registration,
         currentStatus: EncounterStatus.Started,
@@ -183,20 +218,6 @@ export default class StartEncounterAction {
     staffQueueBroadcast.notifyStages([EncounterStage.Registration], trx)
 
     return encounter
-  }
-
-  private async generateEncounterNumber(client: TransactionClientContract): Promise<string> {
-    const date = DateTime.now().toFormat('yyyyLLdd')
-    const prefix = `ENC-${date}-`
-
-    const latest = await Encounter.query({ client })
-      .where('encounter_number', 'like', `${prefix}%`)
-      .orderBy('id', 'desc')
-      .first()
-
-    const seq = latest ? Number.parseInt(latest.encounterNumber.slice(-5), 10) + 1 : 1
-
-    return prefix + String(seq).padStart(5, '0')
   }
 
   private numberFormat(amount: unknown): string {

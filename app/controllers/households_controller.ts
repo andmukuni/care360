@@ -11,6 +11,7 @@ import {
 } from '#support/ref_resolvers'
 import ReferenceDataInvalidator from '#services/cache/reference_data_invalidator'
 import ReferenceDataCache from '#services/cache/reference_data_cache'
+import { toISODateString } from '#support/encounter/coerce'
 
 const now = () => DateTime.now().toSQL({ includeOffset: false })!
 
@@ -273,7 +274,7 @@ export default class HouseholdsController {
       patientId: String(row.patient_id ?? ''),
       fullName: String(row.full_name ?? ''),
       gender: String(row.gender ?? ''),
-      dateOfBirth: row.date_of_birth ? String(row.date_of_birth) : null,
+      dateOfBirth: toISODateString(row.date_of_birth),
       phoneNumber: String(row.phone_number ?? ''),
       nrcNumber: String(row.nrc_number ?? ''),
       householdId: String(row.household_id ?? ''),
@@ -628,7 +629,7 @@ export default class HouseholdsController {
           barcode: TdltsBarcodeGenerator.generate('P', patientId),
           full_name: String(validated.full_name).trim(),
           gender: validated.gender ?? null,
-          date_of_birth: validated.date_of_birth ?? null,
+          date_of_birth: toISODateString(validated.date_of_birth),
           phone_number: validated.phone_number ?? null,
           nrc_number: validated.nrc_number ?? null,
           household_id: householdId,
@@ -678,7 +679,7 @@ export default class HouseholdsController {
         .update({
           full_name: String(validated.full_name).trim(),
           gender: validated.gender ?? null,
-          date_of_birth: validated.date_of_birth ?? null,
+          date_of_birth: toISODateString(validated.date_of_birth),
           phone_number: validated.phone_number ?? null,
           nrc_number: validated.nrc_number ?? null,
           household_id: householdId,

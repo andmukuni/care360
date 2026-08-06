@@ -14,6 +14,7 @@ import {
   PatientNotEligibleForEncounterException,
 } from '#support/encounter/exceptions'
 import { startEncounterValidator } from '#validators/staff/registration'
+import { isUniqueEncounterNumberViolation } from '#support/encounter/encounter_number'
 import QueueCache from '#services/cache/queue_cache'
 import { registrationDeskPageKey } from '#services/cache/queue_cache_keys'
 
@@ -231,6 +232,11 @@ export default class RegistrationController {
       }
       if (error instanceof PatientNotEligibleForEncounterException) {
         session.flash('error', error.message)
+        session.flashAll()
+        return response.redirect().back()
+      }
+      if (isUniqueEncounterNumberViolation(error)) {
+        session.flash('error', 'Could not start the encounter because the visit number was already taken. Please try again.')
         session.flashAll()
         return response.redirect().back()
       }

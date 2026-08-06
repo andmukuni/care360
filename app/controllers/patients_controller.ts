@@ -6,6 +6,7 @@ import hash from '@adonisjs/core/services/hash'
 import db from '@adonisjs/lucid/services/db'
 import Patient from '#models/patient'
 import { TdltsBarcodeGenerator } from '#support/tdlts_barcode_generator'
+import { toISODateString } from '#support/encounter/coerce'
 import { findPatientRowByRef } from '#support/ref_resolvers'
 import ReferenceDataInvalidator from '#services/cache/reference_data_invalidator'
 import ReferenceDataCache from '#services/cache/reference_data_cache'
@@ -195,7 +196,7 @@ export default class PatientsController {
       patientId: String(patient.patient_id ?? ''),
       fullName: String(patient.full_name ?? ''),
       gender: String(patient.gender ?? ''),
-      dateOfBirth: patient.date_of_birth ? String(patient.date_of_birth) : null,
+      dateOfBirth: toISODateString(patient.date_of_birth),
       nrcNumber: String(patient.nrc_number ?? ''),
       country: String(patient.country ?? ''),
       phoneNumber: phone,
@@ -412,7 +413,7 @@ export default class PatientsController {
       patient_id: patientId,
       full_name: fullName,
       gender: data.gender,
-      date_of_birth: data.date_of_birth,
+      date_of_birth: toISODateString(data.date_of_birth),
       nrc_number: nrcNumber,
       country: data.country,
       phone_number: phoneNumber || null,
@@ -618,7 +619,7 @@ export default class PatientsController {
 
     const payload: Record<string, any> = {
       full_name: String(data.full_name).replace(/\s+/g, ' ').trim() || String(data.full_name).trim(),
-      date_of_birth: data.date_of_birth,
+      date_of_birth: toISODateString(data.date_of_birth),
       gender: data.gender,
       nrc_number: emptyToNull(data.nrc_number),
       country: emptyToNull(data.country),
