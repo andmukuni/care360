@@ -828,7 +828,10 @@ const returnToScreeningLabel = computed(() =>
                             v-model.number="dispenseInputs[group.source.id]"
                             type="number"
                             min="0"
+                            step="any"
+                            inputmode="decimal"
                             class="field-input w-20 py-1 text-xs"
+                            title="Decimals allowed"
                           />
                           <span v-else-if="isItemDispensed(group.source.id)" class="text-xs font-semibold text-emerald-700">✓</span>
                         </td>
@@ -885,7 +888,10 @@ const returnToScreeningLabel = computed(() =>
                             v-model.number="dispenseInputs[group.recommendation.recommended!.id]"
                             type="number"
                             min="0"
+                            step="any"
+                            inputmode="decimal"
                             class="field-input w-20 py-1 text-xs"
+                            title="Decimals allowed"
                           />
                           <span v-else-if="isItemDispensed(group.recommendation.recommended!.id)" class="text-xs font-semibold text-emerald-700">✓</span>
                         </td>

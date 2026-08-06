@@ -282,7 +282,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
               </select>
             </div>
             <p class="mt-1 text-xs text-neutral-400">
-              e.g. <strong>2 Tablets</strong>, <strong>10 mL</strong>, <strong>1 Ampoule</strong> per administration
+              e.g. <strong>2 Tablets</strong>, <strong>10 mL</strong>, <strong>1 Ampoule</strong> per administration — decimals allowed
             </p>
           </div>
         </div>
@@ -294,6 +294,8 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
               :value="form.frequency"
               type="number"
               min="1"
+              step="1"
+              inputmode="numeric"
               class="field-input"
               placeholder="e.g. 3"
               :readonly="!!form.frequency_unit"
@@ -301,7 +303,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
               @input="patchForm({ frequency: ($event.target as HTMLInputElement).value })"
             />
             <p class="mt-1 text-xs text-neutral-400">
-              {{ form.frequency_unit ? 'Set by the Frequency Unit' : 'Times per period (auto-set from unit)' }}
+              {{ form.frequency_unit ? 'Set by the Frequency Unit' : 'Whole numbers only' }}
             </p>
           </div>
           <div>
@@ -342,10 +344,13 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
               :value="form.duration"
               type="number"
               min="1"
+              step="1"
+              inputmode="numeric"
               class="field-input"
               placeholder="e.g. 7"
               @input="patchForm({ duration: ($event.target as HTMLInputElement).value })"
             />
+            <p class="mt-1 text-xs text-neutral-400">Whole numbers only</p>
           </div>
           <div>
             <label class="field-label">Duration Unit</label>
@@ -442,12 +447,14 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
             <input
               :value="form.quantity_prescribed"
               type="number"
-              min="1"
+              min="0.1"
+              step="any"
+              inputmode="decimal"
               class="field-input"
               placeholder="—"
               @input="patchForm({ quantity_prescribed: ($event.target as HTMLInputElement).value })"
             />
-            <p class="mt-1 text-xs leading-tight text-neutral-400">{{ quantityFormulaHint }}</p>
+            <p class="mt-1 text-xs leading-tight text-neutral-400">{{ quantityFormulaHint }} Decimals allowed.</p>
           </div>
         </div>
 

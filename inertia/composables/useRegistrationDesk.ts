@@ -377,6 +377,18 @@ export function useRegistrationDesk(options: UseRegistrationDeskOptions) {
     queueSearchPatients()
   }
 
+  function formatFormPhoneInput(event: Event) {
+    const el = event.target as HTMLInputElement
+    let raw = el.value.replace(/[^0-9+]/g, '')
+    if (raw.startsWith('+')) {
+      raw = '+' + raw.slice(1).replace(/[^0-9]/g, '').slice(0, 12)
+    } else {
+      raw = raw.replace(/[^0-9]/g, '').slice(0, 12)
+    }
+    el.value = raw
+    form.phone_number = raw
+  }
+
   function queueSearchPatients(delay = 200) {
     if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
     searchDebounceTimer = setTimeout(() => searchPatients(), delay)
@@ -715,6 +727,7 @@ export function useRegistrationDesk(options: UseRegistrationDeskOptions) {
     onNrcFieldBackspace,
     titleCaseName,
     formatPhoneInput,
+    formatFormPhoneInput,
     queueSearchPatients,
     searchPatients,
     queueSearchHouseholds,
@@ -752,6 +765,7 @@ export function useRegistrationDesk(options: UseRegistrationDeskOptions) {
     onNrcFieldBackspace: typeof onNrcFieldBackspace
     titleCaseName: typeof titleCaseName
     formatPhoneInput: typeof formatPhoneInput
+    formatFormPhoneInput: typeof formatFormPhoneInput
     queueSearchPatients: typeof queueSearchPatients
     searchPatients: typeof searchPatients
     queueSearchHouseholds: typeof queueSearchHouseholds

@@ -248,7 +248,7 @@ function onAddVillageClick() {
                   />
                   <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">NRC</span>
                 </div>
-                <p class="mt-1 text-[11px] text-neutral-400">Format: 123456/12/1 — slashes are added automatically</p>
+                <p class="mt-1 text-[11px] text-neutral-400">Format: 123456/12/1 — digits only, slashes added automatically</p>
               </div>
 
               <div v-else-if="desk.activeTab === 'phone'" data-search-tab="phone">
@@ -260,7 +260,7 @@ function onAddVillageClick() {
                   placeholder="97 1234567"
                   @input="desk.formatPhoneInput"
                 />
-                <p class="mt-1 text-[11px] text-neutral-400">Enter phone digits only (no country code required)</p>
+                <p class="mt-1 text-[11px] text-neutral-400">Digits only — no country code required</p>
               </div>
 
               <div v-else-if="desk.activeTab === 'patient_no'" data-search-tab="patient_no">
@@ -274,7 +274,7 @@ function onAddVillageClick() {
                     @input="desk.queueSearchPatients(200)"
                   />
                 </div>
-                <p class="mt-1 text-[11px] text-neutral-400">Enter the patient ID number</p>
+                <p class="mt-1 text-[11px] text-neutral-400">Digits only — enter the patient ID number</p>
               </div>
             </div>
 
@@ -608,11 +608,19 @@ function onAddVillageClick() {
                         @input="desk.applyNrcFormat"
                         @keydown.backspace="desk.onNrcFieldBackspace"
                       />
-                      <p class="mt-1 text-[11px] text-neutral-400">Format: 6 digits / 2 digits / 1 digit — slashes are added automatically</p>
+                      <p class="mt-1 text-[11px] text-neutral-400">Format: 6 digits / 2 digits / 1 digit — digits only, slashes added automatically</p>
                     </div>
                     <div>
                       <label class="field-label">Phone Number</label>
-                      <input v-model="desk.form.phone_number" type="text" class="field-input" placeholder="+260 97…" />
+                      <input
+                        v-model="desk.form.phone_number"
+                        type="tel"
+                        inputmode="numeric"
+                        class="field-input"
+                        placeholder="+260 97…"
+                        @input="desk.formatFormPhoneInput"
+                      />
+                      <p class="mt-1 text-[11px] text-neutral-400">Digits only</p>
                     </div>
 
                     <div v-if="desk.newPatientMode === 'household'" class="md:col-span-2">

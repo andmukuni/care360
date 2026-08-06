@@ -182,11 +182,13 @@ watch(
         <div class="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
             <label class="field-label">Cycle Length <span class="unit">days</span></label>
-            <input v-model="form.cycle_length_days" type="number" min="1" max="60" class="field-input" placeholder="e.g. 28" :disabled="disabled" />
+            <input v-model="form.cycle_length_days" type="number" min="1" max="60" step="1" inputmode="numeric" class="field-input" placeholder="e.g. 28" :disabled="disabled" />
+            <p class="mt-0.5 text-[10px] text-neutral-400">Whole numbers only</p>
           </div>
           <div>
             <label class="field-label">Duration of Flow <span class="unit">days</span></label>
-            <input v-model="form.duration_of_flow_days" type="number" min="1" max="30" class="field-input" placeholder="e.g. 5" :disabled="disabled" />
+            <input v-model="form.duration_of_flow_days" type="number" min="1" max="30" step="1" inputmode="numeric" class="field-input" placeholder="e.g. 5" :disabled="disabled" />
+            <p class="mt-0.5 text-[10px] text-neutral-400">Whole numbers only</p>
           </div>
           <div>
             <label class="field-label">Last Menstrual Period (LMP)</label>

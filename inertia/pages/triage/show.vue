@@ -1085,26 +1085,30 @@ onUnmounted(() => {
                   <input
                     v-model="vitals.weight"
                     type="number"
-                    step="0.1"
+                    step="any"
+                    inputmode="decimal"
                     min="0.5"
                     max="300"
                     class="field-input"
                     placeholder="e.g. 65.5"
                     @input="calculateBmi"
                   />
+                  <p class="mt-0.5 text-[10px] text-neutral-400">Decimals allowed</p>
                 </div>
                 <div>
                   <label class="field-label">Height <span class="unit">cm</span></label>
                   <input
                     v-model="vitals.height"
                     type="number"
-                    step="0.1"
+                    step="any"
+                    inputmode="decimal"
                     min="20"
                     max="250"
                     class="field-input"
                     placeholder="e.g. 165"
                     @input="calculateBmi"
                   />
+                  <p class="mt-0.5 text-[10px] text-neutral-400">Decimals allowed</p>
                 </div>
                 <div>
                   <label class="field-label">BMI <span class="unit">kg/m²</span></label>
@@ -1136,6 +1140,7 @@ onUnmounted(() => {
                   <VitalInputWithBadge
                     v-model="vitals.pulse"
                     :badge="vitalBadges.pulse"
+                    :allow-decimals="false"
                     :min="20"
                     :max="300"
                     placeholder="e.g. 72"
@@ -1146,6 +1151,7 @@ onUnmounted(() => {
                   <VitalInputWithBadge
                     v-model="vitals.respiratory_rate"
                     :badge="vitalBadges.respiratory_rate"
+                    :allow-decimals="false"
                     :min="4"
                     :max="80"
                     placeholder="e.g. 18"
@@ -1167,6 +1173,7 @@ onUnmounted(() => {
                   <VitalInputWithBadge
                     v-model="vitals.systolic_bp"
                     :badge="vitalBadges.systolic_bp"
+                    :allow-decimals="false"
                     :min="40"
                     :max="300"
                     placeholder="e.g. 120"
@@ -1177,6 +1184,7 @@ onUnmounted(() => {
                   <VitalInputWithBadge
                     v-model="vitals.diastolic_bp"
                     :badge="vitalBadges.diastolic_bp"
+                    :allow-decimals="false"
                     :min="20"
                     :max="200"
                     placeholder="e.g. 80"
@@ -1231,6 +1239,7 @@ onUnmounted(() => {
                   <VitalInputWithBadge
                     v-model="vitals.pain_scale"
                     :badge="vitalBadges.pain_scale"
+                    step="0.1"
                     :min="0"
                     :max="10"
                     placeholder="e.g. 4"
