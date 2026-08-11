@@ -46,7 +46,7 @@ async function destroy(id: number) {
       <Link href="/test-types/forms/create" class="rounded bg-blue-600 px-3 py-1.5 text-sm text-white">New Result Form</Link>
     </div>
 
-    <DataTable :columns="columns" :rows="forms">
+    <DataTable :columns="columns" :rows="forms" :per-page="Math.max(forms.length, 1)">
       <template #cell:label="{ row }">
         <Link :href="`/test-types/forms/${row.id}`" class="text-blue-600 hover:underline">{{ row.label }}</Link>
       </template>

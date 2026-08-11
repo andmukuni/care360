@@ -50,7 +50,18 @@ function removeField(index: number) {
   form.fields.splice(index, 1)
 }
 
+function slugKey(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+}
+
 function submit() {
+  if (!form.key.trim() && form.label.trim()) {
+    form.key = slugKey(form.label)
+  }
   form.post('/test-types/forms')
 }
 </script>
@@ -60,11 +71,29 @@ function submit() {
     <template #header><h1 class="text-lg font-semibold">New Result Form</h1></template>
 
     <form class="max-w-3xl space-y-6" @submit.prevent="submit">
+      <div
+        v-if="Object.keys(form.errors).length"
+        class="rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200"
+      >
+        <p class="font-medium">Could not save this result form.</p>
+        <ul class="mt-2 list-disc space-y-1 pl-5">
+          <li v-for="(message, field) in form.errors" :key="field">{{ message }}</li>
+        </ul>
+      </div>
+
       <div class="space-y-4 theme-panel rounded-lg p-6">
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-medium mb-1">Key</label>
-            <input v-model="form.key" type="text" class="theme-field w-full rounded px-3 py-2" />
+            <input
+              v-model="form.key"
+              type="text"
+              class="theme-field w-full rounded px-3 py-2 font-mono"
+              placeholder="e.g. custom_serology_panel"
+            />
+            <p class="mt-1 text-xs text-sand-11">
+              Lowercase letters, numbers, and underscores. Leave blank to generate from the label.
+            </p>
             <p v-if="form.errors.key" class="mt-1 text-sm text-red-600">{{ form.errors.key }}</p>
           </div>
           <div>

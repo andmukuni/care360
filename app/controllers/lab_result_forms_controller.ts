@@ -107,8 +107,9 @@ export default class LabResultFormsController {
   }
 
   async create({ inertia }: HttpContext) {
-    const maxSort = await LabResultForm.query().max('sort_order as max')
-    const nextSort = Number((maxSort[0] as any)?.$extras?.max ?? 0) + 1
+    const maxSortRow = await LabResultForm.query().max('sort_order as maxSort')
+    const maxSort = Number(maxSortRow[0]?.$extras?.maxSort ?? 0)
+    const nextSort = (Number.isFinite(maxSort) ? maxSort : 0) + 1
 
     return inertia.render('test-types/forms/create', {
       form: {
@@ -134,7 +135,7 @@ export default class LabResultFormsController {
     }
 
     const form = await LabResultForm.create({
-      key: data.key,
+      key: String(data.key),
       label: data.label,
       description: data.description ?? null,
       templateKey: data.template_key ?? 'quantitative',
@@ -147,7 +148,7 @@ export default class LabResultFormsController {
     await this.syncTestTypes(form, request.input('test_type_ids', []))
 
     session.flash('success', 'Result form created.')
-    return response.redirect().toPath(`/test-types/forms/${form.id}`)
+    return response.redirect().toPath('/test-types/forms')
   }
 
   async show({ params, inertia }: HttpContext) {
@@ -331,10 +332,10 @@ export default class LabResultFormsController {
     if (selectedIds.length > 0) {
       releaseQuery.whereNotIn('id', selectedIds)
     }
-    await releaseQuery.update({ lab_result_form_id: defaultFormId })
+    await releaseQuery.update({ labResultFormId: defaultFormId })
 
     if (selectedIds.length > 0) {
-      await TestType.query().whereIn('id', selectedIds).update({ lab_result_form_id: form.id })
+      await TestType.query().whereIn('id', selectedIds).update({ labResultFormId: form.id })
     }
   }
 
@@ -359,30 +360,51 @@ export default class LabResultFormsController {
   ) {
     const isSystem = existing?.isSystem ?? false
 
+    const fieldRowSchema = vine.object({
+      key: vine.string().trim().maxLength(50).optional(),
+      label: vine.string().trim().maxLength(120).optional(),
+      field_type: vine.string().trim().optional(),
+      options_text: vine.string().trim().maxLength(1000).optional(),
+      placeholder: vine.string().trim().maxLength(200).optional(),
+      is_required: vine.any().optional(),
+    })
+
     const validator = vine.compile(
       vine.object({
         label: vine.string().trim().maxLength(120),
-        description: vine.string().trim().maxLength(255).nullable().optional(),
-        sort_order: vine.number().min(0).max(9999),
-        key: vine
+        description: vine
           .string()
           .trim()
-          .maxLength(50)
-          .regex(/^[a-z][a-z0-9_]*$/)
-          .optional(),
+          .maxLength(255)
+          .nullable()
+          .optional()
+          .transform((value) => (value ? value : null)),
+        sort_order: vine.number().min(0).max(9999),
+        key: vine.string().trim().maxLength(50).optional(),
         template_key: vine.string().trim().nullable().optional(),
+        is_active: vine.boolean().optional(),
+        fields: vine.array(fieldRowSchema).optional(),
+        test_type_ids: vine.array(vine.number()).optional(),
       })
     )
     const data = await request.validateUsing(validator)
 
     if (!isSystem) {
-      const key = data.key ?? ''
+      let key = String(data.key ?? '').trim()
+      if (key === '') {
+        key = snake(data.label)
+      }
+
       const fail = (field: string, message: string) => {
         session.flashErrors({ [field]: message })
         session.flashAll()
         return null
       }
+
       if (key === '') return fail('key', 'The key field is required.')
+      if (!/^[a-z][a-z0-9_]*$/.test(key)) {
+        return fail('key', 'Use lowercase letters, numbers, and underscores only.')
+      }
       if (SYSTEM_KEYS.includes(key)) return fail('key', 'This key is reserved for a system form.')
 
       const dup = await LabResultForm.query()
@@ -394,6 +416,8 @@ export default class LabResultFormsController {
       if (data.template_key && !SYSTEM_KEYS.includes(data.template_key)) {
         return fail('template_key', 'Invalid template.')
       }
+
+      return { ...data, key }
     }
 
     return data
