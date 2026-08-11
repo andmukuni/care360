@@ -177,7 +177,7 @@ function saveResults() {
 
 async function complete() {
   dismissQueueHint()
-  if (pendingResultCount.value > 0) return
+  if (!canCompleteLab.value) return
   if (!(await flushAutosavesBeforeAction({ required: false }))) return
   const results = (props.labRequest?.items ?? [])
     .map((item) => {
@@ -239,6 +239,12 @@ function itemHasResult(itemId: number) {
 const pendingResultCount = computed(
   () => (props.labRequest?.items ?? []).filter((item) => !itemHasResult(item.id)).length
 )
+
+const completedResultCount = computed(
+  () => (props.labRequest?.items ?? []).filter((item) => itemHasResult(item.id)).length
+)
+
+const canCompleteLab = computed(() => completedResultCount.value > 0)
 
 const hasLabRequestWithItems = computed(() => (props.labRequest?.items?.length ?? 0) > 0)
 const canReturnToScreening = computed(() => canEdit.value && !hasLabRequestWithItems.value)
@@ -591,15 +597,21 @@ function queueBackToScreening() {
             label="Complete"
             aria-label="Complete lab and queue to screening review"
             :loading="completing"
-            :disabled="pendingResultCount > 0"
+            :disabled="!canCompleteLab"
             loading-text="Submitting…"
             @click="complete"
           />
           <p
-            v-if="canEdit && pendingResultCount > 0"
+            v-if="canEdit && !canCompleteLab"
             class="px-6 pb-4 text-xs text-amber-700 dark:text-amber-300"
           >
-            Enter results for all {{ pendingResultCount }} pending test(s) before completing.
+            Enter at least one test result before completing.
+          </p>
+          <p
+            v-else-if="canEdit && pendingResultCount > 0"
+            class="px-6 pb-4 text-xs text-neutral-600 dark:text-neutral-400"
+          >
+            {{ pendingResultCount }} test(s) still pending — you can complete and queue with partial results.
           </p>
         </form>
 

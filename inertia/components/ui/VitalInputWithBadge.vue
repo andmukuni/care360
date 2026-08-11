@@ -5,8 +5,10 @@ import { severityFromBadge } from '~/support/vital_badges'
 import {
   HINT_DECIMALS_ALLOWED,
   HINT_WHOLE_NUMBERS,
+  resolvesHtmlInputType,
   resolvesInputMode,
   resolvesNumericStep,
+  sanitizeDecimalInput,
 } from '~/support/numeric_input'
 
 const model = defineModel<number | string | null>({ required: true })
@@ -57,22 +59,43 @@ const fieldHint = computed(() => {
   }
   return props.allowDecimals ? HINT_DECIMALS_ALLOWED : HINT_WHOLE_NUMBERS
 })
+
+const htmlInputType = computed(() =>
+  resolvesHtmlInputType(props.inputType, props.allowDecimals)
+)
+
+const usesDecimalTextInput = computed(
+  () => props.inputType === 'number' && props.allowDecimals
+)
+
+function onInput(event: Event) {
+  const el = event.target as HTMLInputElement
+  let next = el.value
+  if (usesDecimalTextInput.value) {
+    next = sanitizeDecimalInput(next)
+    if (el.value !== next) {
+      el.value = next
+    }
+  }
+  model.value = next === '' ? null : next
+}
 </script>
 
 <template>
   <div>
     <div class="relative">
       <input
-        v-model="model"
-        :type="inputType"
-        :min="min"
-        :max="max"
-        :step="resolvedStep"
+        :value="model == null ? '' : String(model)"
+        :type="htmlInputType"
+        :min="usesDecimalTextInput ? undefined : min"
+        :max="usesDecimalTextInput ? undefined : max"
+        :step="usesDecimalTextInput ? undefined : resolvedStep"
         :inputmode="inputMode"
         :placeholder="placeholder"
         :readonly="readonly"
         class="field-input"
         :class="[badge ? 'pr-28' : '', vitalFieldClass, inputClass]"
+        @input="onInput"
       />
       <span
         v-if="badge"

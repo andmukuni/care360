@@ -36,6 +36,7 @@ import {
   systolicBpBadge,
   temperatureBadge,
 } from '~/support/vital_badges'
+import { onDecimalFieldInput } from '~/support/numeric_input'
 
 type StartupMed = {
   id: number
@@ -447,6 +448,13 @@ function calculateBmi() {
   const bmi = weight / (heightM * heightM)
   bmiDisplay.value = bmi.toFixed(1)
   bmiNoteVisible.value = true
+}
+
+function onVitalDecimalInput(field: 'weight' | 'height', event: Event) {
+  onDecimalFieldInput(event, (value) => {
+    vitals[field] = value
+    calculateBmi()
+  })
 }
 
 function calculateMuacScore() {
@@ -1083,30 +1091,24 @@ onUnmounted(() => {
                 <div>
                   <label class="field-label">Weight <span class="unit">kg</span></label>
                   <input
-                    v-model="vitals.weight"
-                    type="number"
-                    step="any"
+                    :value="vitals.weight"
+                    type="text"
                     inputmode="decimal"
-                    min="0.5"
-                    max="300"
                     class="field-input"
                     placeholder="e.g. 65.5"
-                    @input="calculateBmi"
+                    @input="onVitalDecimalInput('weight', $event)"
                   />
                   <p class="mt-0.5 text-[10px] text-neutral-400">Decimals allowed</p>
                 </div>
                 <div>
                   <label class="field-label">Height <span class="unit">cm</span></label>
                   <input
-                    v-model="vitals.height"
-                    type="number"
-                    step="any"
+                    :value="vitals.height"
+                    type="text"
                     inputmode="decimal"
-                    min="20"
-                    max="250"
                     class="field-input"
                     placeholder="e.g. 165"
-                    @input="calculateBmi"
+                    @input="onVitalDecimalInput('height', $event)"
                   />
                   <p class="mt-0.5 text-[10px] text-neutral-400">Decimals allowed</p>
                 </div>

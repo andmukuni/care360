@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted } from 'vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
 import type { MedSearchResult } from '~/composables/usePrescriptionCart'
+import { onDecimalFieldInput } from '~/support/numeric_input'
 
 const show = defineModel<boolean>('show', { required: true })
 const recommendationNote = defineModel<string>('recommendationNote', { default: '' })
@@ -13,7 +14,7 @@ const props = defineProps<{
     drug_name: string
     formulation: string
     dose: string
-    item_per_dose: number
+    item_per_dose: number | string
     frequency: number | string
     time_per: string
     frequency_unit: string
@@ -237,12 +238,11 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
             >
               <input
                 :value="form.item_per_dose"
-                type="number"
-                min="0.1"
-                step="any"
+                type="text"
+                inputmode="decimal"
                 class="theme-field w-24 border-0 px-3 py-2 text-sm text-neutral-900 focus:outline-none dark:text-white"
                 placeholder="e.g. 2"
-                @input="patchForm({ item_per_dose: Number(($event.target as HTMLInputElement).value) || 0 })"
+                @input="onDecimalFieldInput($event, (value) => patchForm({ item_per_dose: value }))"
               />
               <div class="w-px flex-shrink-0 bg-neutral-200 dark:bg-neutral-600" />
               <select

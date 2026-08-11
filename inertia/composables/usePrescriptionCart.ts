@@ -27,7 +27,7 @@ export type PrescriptionCartItem = {
   drug_name: string
   formulation: string
   dose: string
-  item_per_dose: number
+  item_per_dose: number | string
   frequency: number | string
   time_per: string
   frequency_unit: string

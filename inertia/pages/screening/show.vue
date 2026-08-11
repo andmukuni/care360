@@ -39,6 +39,7 @@ import {
   systolicBpBadge,
   temperatureBadge,
 } from '~/support/vital_badges'
+import { onDecimalFieldInput } from '~/support/numeric_input'
 
 type StartupMed = {
   id: number
@@ -599,6 +600,13 @@ function calculateRecheckBmi() {
   const heightM = height / 100
   const bmi = weight / (heightM * heightM)
   recheckBmiDisplay.value = bmi.toFixed(1)
+}
+
+function onRecheckDecimalInput(field: 'weight' | 'height', event: Event) {
+  onDecimalFieldInput(event, (value) => {
+    recheck[field] = value
+    calculateRecheckBmi()
+  })
 }
 
 watch([() => recheck.weight, () => recheck.height], calculateRecheckBmi)
@@ -1721,30 +1729,24 @@ onUnmounted(() => {
                 <div>
                   <label class="field-label">Weight <span class="unit">kg</span></label>
                   <input
-                    v-model="recheck.weight"
-                    type="number"
-                    step="any"
+                    :value="recheck.weight"
+                    type="text"
                     inputmode="decimal"
-                    min="0"
-                    max="500"
                     class="field-input"
                     placeholder="e.g. 65.5"
-                    @input="calculateRecheckBmi"
+                    @input="onRecheckDecimalInput('weight', $event)"
                   />
                   <p class="mt-0.5 text-[10px] text-neutral-400">Decimals allowed</p>
                 </div>
                 <div>
                   <label class="field-label">Height <span class="unit">cm</span></label>
                   <input
-                    v-model="recheck.height"
-                    type="number"
-                    step="any"
+                    :value="recheck.height"
+                    type="text"
                     inputmode="decimal"
-                    min="0"
-                    max="300"
                     class="field-input"
                     placeholder="e.g. 165"
-                    @input="calculateRecheckBmi"
+                    @input="onRecheckDecimalInput('height', $event)"
                   />
                   <p class="mt-0.5 text-[10px] text-neutral-400">Decimals allowed</p>
                 </div>

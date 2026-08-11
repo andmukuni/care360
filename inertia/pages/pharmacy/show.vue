@@ -32,6 +32,7 @@ import {
   filterSelectedDispenseItems,
   type PharmacyRecommendationRow,
 } from '~/support/pharmacy/pharmacy_dispense_selection'
+import { onDecimalFieldInput } from '~/support/numeric_input'
 
 type TabId = 'prescription' | 'notes' | 'next'
 
@@ -209,12 +210,27 @@ const prescriptionStatusLabel = computed(() => {
   return props.prescription?.status ?? ''
 })
 
-const dispenseInputs = reactive<Record<number, number>>({})
+const dispenseInputs = reactive<Record<number, string | number>>({})
 for (const it of props.prescription?.items ?? []) {
   const draftQty = props.dispenseDraft?.items?.find(
     (item) => item.pharmacy_prescription_item_id === it.id
   )?.quantity_dispensed
   dispenseInputs[it.id] = draftQty ?? it.quantity_prescribed ?? 1
+}
+
+function dispenseQty(id: number): number {
+  const raw = dispenseInputs[id]
+  if (raw === '' || raw == null) {
+    return 0
+  }
+  const n = Number(raw)
+  return Number.isFinite(n) ? n : 0
+}
+
+function patchDispenseQty(id: number, event: Event) {
+  onDecimalFieldInput(event, (value) => {
+    dispenseInputs[id] = value
+  })
 }
 
 const dispenseForm = useForm({
@@ -364,7 +380,7 @@ function dispensePayload() {
     return {
       pharmacy_prescription_item_id: id,
       drug_name: item?.drug_name ?? '',
-      quantity_dispensed: dispenseInputs[id] ?? 0,
+      quantity_dispensed: dispenseQty(id),
       selected_for_dispense: selectedForDispense[id] ?? false,
     }
   })
@@ -399,7 +415,7 @@ async function dispense() {
       return {
         pharmacy_prescription_item_id: id,
         drug_name: item?.drug_name ?? '',
-        quantity_dispensed: dispenseInputs[id] ?? 0,
+        quantity_dispensed: dispenseQty(id),
       }
     }),
     selectedForDispense
@@ -825,13 +841,12 @@ const returnToScreeningLabel = computed(() =>
                         <td v-if="canEditDispenseQty" class="px-3 py-2.5">
                           <input
                             v-if="!group.recommendation && !isItemDispensed(group.source.id) && selectedForDispense[group.source.id]"
-                            v-model.number="dispenseInputs[group.source.id]"
-                            type="number"
-                            min="0"
-                            step="any"
+                            :value="dispenseInputs[group.source.id]"
+                            type="text"
                             inputmode="decimal"
                             class="field-input w-20 py-1 text-xs"
                             title="Decimals allowed"
+                            @input="patchDispenseQty(group.source.id, $event)"
                           />
                           <span v-else-if="isItemDispensed(group.source.id)" class="text-xs font-semibold text-emerald-700">✓</span>
                         </td>
@@ -885,13 +900,12 @@ const returnToScreeningLabel = computed(() =>
                         <td v-if="canEditDispenseQty" class="px-3 py-2.5">
                           <input
                             v-if="!isItemDispensed(group.recommendation.recommended!.id) && selectedForDispense[group.recommendation.recommended!.id]"
-                            v-model.number="dispenseInputs[group.recommendation.recommended!.id]"
-                            type="number"
-                            min="0"
-                            step="any"
+                            :value="dispenseInputs[group.recommendation.recommended!.id]"
+                            type="text"
                             inputmode="decimal"
                             class="field-input w-20 py-1 text-xs"
                             title="Decimals allowed"
+                            @input="patchDispenseQty(group.recommendation.recommended!.id, $event)"
                           />
                           <span v-else-if="isItemDispensed(group.recommendation.recommended!.id)" class="text-xs font-semibold text-emerald-700">✓</span>
                         </td>

@@ -2,8 +2,15 @@
 import { computed, ref, watch } from 'vue'
 import ScreeningFormModal from '~/components/screening/ScreeningFormModal.vue'
 import { parseJsonArrayField } from '~/support/screening/screening_json_fields'
+import { onDecimalFieldInput } from '~/support/numeric_input'
 
 const form = defineModel<Record<string, any>>({ required: true })
+
+function patchDecimalField(key: string, event: Event) {
+  onDecimalFieldInput(event, (value) => {
+    form.value[key] = value
+  })
+}
 
 defineProps<{
   disabled?: boolean
@@ -208,13 +215,13 @@ watch(
       <ScreeningFormModal v-model:show="birthModalOpen" title="Birth History" :disabled="disabled" @save="birthModalOpen = false">
         <div class="space-y-4 p-6">
           <div class="grid grid-cols-3 gap-4">
-            <div><label class="field-label">Birth Weight (kg) <span class="text-red-500">*</span></label><input v-model="form.birth_weight" type="number" step="any" inputmode="decimal" min="0.1" max="15" class="field-input" placeholder="Enter Birth Weight (kg)" :disabled="disabled" /><p class="mt-0.5 text-[10px] text-neutral-400">Decimals allowed</p></div>
-            <div><label class="field-label">Birth Length (cm)</label><input v-model="form.birth_length" type="number" step="any" inputmode="decimal" min="1" max="100" class="field-input" placeholder="Enter Birth Length (cm)" :disabled="disabled" /><p class="mt-0.5 text-[10px] text-neutral-400">Decimals allowed</p></div>
+            <div><label class="field-label">Birth Weight (kg) <span class="text-red-500">*</span></label><input :value="form.birth_weight" type="text" inputmode="decimal" class="field-input" placeholder="Enter Birth Weight (kg)" :disabled="disabled" @input="patchDecimalField('birth_weight', $event)" /><p class="mt-0.5 text-[10px] text-neutral-400">Decimals allowed</p></div>
+            <div><label class="field-label">Birth Length (cm)</label><input :value="form.birth_length" type="text" inputmode="decimal" class="field-input" placeholder="Enter Birth Length (cm)" :disabled="disabled" @input="patchDecimalField('birth_length', $event)" /><p class="mt-0.5 text-[10px] text-neutral-400">Decimals allowed</p></div>
             <div><label class="field-label">Birth Outcome <span class="text-red-500">*</span></label><select v-model="form.birth_outcome" class="field-input" :disabled="disabled"><option value="">--Select--</option><option v-for="o in BIRTH_OUTCOME_OPTIONS" :key="o" :value="o">{{ o }}</option></select></div>
           </div>
           <div class="grid grid-cols-2 gap-4">
-            <div><label class="field-label">Head Circumference</label><input v-model="form.head_circumference" type="number" step="any" inputmode="decimal" min="1" max="100" class="field-input" :disabled="disabled" /><p class="mt-0.5 text-[10px] text-neutral-400">Decimals allowed</p></div>
-            <div><label class="field-label">Chest Circumference</label><input v-model="form.chest_circumference" type="number" step="any" inputmode="decimal" min="1" max="100" class="field-input" :disabled="disabled" /><p class="mt-0.5 text-[10px] text-neutral-400">Decimals allowed</p></div>
+            <div><label class="field-label">Head Circumference</label><input :value="form.head_circumference" type="text" inputmode="decimal" class="field-input" :disabled="disabled" @input="patchDecimalField('head_circumference', $event)" /><p class="mt-0.5 text-[10px] text-neutral-400">Decimals allowed</p></div>
+            <div><label class="field-label">Chest Circumference</label><input :value="form.chest_circumference" type="text" inputmode="decimal" class="field-input" :disabled="disabled" @input="patchDecimalField('chest_circumference', $event)" /><p class="mt-0.5 text-[10px] text-neutral-400">Decimals allowed</p></div>
           </div>
           <div class="grid grid-cols-2 items-end gap-4">
             <div><label class="field-label">General Condition <span class="text-red-500">*</span></label><select v-model="form.general_condition" class="field-input" :disabled="disabled"><option value="">--Select--</option><option v-for="o in GENERAL_CONDITION_OPTIONS" :key="o" :value="o">{{ o }}</option></select></div>
