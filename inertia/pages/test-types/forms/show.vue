@@ -65,7 +65,7 @@ const fieldColumns = [
     <DataTable
       :columns="[{ key: 'name', label: 'Name' }, { key: 'category', label: 'Category' }]"
       :rows="form.testTypes"
-      :searchable="false"
+      :search-keys="['name', 'category']"
       empty-text="No test types assigned."
     >
       <template #cell:category="{ row }">{{ row.category ?? '—' }}</template>

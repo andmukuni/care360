@@ -2,6 +2,7 @@
 import { Link, useForm } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
+import AssignedTestTypesPicker from '~/components/test-types/AssignedTestTypesPicker.vue'
 
 interface FieldRow {
   key: string
@@ -122,12 +123,7 @@ function submit() {
 
       <div class="space-y-2 theme-panel rounded-lg p-6">
         <h2 class="text-base font-medium">Assigned test types</h2>
-        <div class="grid grid-cols-2 gap-1 md:grid-cols-3">
-          <label v-for="t in testTypes" :key="t.id" class="flex items-center gap-2 text-sm">
-            <input v-model="form.test_type_ids" type="checkbox" :value="t.id" />
-            {{ t.name }}
-          </label>
-        </div>
+        <AssignedTestTypesPicker v-model="form.test_type_ids" :test-types="testTypes" />
       </div>
 
       <div class="flex gap-2">
