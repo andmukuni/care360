@@ -19,9 +19,10 @@ const props = defineProps<{
   testLoading: boolean
   testPopoverOpen: boolean
   testActiveIdx: number
-  showError: boolean
-  errorMsg: string
-}>()
+    showError: boolean
+    errorMsg: string
+    saving?: boolean
+  }>()
 
 const emit = defineEmits<{
   'update:testSearch': [value: string]
@@ -191,6 +192,8 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick))
             type="button"
             class="!rounded !px-4 !py-2 text-sm"
             :disabled="!draft.test_name"
+            :loading="saving"
+            loading-text="Adding…"
             @click="emit('addToCart')"
           >
             <template #icon>

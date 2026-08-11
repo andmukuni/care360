@@ -473,6 +473,8 @@ export default class LabController {
       return response.status(422).json({ ok: false, message: 'No items provided.' })
     }
 
+    const append = request.input('append') === true || request.input('append') === 'true'
+
     let labRequest = await getLabRequest(encounter.id)
     if (!labRequest) {
       const countRows = await LabRequest.query()
@@ -490,39 +492,74 @@ export default class LabController {
       })
     }
 
-    await labRequest.related('labRequestItems').query().delete()
-
-    for (const item of items) {
-      let sid: number | null =
-        item.lab_specimen_type_id !== undefined && item.lab_specimen_type_id !== ''
-          ? Number(item.lab_specimen_type_id)
-          : null
-      let specimenLabel: string | null = item.specimen_type ?? null
-      if (sid) {
-        const catalog = await LabSpecimenType.find(sid)
-        if (catalog) {
-          specimenLabel = catalog.defaultUnit ? `${catalog.name} (${catalog.defaultUnit})` : catalog.name
-        } else {
-          sid = null
-        }
-      }
-
-      await labRequest.related('labRequestItems').create({
-        testName: item.test_name,
-        testCode: item.test_code ?? null,
-        specimenType: specimenLabel,
-        labSpecimenTypeId: sid,
-        testGroup: item.test_group ?? null,
-        instructions: item.instructions ?? null,
-        status: 'pending',
-      })
+    if (!append) {
+      await labRequest.related('labRequestItems').query().delete()
     }
+
+    await labRequest.load('labRequestItems')
+    const existingNames = new Set(
+      labRequest.labRequestItems.map((item) => item.testName.trim().toLowerCase())
+    )
+
+    let addedCount = 0
+    for (const item of items) {
+      const testName = String(item.test_name).trim()
+      if (!testName) continue
+      if (append && existingNames.has(testName.toLowerCase())) continue
+
+      await this.createLabRequestItem(labRequest, item)
+      existingNames.add(testName.toLowerCase())
+      addedCount++
+    }
+
+    if (append && addedCount === 0) {
+      return response.status(422).json({ ok: false, message: 'All selected tests are already on this request.' })
+    }
+
+    await new EncounterAuditService().record({
+      encounter,
+      actionName: 'lab_tests_added',
+      actionStage: EncounterStage.Lab,
+      actionBy: user.id,
+      newValues: {
+        lab_request_number: labRequest.requestNumber,
+        added_count: addedCount,
+        append,
+      },
+    })
 
     await labRequest.load('labRequestItems')
     return response.json({
       ok: true,
       request_number: labRequest.requestNumber,
       item_count: labRequest.labRequestItems.length,
+      added_count: addedCount,
+    })
+  }
+
+  private async createLabRequestItem(labRequest: LabRequest, item: Record<string, any>) {
+    let sid: number | null =
+      item.lab_specimen_type_id !== undefined && item.lab_specimen_type_id !== ''
+        ? Number(item.lab_specimen_type_id)
+        : null
+    let specimenLabel: string | null = item.specimen_type ?? null
+    if (sid) {
+      const catalog = await LabSpecimenType.find(sid)
+      if (catalog) {
+        specimenLabel = catalog.defaultUnit ? `${catalog.name} (${catalog.defaultUnit})` : catalog.name
+      } else {
+        sid = null
+      }
+    }
+
+    await labRequest.related('labRequestItems').create({
+      testName: item.test_name,
+      testCode: item.test_code ?? null,
+      specimenType: specimenLabel,
+      labSpecimenTypeId: sid,
+      testGroup: item.test_group ?? null,
+      instructions: item.instructions ?? null,
+      status: 'pending',
     })
   }
 

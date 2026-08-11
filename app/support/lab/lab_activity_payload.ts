@@ -9,6 +9,7 @@ const ACTION_LABELS: Record<string, string> = {
   queued_back_to_screening_review: 'Sent to Screening Review',
   returned_to_initial_screening: 'Returned to Screening',
   lab_request_authored: 'Lab request created',
+  lab_tests_added: 'Lab test(s) added',
   queued_to_lab: 'Queued to Lab',
 }
 

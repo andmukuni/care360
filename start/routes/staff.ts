@@ -327,7 +327,7 @@ router
     router.get('/lab/test-results', [LabController, 'testResults']).as('lab.test-results.index')
     router.post('/lab/:encounter/receive', [LabController, 'receive']).as('lab.receive').use(perm('lab.receive'))
     router.get('/lab/:encounter/add-tests', [LabController, 'addTests']).as('lab.add-tests')
-    router.post('/lab/:encounter/add-tests', [LabController, 'storeAddedTests']).as('lab.add-tests.store').use(perm('lab.manage-test-types'))
+    router.post('/lab/:encounter/add-tests', [LabController, 'storeAddedTests']).as('lab.add-tests.store').use(perm('lab.manage-test-types|lab.record-results'))
     router.get('/lab/:encounter/items', [LabController, 'itemsJson']).as('lab.items')
     router.get('/lab/:encounter', [LabController, 'show']).as('lab.show')
     router.get('/lab/:encounter/print', [LabController, 'printResults']).as('lab.print')

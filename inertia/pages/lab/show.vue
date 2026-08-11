@@ -6,7 +6,7 @@ import PatientHeader from '~/components/encounter/PatientHeader.vue'
 import HandoverNotesCard from '~/components/encounter/HandoverNotesCard.vue'
 import LabActivityCard from '~/components/lab/LabActivityCard.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
-import ActionLink from '~/components/ui/ActionLink.vue'
+import AddLabTestModal from '~/components/screening/AddLabTestModal.vue'
 import AutosaveIndicator from '~/components/ui/AutosaveIndicator.vue'
 import LabRequestDetailsCard from '~/components/lab/LabRequestDetailsCard.vue'
 import LabResultFormEntry from '~/components/lab/LabResultFormEntry.vue'
@@ -16,7 +16,9 @@ import { useAsyncAction } from '~/composables/useAsyncAction'
 import { useAutosave } from '~/composables/useAutosave'
 import { useQueueFooterHint } from '~/composables/useQueueFooterHint'
 import { useQueueActionsDeepLink } from '~/composables/useQueueActionsDeepLink'
+import { useLabCart, type LabCartItem } from '~/composables/useLabCart'
 import { flushAutosavesBeforeAction } from '~/composables/useFlushAutosave'
+import { readXsrfToken } from '~/support/xsrf'
 import {
   initializeFormStateForTest,
   serializeLabResultFormState,
@@ -127,12 +129,111 @@ const { showQueueHint, dismissQueueHint } = useQueueFooterHint('lab', props.enco
 const { loading: savingResults, run: runSaveResults } = useAsyncAction()
 const { loading: completing, run: runComplete } = useAsyncAction()
 const { loading: queueingScreening, run: runQueueScreening } = useAsyncAction()
+const { loading: addingLabTest, run: runAddLabTest } = useAsyncAction()
 
 const canEdit = computed(() => props.encounter.can_edit && !props.encounter.is_locked)
 
 const formStates = reactive<Record<number, LabResultFormState>>({})
-for (const item of props.labRequest?.items ?? []) {
-  formStates[item.id] = initializeFormStateForTest(item.test_name, props.labResultForms, item.result)
+
+function syncFormStatesFromProps() {
+  for (const item of props.labRequest?.items ?? []) {
+    if (!formStates[item.id]) {
+      formStates[item.id] = initializeFormStateForTest(
+        item.test_name,
+        props.labResultForms,
+        item.result
+      )
+    }
+  }
+}
+
+syncFormStatesFromProps()
+
+watch(
+  () => props.labRequest?.items,
+  () => {
+    syncFormStatesFromProps()
+  },
+  { deep: true }
+)
+
+const {
+  showModal: labModalOpen,
+  draft: labDraft,
+  showError: labFormError,
+  errorMsg: labErrorMsg,
+  testSearch: labTestSearch,
+  testResults: labTestResults,
+  testLoading: labTestLoading,
+  testPopoverOpen: labTestPopoverOpen,
+  testActiveIdx: labTestActiveIdx,
+  searchTests: searchLabTests,
+  onTestInput: onLabTestInput,
+  selectTest: selectLabTest,
+  moveTestActive: moveLabTestActive,
+  pickTestActive: pickLabTestActive,
+  openModal: openLabModal,
+  closeModal: closeLabModal,
+  closeTestPopover: closeLabTestPopover,
+  setTestActiveIdx: setLabTestActiveIdx,
+} = useLabCart(undefined, {
+  isAlreadyRequested: (testName) =>
+    props.labRequest?.items?.some((item) => item.test_name === testName) ?? false,
+})
+
+function updateLabDraft(value: LabCartItem) {
+  labDraft.value = value
+}
+
+async function submitLabTestFromModal() {
+  if (!labDraft.value.test_name.trim()) {
+    labErrorMsg.value = 'Select a test before adding to the request.'
+    labFormError.value = true
+    return
+  }
+
+  const testName = labDraft.value.test_name.trim()
+  if (props.labRequest?.items?.some((item) => item.test_name === testName)) {
+    labErrorMsg.value = 'This test is already in the request.'
+    labFormError.value = true
+    return
+  }
+
+  runAddLabTest(async ({ done }) => {
+    try {
+      labFormError.value = false
+      labErrorMsg.value = ''
+
+      const res = await fetch(`/lab/${props.encounter.id}/add-tests`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-XSRF-TOKEN': readXsrfToken(),
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          items: [labDraft.value],
+          append: true,
+          priority_level: props.labRequest?.priority_level ?? props.encounter.priority ?? 'normal',
+        }),
+      })
+
+      const data = (await res.json()) as { ok?: boolean; message?: string }
+      if (!res.ok || !data.ok) {
+        labErrorMsg.value = data.message ?? 'Could not add test.'
+        labFormError.value = true
+        return
+      }
+
+      closeLabModal()
+      activeTab.value = 'results'
+      router.reload({ only: ['labRequest'] })
+    } finally {
+      done()
+    }
+  })
 }
 
 function serializedResultForItem(itemId: number) {
@@ -386,11 +487,12 @@ function queueBackToScreening() {
             <div class="section-card !overflow-hidden !p-0">
               <div class="theme-card-header flex items-center justify-between px-5 py-3.5">
                 <span class="text-sm font-bold text-neutral-800 dark:text-neutral-200">Ordered Tests</span>
-                <ActionLink
+                <ActionButton
                   v-if="canEdit"
-                  :href="`/lab/${encounter.id}/add-tests`"
+                  type="button"
                   variant="primary"
                   class="!rounded !px-4 !py-2 text-sm"
+                  @click="openLabModal"
                 >
                   <template #icon>
                     <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -398,7 +500,7 @@ function queueBackToScreening() {
                     </svg>
                   </template>
                   Add Test
-                </ActionLink>
+                </ActionButton>
               </div>
               <div class="overflow-x-auto">
                 <table class="screening-rx-table w-full text-sm">
@@ -444,6 +546,20 @@ function queueBackToScreening() {
                   </p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
+                  <ActionButton
+                    v-if="canEdit"
+                    type="button"
+                    variant="primary"
+                    class="!rounded !px-3 !py-1.5 text-xs"
+                    @click="openLabModal"
+                  >
+                    <template #icon>
+                      <svg class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                      </svg>
+                    </template>
+                    Add Test
+                  </ActionButton>
                   <Link
                     :href="`/lab/${encounter.id}/print`"
                     target="_blank"
@@ -622,6 +738,14 @@ function queueBackToScreening() {
               <div v-if="canEdit" class="flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
                 <ActionButton
                   type="button"
+                  variant="primary"
+                  class="!rounded !px-4 !py-2 text-sm"
+                  @click="openLabModal"
+                >
+                  Add Test
+                </ActionButton>
+                <ActionButton
+                  type="button"
                   class="!rounded !px-4 !py-2 text-sm"
                   :loading="queueingScreening"
                   loading-text="Returning…"
@@ -629,9 +753,6 @@ function queueBackToScreening() {
                 >
                   Return to Screening
                 </ActionButton>
-                <ActionLink :href="`/lab/${encounter.id}/add-tests`" variant="outline">
-                  Create lab request
-                </ActionLink>
               </div>
             </div>
           </div>
@@ -647,6 +768,29 @@ function queueBackToScreening() {
         ← Back to queue
       </Link>
     </div>
+
+    <AddLabTestModal
+      v-model:show="labModalOpen"
+      v-model:test-search="labTestSearch"
+      :draft="labDraft"
+      :test-results="labTestResults"
+      :test-loading="labTestLoading"
+      :test-popover-open="labTestPopoverOpen"
+      :test-active-idx="labTestActiveIdx"
+      :show-error="labFormError"
+      :error-msg="labErrorMsg"
+      :saving="addingLabTest"
+      @update:draft="updateLabDraft"
+      @test-input="onLabTestInput"
+      @test-focus="() => { if (!labTestResults.length) searchLabTests() }"
+      @select-test="selectLabTest"
+      @move-test-active="moveLabTestActive"
+      @pick-test-active="pickLabTestActive"
+      @set-test-active-idx="setLabTestActiveIdx"
+      @close-test-popover="closeLabTestPopover"
+      @add-to-cart="submitLabTestFromModal"
+      @close="closeLabModal"
+    />
   </StaffLayout>
 </template>
 
