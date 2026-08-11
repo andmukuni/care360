@@ -36,8 +36,8 @@ function renderBarcode() {
   try {
     JsBarcode(node, value, {
       format: 'CODE128',
-      width: 1.8,
-      height: 48,
+      width: 2.4,
+      height: 112,
       displayValue: false,
       margin: 0,
       background: '#ffffff',
@@ -90,8 +90,11 @@ defineExpose({ renderBarcode })
 
 <style scoped>
 .household-id-card {
-  width: 54mm;
-  min-height: 85.6mm;
+  --household-id-card-width: 591px;
+  --household-id-card-height: 889px;
+
+  width: var(--household-id-card-width);
+  height: var(--household-id-card-height);
   background: #fff;
   border: 1px solid #d4d4d4;
   border-radius: 4px;
@@ -99,26 +102,29 @@ defineExpose({ renderBarcode })
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
 }
 
 .household-id-card__header {
   display: block;
   width: 100%;
   height: auto;
+  flex-shrink: 0;
 }
 
 .household-id-card__body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 4mm 4mm 3mm;
+  padding: 28px 42px 36px;
+  min-height: 0;
 }
 
 .household-id-card__name {
-  margin: 0 0 3mm;
-  font-size: 13pt;
+  margin: 0 0 24px;
+  font-size: 36px;
   font-weight: 800;
-  line-height: 1.15;
+  line-height: 1.12;
   letter-spacing: 0.02em;
   text-transform: uppercase;
   text-align: center;
@@ -132,10 +138,10 @@ defineExpose({ renderBarcode })
 
 .household-id-card__row {
   display: grid;
-  grid-template-columns: 14mm 1fr;
-  gap: 1.5mm;
-  margin-bottom: 1.5mm;
-  font-size: 9pt;
+  grid-template-columns: 120px 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-size: 24px;
   line-height: 1.25;
   color: #111;
 }
@@ -154,21 +160,22 @@ defineExpose({ renderBarcode })
 }
 
 .household-id-card__barcode {
-  margin-top: 3mm;
+  margin-top: auto;
+  padding-top: 20px;
   text-align: center;
 }
 
 .household-id-card__barcode-svg {
   display: block;
   width: 100%;
-  max-width: 46mm;
-  height: 12mm;
+  max-width: 500px;
+  height: 112px;
   margin: 0 auto;
 }
 
 .household-id-card__barcode-value {
-  margin: 1.5mm 0 0;
-  font-size: 10pt;
+  margin: 12px 0 0;
+  font-size: 28px;
   font-weight: 700;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   letter-spacing: 0.08em;

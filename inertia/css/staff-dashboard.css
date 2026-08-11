@@ -2716,8 +2716,8 @@ input.encounters-filter-field[type='date']::-webkit-calendar-picker-indicator {
     border: none;
     border-radius: 0;
     box-shadow: none;
-    width: 54mm;
-    min-height: 85.6mm;
+    width: 591px;
+    height: 889px;
     page-break-inside: avoid;
   }
   #household-id-card-printable .household-id-card__header {
@@ -2726,12 +2726,12 @@ input.encounters-filter-field[type='date']::-webkit-calendar-picker-indicator {
   }
   [id^='household-id-card-'] {
     position: relative;
-    margin: 0 auto 8mm;
+    margin: 0 auto 24px;
     border: none;
     border-radius: 0;
     box-shadow: none;
-    width: 54mm;
-    min-height: 85.6mm;
+    width: 591px;
+    height: 889px;
     page-break-inside: avoid;
   }
   [id^='household-id-card-'] .household-id-card__header {

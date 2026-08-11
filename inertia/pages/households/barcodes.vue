@@ -51,7 +51,7 @@ function print() {
 <style scoped>
 .household-id-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(54mm, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(591px, 1fr));
   gap: 16px;
   justify-items: center;
 }
@@ -90,7 +90,7 @@ function print() {
 
   [id^='household-id-card-'] {
     position: relative;
-    margin: 0 auto 8mm;
+    margin: 0 auto 24px;
     border: none;
     border-radius: 0;
     box-shadow: none;

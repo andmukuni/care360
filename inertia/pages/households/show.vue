@@ -401,7 +401,7 @@ watch(tab, (next) => {
               :phone="household.phoneNumber"
               :barcode="barcodeValue"
             />
-            <p class="mt-4 text-xs text-neutral-400">Portrait card — print on ID stock or cut to 54 × 86 mm</p>
+            <p class="mt-4 text-xs text-neutral-400">Portrait card — 591 × 889 px</p>
           </div>
         </div>
         <div v-else class="sc">
