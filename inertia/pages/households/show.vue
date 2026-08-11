@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
-import JsBarcode from 'jsbarcode'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import HouseholdMembers from '~/components/staff/households/HouseholdMembers.vue'
+import HouseholdIdCard from '~/components/households/HouseholdIdCard.vue'
 
 interface Member {
   dbId: number
@@ -19,7 +19,7 @@ interface Member {
   activeEncounterId?: number | null
 }
 
-type TabId = 'overview' | 'subscription' | 'members' | 'barcode'
+type TabId = 'overview' | 'subscription' | 'members' | 'id-card'
 
 const props = defineProps<{
   household: Record<string, any>
@@ -28,7 +28,7 @@ const props = defineProps<{
 }>()
 
 const tab = ref<TabId>('overview')
-const barcodeSvgRef = ref<SVGSVGElement | null>(null)
+const idCardRef = ref<InstanceType<typeof HouseholdIdCard> | null>(null)
 
 const tabs = computed(() => [
   {
@@ -48,11 +48,15 @@ const tabs = computed(() => [
     count: props.membersTotal,
   },
   {
-    id: 'barcode' as TabId,
-    label: 'Barcode',
-    icon: 'M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z',
+    id: 'id-card' as TabId,
+    label: 'ID Card',
+    icon: 'M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2',
   },
 ])
+
+const barcodeValue = computed(() =>
+  String(props.household.barcode ?? props.household.householdId ?? '').trim()
+)
 
 const initials = computed(() => {
   const parts = String(props.household.headOfHouseName ?? '')
@@ -136,44 +140,21 @@ function extractHead() {
   router.post(`/households/${props.household.householdId}/extract-head-patient`, {}, { preserveScroll: true })
 }
 
-function printBarcode() {
+function printIdCard() {
   const run = () => {
-    renderBarcode()
+    idCardRef.value?.renderBarcode()
     window.print()
   }
-  if (tab.value !== 'barcode') {
-    tab.value = 'barcode'
+  if (tab.value !== 'id-card') {
+    tab.value = 'id-card'
     setTimeout(run, 50)
     return
   }
   run()
 }
 
-function renderBarcode() {
-  const node = barcodeSvgRef.value
-  const value = String(props.household.barcode ?? props.household.householdId ?? '').trim()
-  if (!node || !value) return
-  try {
-    JsBarcode(node, value, {
-      format: 'CODE128',
-      width: 2.2,
-      height: 55,
-      displayValue: false,
-      margin: 0,
-      background: '#ffffff',
-      lineColor: '#000000',
-    })
-  } catch {
-    node.innerHTML = ''
-  }
-}
-
-onMounted(() => {
-  if (tab.value === 'barcode') renderBarcode()
-})
-
 watch(tab, (next) => {
-  if (next === 'barcode') setTimeout(renderBarcode, 0)
+  if (next === 'id-card') setTimeout(() => idCardRef.value?.renderBarcode(), 0)
 })
 </script>
 
@@ -241,8 +222,8 @@ watch(tab, (next) => {
           </svg>
           Extract Head as Patient
         </button>
-        <button type="button" class="patient-action-btn" @click="printBarcode">
-          Print Barcode
+        <button type="button" class="patient-action-btn" @click="printIdCard">
+          Print ID Card
         </button>
         <Link
           :href="`/patients/create?household_id=${household.householdId}`"
@@ -403,23 +384,24 @@ watch(tab, (next) => {
         <HouseholdMembers :household-id="household.householdId" :members="members" embedded />
       </div>
 
-      <!-- Barcode -->
-      <div class="enc-panel" :class="{ active: tab === 'barcode' }">
-        <div v-if="display(household.barcode) !== '—' || household.householdId" class="sc">
+      <!-- ID Card -->
+      <div class="enc-panel" :class="{ active: tab === 'id-card' }">
+        <div v-if="barcodeValue" class="sc">
           <div class="sc-hd">
-            <span class="sc-title">Household Barcode</span>
-            <button type="button" class="patient-action-btn ml-auto text-xs" @click="printBarcode">Print Barcode</button>
+            <span class="sc-title">Household ID Card</span>
+            <button type="button" class="patient-action-btn ml-auto text-xs" @click="printIdCard">Print ID Card</button>
           </div>
           <div class="sc-bd flex flex-col items-center py-8">
-            <div id="patient-barcode-printable" class="patient-barcode-label">
-              <p class="patient-barcode-label__name">{{ household.headOfHouseName }}</p>
-              <p v-if="display(household.phoneNumber) !== '—'" class="patient-barcode-label__name !mb-2 !font-normal !text-[11px]">
-                Phone: {{ household.phoneNumber }}
-              </p>
-              <svg ref="barcodeSvgRef" />
-              <p class="patient-barcode-label__value">{{ household.barcode || household.householdId }}</p>
-            </div>
-            <p class="mt-4 text-xs text-neutral-400">Use CODE128 scanner to look up this household</p>
+            <HouseholdIdCard
+              ref="idCardRef"
+              :head-name="household.headOfHouseName"
+              :village="household.village"
+              :town="household.town"
+              :nrc="household.nrcNumber"
+              :phone="household.phoneNumber"
+              :barcode="barcodeValue"
+            />
+            <p class="mt-4 text-xs text-neutral-400">Portrait card — print on ID stock or cut to 54 × 86 mm</p>
           </div>
         </div>
         <div v-else class="sc">

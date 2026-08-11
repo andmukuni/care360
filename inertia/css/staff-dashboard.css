@@ -2690,7 +2690,13 @@ input.encounters-filter-field[type='date']::-webkit-calendar-picker-indicator {
     visibility: hidden !important;
   }
   #patient-barcode-printable,
-  #patient-barcode-printable * {
+  #patient-barcode-printable *,
+  #household-id-card-printable,
+  #household-id-card-printable *,
+  .household-id-cards-grid,
+  .household-id-cards-grid *,
+  [id^='household-id-card-'],
+  [id^='household-id-card-'] * {
     visibility: visible !important;
   }
   #patient-barcode-printable {
@@ -2701,6 +2707,36 @@ input.encounters-filter-field[type='date']::-webkit-calendar-picker-indicator {
     border: 1px solid #000;
     border-radius: 4px;
     padding: 12px 24px 14px;
+  }
+  #household-id-card-printable {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    width: 54mm;
+    min-height: 85.6mm;
+    page-break-inside: avoid;
+  }
+  #household-id-card-printable .household-id-card__header {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  [id^='household-id-card-'] {
+    position: relative;
+    margin: 0 auto 8mm;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    width: 54mm;
+    min-height: 85.6mm;
+    page-break-inside: avoid;
+  }
+  [id^='household-id-card-'] .household-id-card__header {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
 }
 
