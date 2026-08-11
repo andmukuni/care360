@@ -51,7 +51,7 @@ function print() {
 <style scoped>
 .household-id-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(591px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(284px, 1fr));
   gap: 16px;
   justify-items: center;
 }
@@ -76,6 +76,8 @@ function print() {
 
   .household-id-cards-grid,
   .household-id-cards-grid *,
+  .household-id-card-preview,
+  .household-id-card-preview *,
   [id^='household-id-card-'],
   [id^='household-id-card-'] * {
     visibility: visible !important;
@@ -95,6 +97,16 @@ function print() {
     border-radius: 0;
     box-shadow: none;
     page-break-inside: avoid;
+  }
+
+  .household-id-card-preview {
+    width: 591px;
+    height: 889px;
+    transform: none;
+  }
+
+  .household-id-card-preview .household-id-card {
+    transform: none;
   }
 
   [id^='household-id-card-'] .household-id-card__header {

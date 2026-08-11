@@ -2,6 +2,12 @@
 import { onMounted, ref, watch } from 'vue'
 import JsBarcode from 'jsbarcode'
 
+const CARD_WIDTH = 591
+const CARD_HEIGHT = 889
+const HEADER_HEIGHT = 532
+const BODY_HEIGHT = CARD_HEIGHT - HEADER_HEIGHT
+const PREVIEW_SCALE = 0.48
+
 const props = withDefaults(
   defineProps<{
     headName: string
@@ -11,6 +17,7 @@ const props = withDefaults(
     phone?: string
     barcode: string
     printableId?: string
+    previewScale?: number
   }>(),
   {
     village: '',
@@ -18,6 +25,7 @@ const props = withDefaults(
     nrc: '',
     phone: '',
     printableId: 'household-id-card-printable',
+    previewScale: PREVIEW_SCALE,
   }
 )
 
@@ -36,8 +44,8 @@ function renderBarcode() {
   try {
     JsBarcode(node, value, {
       format: 'CODE128',
-      width: 2.4,
-      height: 112,
+      width: 2.2,
+      height: 96,
       displayValue: false,
       margin: 0,
       background: '#ffffff',
@@ -55,94 +63,115 @@ defineExpose({ renderBarcode })
 </script>
 
 <template>
-  <div :id="printableId" class="household-id-card">
-    <img
-      :src="headerSrc"
-      alt="Anthu Omweh Health Centre"
-      class="household-id-card__header"
-    />
+  <div
+    class="household-id-card-preview"
+    :style="{
+      '--household-id-card-width': `${CARD_WIDTH}px`,
+      '--household-id-card-height': `${CARD_HEIGHT}px`,
+      '--household-id-card-header-height': `${HEADER_HEIGHT}px`,
+      '--household-id-card-body-height': `${BODY_HEIGHT}px`,
+      '--household-id-card-preview-scale': String(previewScale),
+    }"
+  >
+    <div :id="printableId" class="household-id-card">
+      <img
+        :src="headerSrc"
+        alt="Anthu Omweh Health Centre"
+        class="household-id-card__header"
+      />
 
-    <div class="household-id-card__body">
-      <h2 class="household-id-card__name">{{ headName }}</h2>
+      <div class="household-id-card__body">
+        <h2 class="household-id-card__name">{{ headName }}</h2>
 
-      <dl class="household-id-card__details">
-        <div class="household-id-card__row">
-          <dt>Village</dt>
-          <dd>{{ villageLabel() }}</dd>
-        </div>
-        <div class="household-id-card__row">
-          <dt>NRC</dt>
-          <dd>{{ nrc || '—' }}</dd>
-        </div>
-        <div class="household-id-card__row">
-          <dt>Phone</dt>
-          <dd>{{ phone || '—' }}</dd>
-        </div>
-      </dl>
+        <dl class="household-id-card__details">
+          <div class="household-id-card__row">
+            <dt>Village</dt>
+            <dd>{{ villageLabel() }}</dd>
+          </div>
+          <div class="household-id-card__row">
+            <dt>NRC</dt>
+            <dd>{{ nrc || '—' }}</dd>
+          </div>
+          <div class="household-id-card__row">
+            <dt>Phone</dt>
+            <dd>{{ phone || '—' }}</dd>
+          </div>
+        </dl>
 
-      <div class="household-id-card__barcode">
-        <svg ref="barcodeSvgRef" class="household-id-card__barcode-svg" role="img" :aria-label="`Barcode ${barcode}`" />
-        <p class="household-id-card__barcode-value">{{ barcode }}</p>
+        <div class="household-id-card__barcode">
+          <svg ref="barcodeSvgRef" class="household-id-card__barcode-svg" role="img" :aria-label="`Barcode ${barcode}`" />
+          <p class="household-id-card__barcode-value">{{ barcode }}</p>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.household-id-card {
-  --household-id-card-width: 591px;
-  --household-id-card-height: 889px;
+.household-id-card-preview {
+  width: calc(var(--household-id-card-width) * var(--household-id-card-preview-scale));
+  height: calc(var(--household-id-card-height) * var(--household-id-card-preview-scale));
+  overflow: visible;
+}
 
+.household-id-card {
   width: var(--household-id-card-width);
   height: var(--household-id-card-height);
   background: #fff;
   border: 1px solid #d4d4d4;
   border-radius: 4px;
-  overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  transform: scale(var(--household-id-card-preview-scale));
+  transform-origin: top left;
+  overflow: hidden;
 }
 
 .household-id-card__header {
   display: block;
   width: 100%;
-  height: auto;
+  height: var(--household-id-card-header-height);
+  object-fit: cover;
   flex-shrink: 0;
 }
 
 .household-id-card__body {
-  flex: 1;
+  height: var(--household-id-card-body-height);
+  flex: none;
   display: flex;
   flex-direction: column;
-  padding: 28px 42px 36px;
+  padding: 16px 36px 18px;
+  box-sizing: border-box;
   min-height: 0;
 }
 
 .household-id-card__name {
-  margin: 0 0 24px;
-  font-size: 36px;
+  margin: 0 0 14px;
+  font-size: 32px;
   font-weight: 800;
-  line-height: 1.12;
+  line-height: 1.1;
   letter-spacing: 0.02em;
   text-transform: uppercase;
   text-align: center;
   color: #111;
+  flex-shrink: 0;
 }
 
 .household-id-card__details {
-  margin: 0 0 auto;
+  margin: 0;
   padding: 0;
+  flex-shrink: 0;
 }
 
 .household-id-card__row {
   display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 8px;
-  margin-bottom: 14px;
-  font-size: 24px;
-  line-height: 1.25;
+  grid-template-columns: 108px 1fr;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 22px;
+  line-height: 1.2;
   color: #111;
 }
 
@@ -161,24 +190,40 @@ defineExpose({ renderBarcode })
 
 .household-id-card__barcode {
   margin-top: auto;
-  padding-top: 20px;
+  padding-top: 8px;
   text-align: center;
+  flex-shrink: 0;
 }
 
 .household-id-card__barcode-svg {
   display: block;
   width: 100%;
-  max-width: 500px;
-  height: 112px;
+  max-width: 480px;
+  height: 96px;
   margin: 0 auto;
 }
 
 .household-id-card__barcode-value {
-  margin: 12px 0 0;
-  font-size: 28px;
+  margin: 8px 0 0;
+  font-size: 26px;
   font-weight: 700;
+  line-height: 1;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   letter-spacing: 0.08em;
   color: #111;
+}
+
+@media print {
+  .household-id-card-preview {
+    width: var(--household-id-card-width);
+    height: var(--household-id-card-height);
+  }
+
+  .household-id-card {
+    transform: none;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
 }
 </style>

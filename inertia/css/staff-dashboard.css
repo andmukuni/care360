@@ -2693,6 +2693,8 @@ input.encounters-filter-field[type='date']::-webkit-calendar-picker-indicator {
   #patient-barcode-printable *,
   #household-id-card-printable,
   #household-id-card-printable *,
+  .household-id-card-preview,
+  .household-id-card-preview *,
   .household-id-cards-grid,
   .household-id-cards-grid *,
   [id^='household-id-card-'],
@@ -2709,16 +2711,26 @@ input.encounters-filter-field[type='date']::-webkit-calendar-picker-indicator {
     padding: 12px 24px 14px;
   }
   #household-id-card-printable {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
+    position: static;
+    transform: none;
     border: none;
     border-radius: 0;
     box-shadow: none;
     width: 591px;
     height: 889px;
     page-break-inside: avoid;
+  }
+  .household-id-card-preview {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 591px;
+    height: 889px;
+    overflow: visible;
+  }
+  .household-id-card-preview .household-id-card {
+    transform: none;
   }
   #household-id-card-printable .household-id-card__header {
     print-color-adjust: exact;
