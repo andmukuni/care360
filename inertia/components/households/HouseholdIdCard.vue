@@ -1,12 +1,17 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { nextTick, onMounted, ref, watch } from 'vue'
 import JsBarcode from 'jsbarcode'
+import {
+  downloadBlob,
+  householdIdCardFilename,
+  HOUSEHOLD_ID_CARD_HEADER_HEIGHT,
+  HOUSEHOLD_ID_CARD_HEIGHT,
+  HOUSEHOLD_ID_CARD_WIDTH,
+  renderHouseholdIdCardPng,
+} from '~/support/household_id_card_png'
 
-const CARD_WIDTH = 591
-const CARD_HEIGHT = 889
-const HEADER_HEIGHT = 532
-const BODY_HEIGHT = CARD_HEIGHT - HEADER_HEIGHT
 const PREVIEW_SCALE = 0.48
+const BODY_HEIGHT = HOUSEHOLD_ID_CARD_HEIGHT - HOUSEHOLD_ID_CARD_HEADER_HEIGHT
 
 const props = withDefaults(
   defineProps<{
@@ -31,6 +36,7 @@ const props = withDefaults(
 
 const headerSrc = '/images/household-id/card-header.png'
 const barcodeSvgRef = ref<SVGSVGElement | null>(null)
+const downloadingPng = ref(false)
 
 const villageLabel = () => {
   const parts = [props.village, props.town].map((v) => String(v ?? '').trim()).filter(Boolean)
@@ -59,16 +65,40 @@ function renderBarcode() {
 onMounted(renderBarcode)
 watch(() => props.barcode, () => setTimeout(renderBarcode, 0))
 
-defineExpose({ renderBarcode })
+async function downloadPng() {
+  if (downloadingPng.value) return
+
+  downloadingPng.value = true
+  try {
+    renderBarcode()
+    await nextTick()
+
+    const blob = await renderHouseholdIdCardPng({
+      headerSrc,
+      headName: props.headName,
+      villageLabel: villageLabel(),
+      nrc: props.nrc || '—',
+      phone: props.phone || '—',
+      barcode: props.barcode,
+      barcodeSvg: barcodeSvgRef.value,
+    })
+
+    downloadBlob(blob, householdIdCardFilename(props.headName, props.barcode))
+  } finally {
+    downloadingPng.value = false
+  }
+}
+
+defineExpose({ renderBarcode, downloadPng, downloadingPng })
 </script>
 
 <template>
   <div
     class="household-id-card-preview"
     :style="{
-      '--household-id-card-width': `${CARD_WIDTH}px`,
-      '--household-id-card-height': `${CARD_HEIGHT}px`,
-      '--household-id-card-header-height': `${HEADER_HEIGHT}px`,
+      '--household-id-card-width': `${HOUSEHOLD_ID_CARD_WIDTH}px`,
+      '--household-id-card-height': `${HOUSEHOLD_ID_CARD_HEIGHT}px`,
+      '--household-id-card-header-height': `${HOUSEHOLD_ID_CARD_HEADER_HEIGHT}px`,
       '--household-id-card-body-height': `${BODY_HEIGHT}px`,
       '--household-id-card-preview-scale': String(previewScale),
     }"

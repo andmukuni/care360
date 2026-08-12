@@ -29,6 +29,7 @@ const props = defineProps<{
 
 const tab = ref<TabId>('overview')
 const idCardRef = ref<InstanceType<typeof HouseholdIdCard> | null>(null)
+const downloadingIdCardPng = ref(false)
 
 const tabs = computed(() => [
   {
@@ -151,6 +152,22 @@ function printIdCard() {
     return
   }
   run()
+}
+
+async function downloadIdCardPng() {
+  if (downloadingIdCardPng.value) return
+
+  if (tab.value !== 'id-card') {
+    tab.value = 'id-card'
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
+
+  downloadingIdCardPng.value = true
+  try {
+    await idCardRef.value?.downloadPng()
+  } finally {
+    downloadingIdCardPng.value = false
+  }
 }
 
 watch(tab, (next) => {
@@ -389,7 +406,17 @@ watch(tab, (next) => {
         <div v-if="barcodeValue" class="sc">
           <div class="sc-hd">
             <span class="sc-title">Household ID Card</span>
-            <button type="button" class="patient-action-btn ml-auto text-xs" @click="printIdCard">Print ID Card</button>
+            <div class="ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                class="patient-action-btn text-xs"
+                :disabled="downloadingIdCardPng"
+                @click="downloadIdCardPng"
+              >
+                {{ downloadingIdCardPng ? 'Downloading…' : 'Download PNG' }}
+              </button>
+              <button type="button" class="patient-action-btn text-xs" @click="printIdCard">Print ID Card</button>
+            </div>
           </div>
           <div class="sc-bd flex flex-col items-center py-8">
             <HouseholdIdCard
