@@ -64,6 +64,7 @@ export default class RegistrationController {
             encounter_number: e.encounterNumber,
             patient_name: e.patient?.fullName ?? 'Unknown',
             patient_initial: (e.patient?.fullName ?? '?').charAt(0).toUpperCase(),
+            date_of_birth: e.patient?.dateOfBirth?.toISODate() ?? null,
             visit_type: e.visitType,
             priority_level: e.priorityLevel,
             started_at_relative: e.startedAt?.toRelative() ?? null,

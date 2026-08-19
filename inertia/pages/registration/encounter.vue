@@ -3,6 +3,7 @@ import { Link, useForm } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import ActionLink from '~/components/ui/ActionLink.vue'
 import QueueFooter from '~/components/ui/QueueFooter.vue'
+import { formatAgeLong } from '~/support/format_age'
 
 const props = defineProps<{
   encounter: {
@@ -76,6 +77,10 @@ function priorityLabel(level: string | null): string {
             <div class="detail-row">
               <span class="detail-label">Date of Birth</span>
               <span class="detail-value">{{ encounter.patient.date_of_birth ?? '—' }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Age</span>
+              <span class="detail-value">{{ formatAgeLong(encounter.patient.date_of_birth) ?? '—' }}</span>
             </div>
             <div class="detail-row">
               <span class="detail-label">Phone</span>

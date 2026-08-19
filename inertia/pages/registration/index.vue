@@ -16,7 +16,7 @@ import { useRegistrationDesk, type PatientSearchResult } from '~/composables/use
 import { useLiveQueueRefresh } from '~/composables/useLiveQueueRefresh'
 import { resolveMembershipCardTheme } from '~/constants/membershipPlanThemes'
 import { confirmDialog } from '~/composables/useConfirm'
-import { formatAgeLong } from '~/support/format_age'
+import { formatAgeLong, formatInfantAge } from '~/support/format_age'
 
 const props = defineProps<{
   activeEncounters: {
@@ -25,6 +25,7 @@ const props = defineProps<{
       encounter_number: string
       patient_name: string
       patient_initial: string
+      date_of_birth: string | null
       visit_type: string | null
       priority_level: string | null
       started_at_relative: string | null
@@ -427,6 +428,13 @@ function onAddVillageClick() {
                   <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2">
                       <p class="truncate text-sm font-semibold text-neutral-900 dark:text-neutral-100">{{ enc.patient_name }}</p>
+                      <span
+                        v-if="formatInfantAge(enc.date_of_birth)"
+                        class="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+                        :title="formatAgeLong(enc.date_of_birth) ?? undefined"
+                      >
+                        {{ formatInfantAge(enc.date_of_birth) }}
+                      </span>
                       <QueuePrioritySelect :encounter-id="enc.id" :priority="enc.priority_level" />
                     </div>
                     <p class="mt-0.5 truncate text-xs text-neutral-500">

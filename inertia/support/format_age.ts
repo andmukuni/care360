@@ -45,6 +45,17 @@ export function formatAge(dateOfBirth: string | null | undefined, now: Date = ne
   return days === 0 ? 'Newborn' : `${days} day${days === 1 ? '' : 's'}`
 }
 
+/**
+ * Compact age label for children under one year only — null for anyone one
+ * year or older (or an unknown DOB), so callers can flag infants without
+ * cluttering the display for older patients.
+ */
+export function formatInfantAge(dateOfBirth: string | null | undefined, now: Date = new Date()): string | null {
+  const parts = calculateAgeParts(dateOfBirth, now)
+  if (!parts || parts.years >= 1) return null
+  return formatAge(dateOfBirth, now)
+}
+
 /** Descriptive form for labels/tooltips, e.g. "5 months, 12 days old". */
 export function formatAgeLong(dateOfBirth: string | null | undefined, now: Date = new Date()): string | null {
   const parts = calculateAgeParts(dateOfBirth, now)
