@@ -17,11 +17,17 @@ import { installFlashToasts, processInitialFlash } from '~/support/flash_toasts'
 
 const CLINIC_BRANDING_KEY = 'hms-clinic-branding'
 
+// Browser-tab title suffix, kept in sync with Settings → Clinic (`clinic.name`,
+// shared on every Inertia page via config/inertia.ts) instead of a build-time env var.
+let appName = 'Hospital Management System'
+
 function persistClinicBranding(page: { props?: Record<string, unknown> } | undefined) {
   const clinic = page?.props?.clinic as
     | { name?: string; logoUrl?: string | null; hideLogo?: boolean }
     | undefined
   if (!clinic?.name) return
+
+  appName = clinic.name
 
   try {
     localStorage.setItem(
@@ -75,12 +81,10 @@ router.on('success', (event) => {
   persistClinicBranding(event.detail.page)
 })
 
-const appName = import.meta.env.VITE_APP_NAME || 'AdonisJS'
-
 createInertiaApp({
   progress: { color: '#5468FF' },
 
-  title: (title) => `${title} - ${appName}`,
+  title: (title) => (title ? `${title} - ${appName}` : appName),
 
   resolve: (name) => {
     return resolvePageComponent(

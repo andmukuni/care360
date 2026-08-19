@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import Spinner from '~/components/ui/Spinner.vue'
@@ -16,6 +16,7 @@ import { useRegistrationDesk, type PatientSearchResult } from '~/composables/use
 import { useLiveQueueRefresh } from '~/composables/useLiveQueueRefresh'
 import { resolveMembershipCardTheme } from '~/constants/membershipPlanThemes'
 import { confirmDialog } from '~/composables/useConfirm'
+import { formatAgeLong } from '~/support/format_age'
 
 const props = defineProps<{
   activeEncounters: {
@@ -46,6 +47,8 @@ const desk = useRegistrationDesk({
   villages: props.villages,
   selectedHouseholdOption: props.selectedHouseholdOption,
 })
+
+const newPatientAgeLabel = computed(() => formatAgeLong(desk.form.date_of_birth))
 
 useLiveQueueRefresh({
   stages: ['registration'],
@@ -595,6 +598,9 @@ function onAddVillageClick() {
                     <div>
                       <label class="field-label">Date of Birth</label>
                       <input v-model="desk.form.date_of_birth" type="date" class="field-input" />
+                      <p v-if="newPatientAgeLabel" class="mt-1 text-[11px] font-medium text-sky-700 dark:text-sky-400">
+                        Age: {{ newPatientAgeLabel }}
+                      </p>
                     </div>
                     <div>
                       <label class="field-label">NRC Number</label>

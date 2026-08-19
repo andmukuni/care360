@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { formatAge, formatAgeLong } from '~/support/format_age'
 
 const props = defineProps<{
   patientId: string
@@ -14,6 +15,7 @@ type MetaItem = {
   label: string
   value: string
   mono?: boolean
+  title?: string
 }
 
 function formatDob(iso: string | null): string | null {
@@ -39,6 +41,16 @@ const items = computed<MetaItem[]>(() => {
   const gender = formatGender(props.gender)
   if (gender) rows.push({ key: 'sex', label: 'Sex', value: gender })
 
+  const age = formatAge(props.dateOfBirth)
+  if (age) {
+    rows.push({
+      key: 'age',
+      label: 'Age',
+      value: age,
+      title: `Age: ${formatAgeLong(props.dateOfBirth) ?? age}`,
+    })
+  }
+
   const dob = formatDob(props.dateOfBirth)
   if (dob) rows.push({ key: 'dob', label: 'DOB', value: dob })
 
@@ -60,7 +72,7 @@ const items = computed<MetaItem[]>(() => {
       v-for="item in items"
       :key="item.key"
       class="patient-meta-chip"
-      :title="`${item.label}: ${item.value}`"
+      :title="item.title ?? `${item.label}: ${item.value}`"
     >
       <span class="patient-meta-chip__label">{{ item.label }}</span>
       <span
