@@ -9,6 +9,7 @@ import { EncounterStatus } from '#enums/encounter_status'
 import ReceiveScreeningReviewQueueAction from '#actions/encounter/receive_screening_review_queue_action'
 import RecordScreeningReviewAction from '#actions/encounter/record_screening_review_action'
 import SaveScreeningReviewDraftAction from '#actions/encounter/save_screening_review_draft_action'
+import RecordScreeningReviewVitalRecheckAction from '#actions/encounter/record_screening_review_vital_recheck_action'
 import CreatePrescriptionAction from '#actions/encounter/create_prescription_action'
 import QueueEncounterToPharmacyAction from '#actions/encounter/queue_encounter_to_pharmacy_action'
 import QueueEncounterBackToLabFromScreeningReviewAction from '#actions/encounter/queue_encounter_back_to_lab_from_screening_review_action'
@@ -20,6 +21,9 @@ import {
   screeningReviewValidator,
   screeningReviewDraftValidator,
 } from '#validators/staff/screening_review'
+import { vitalRecheckValidator, vitalRecheckAutosaveValidator } from '#validators/staff/screening'
+import { getReviewScreeningRecord } from '#services/encounter/encounter_records'
+import ScreeningVitalRecheck from '#models/screening_vital_recheck'
 import {
   isQueuePreviewForStage,
   latestStageTransition,
@@ -139,7 +143,9 @@ export default class ScreeningReviewController {
     const encounter = await Encounter.findOrFail(params.encounter)
     await encounter.load('patient')
     await encounter.load('triageRecords')
-    await encounter.load('screeningRecords')
+    await encounter.load('screeningRecords', (q) =>
+      q.preload('screeningVitalRechecks', (rq) => rq.preload('recordedByUser').orderBy('created_at', 'desc'))
+    )
     await encounter.load('encounterQueueTransitions', (q) => q.preload('queuedByUser'))
     await encounter.load('labRequests', (q) => {
       q.preload('labRequestItems')
@@ -216,6 +222,19 @@ export default class ScreeningReviewController {
             review_notes: review.reviewNotes,
           }
         : null,
+      vitalRechecks: (review?.screeningVitalRechecks ?? []).map((rc) => ({
+        id: rc.id,
+        weight: rc.weight,
+        height: rc.height,
+        bp_systolic: rc.bpSystolic,
+        bp_diastolic: rc.bpDiastolic,
+        pulse: rc.pulse,
+        temperature: rc.temperature,
+        spo2: rc.spo2,
+        notes: rc.notes,
+        recorded_by: rc.recordedByUser?.name ?? null,
+        recorded_at: rc.createdAt?.toFormat('dd LLL yyyy HH:mm') ?? null,
+      })),
       labRequest: lr
         ? {
             request_number: lr.requestNumber,
@@ -284,6 +303,105 @@ export default class ScreeningReviewController {
     }
 
     return response.json({ ok: true, saved_at: new Date().toISOString() })
+  }
+
+  // POST /screening-review/:encounter/vital-recheck
+  async saveVitalRecheck({ params, request, response, session, auth, bouncer }: HttpContext) {
+    const user = auth.getUserOrFail()
+    const encounter = await Encounter.findOrFail(params.encounter)
+    await (bouncer as any)
+      .with('EncounterPolicy')
+      .authorize('editInStage', encounter, EncounterStage.ScreeningReview)
+
+    const data = await request.validateUsing(vitalRecheckValidator)
+
+    try {
+      await new RecordScreeningReviewVitalRecheckAction().handle(
+        encounter,
+        data as Record<string, any>,
+        user.id
+      )
+    } catch (error) {
+      session.flash('error', error.message)
+      return response.redirect().back()
+    }
+
+    session.flash('success', 'Vital recheck recorded.')
+    return response.redirect().back()
+  }
+
+  // POST /screening-review/:encounter/vital-recheck/autosave  (JSON, upsert)
+  async autosaveVitalRecheck({ params, request, response, auth, bouncer }: HttpContext) {
+    const user = auth.getUserOrFail()
+    const encounter = await Encounter.findOrFail(params.encounter)
+    await (bouncer as any)
+      .with('EncounterPolicy')
+      .authorize('editInStage', encounter, EncounterStage.ScreeningReview)
+
+    const data = await request.validateUsing(vitalRecheckAutosaveValidator)
+
+    const screeningRecord = await getReviewScreeningRecord(encounter.id)
+    if (!screeningRecord) {
+      return response
+        .status(422)
+        .json({ ok: false, message: 'Save the clinical review before recording a vital recheck.' })
+    }
+
+    const fields = {
+      weight: data.weight ?? null,
+      height: data.height ?? null,
+      bpSystolic: data.bp_systolic ?? null,
+      bpDiastolic: data.bp_diastolic ?? null,
+      pulse: data.pulse ?? null,
+      temperature: data.temperature ?? null,
+      spo2: data.spo2 ?? null,
+      notes: data.notes ?? null,
+    }
+
+    const hasValue = Object.values(fields).some((value) => value !== null && value !== '')
+
+    let recheck: ScreeningVitalRecheck | null = null
+
+    if (data.id) {
+      recheck = await ScreeningVitalRecheck.query()
+        .where('id', data.id)
+        .where('encounter_id', encounter.id)
+        .first()
+    }
+
+    if (!recheck) {
+      if (!hasValue) {
+        return response.json({ ok: true, recheck: null })
+      }
+      recheck = await ScreeningVitalRecheck.create({
+        screeningRecordId: screeningRecord.id,
+        encounterId: encounter.id,
+        recordedBy: user.id,
+        ...fields,
+      })
+    } else {
+      recheck.merge(fields)
+      await recheck.save()
+    }
+
+    await recheck.load('recordedByUser')
+
+    return response.json({
+      ok: true,
+      recheck: {
+        id: recheck.id,
+        weight: recheck.weight,
+        height: recheck.height,
+        bp_systolic: recheck.bpSystolic,
+        bp_diastolic: recheck.bpDiastolic,
+        pulse: recheck.pulse,
+        temperature: recheck.temperature,
+        spo2: recheck.spo2,
+        notes: recheck.notes,
+        recorded_by: recheck.recordedByUser?.name ?? null,
+        recorded_at: recheck.createdAt?.toFormat('dd LLL yyyy HH:mm') ?? null,
+      },
+    })
   }
 
   // POST /screening-review/:encounter/complete

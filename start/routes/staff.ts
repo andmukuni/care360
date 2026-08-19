@@ -344,6 +344,8 @@ router
     router.post('/screening-review/:encounter/receive', [ScreeningReviewController, 'receive']).as('screening-review.receive').use(perm('screening-review.receive|screening.receive'))
     router.get('/screening-review/:encounter', [ScreeningReviewController, 'show']).as('screening-review.show')
     router.post('/screening-review/:encounter/save-draft', [ScreeningReviewController, 'saveDraft']).as('screening-review.save-draft').use(perm('screening-review.complete|screening.manage-assessment'))
+    router.post('/screening-review/:encounter/vital-recheck', [ScreeningReviewController, 'saveVitalRecheck']).as('screening-review.vital-recheck').use(perm('screening-review.complete|screening.manage-assessment'))
+    router.post('/screening-review/:encounter/vital-recheck/autosave', [ScreeningReviewController, 'autosaveVitalRecheck']).as('screening-review.vital-recheck.autosave').use(perm('screening-review.complete|screening.manage-assessment'))
     router.post('/screening-review/:encounter/complete', [ScreeningReviewController, 'complete']).as('screening-review.complete').use(perm('screening-review.complete|screening.manage-assessment'))
     router.post('/screening-review/:encounter/queue-lab', [ScreeningReviewController, 'queueToLab']).as('screening-review.queue-lab').use(perm('screening-review.complete|screening.manage-assessment'))
     router.post('/screening-review/:encounter/queue-treatment-room', [ScreeningReviewController, 'queueToTreatmentRoom']).as('screening-review.queue-treatment-room').use(perm('screening-review.complete|screening.manage-assessment|screening.queue-to-treatment-room'))

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Link, router, useForm } from '@inertiajs/vue3'
 import StaffLayout from '~/layouts/StaffLayout.vue'
 import PatientHeader from '~/components/encounter/PatientHeader.vue'
@@ -13,6 +13,7 @@ import FieldWithSuggestions from '~/components/clinical/FieldWithSuggestions.vue
 import PrescriptionSuggestionsPanel from '~/components/clinical/PrescriptionSuggestionsPanel.vue'
 import ActionButton from '~/components/ui/ActionButton.vue'
 import AutosaveIndicator from '~/components/ui/AutosaveIndicator.vue'
+import VitalInputWithBadge from '~/components/ui/VitalInputWithBadge.vue'
 import QueueFooter from '~/components/ui/QueueFooter.vue'
 import { useAsyncAction } from '~/composables/useAsyncAction'
 import { useAutosave } from '~/composables/useAutosave'
@@ -21,9 +22,32 @@ import { useQueueFooterHint } from '~/composables/useQueueFooterHint'
 import { useQueueActionsDeepLink } from '~/composables/useQueueActionsDeepLink'
 import { flushAutosavesBeforeAction } from '~/composables/useFlushAutosave'
 import { formatDiagnosisLabel } from '~/support/screening/screening_json_fields'
+import { onDecimalFieldInput } from '~/support/numeric_input'
+import {
+  bmiBadge as computeBmiBadge,
+  diastolicBpBadge,
+  oxygenSaturationBadge,
+  pulseBadge,
+  systolicBpBadge,
+  temperatureBadge,
+} from '~/support/vital_badges'
 import DictionarySearchSelect from '~/components/dictionary/DictionarySearchSelect.vue'
 
-type TabId = 'review' | 'prescription'
+type TabId = 'review' | 'vital-recheck' | 'prescription'
+
+type VitalRecheckRow = {
+  id: number
+  weight: number | null
+  height: number | null
+  bp_systolic: number | null
+  bp_diastolic: number | null
+  pulse: number | null
+  temperature: number | null
+  spo2: number | null
+  notes: string | null
+  recorded_by: string | null
+  recorded_at: string | null
+}
 
 const props = defineProps<{
   encounter: {
@@ -92,6 +116,7 @@ const props = defineProps<{
     }[]
   } | null
   rxDraft: { items: any[]; prescription_notes: string | null } | null
+  vitalRechecks: VitalRecheckRow[]
   clinicalSuggestions: {
     fields: Record<string, { id: number; text: string; source?: Record<string, unknown> }[]>
     prescriptions: { id: number; items: Record<string, unknown>[]; source?: Record<string, unknown> }[]
@@ -207,6 +232,108 @@ const form = useForm({
 })
 
 const canEdit = computed(() => props.encounter.can_edit && !props.encounter.is_locked)
+
+const recheck = useForm({
+  weight: null as number | null,
+  height: null as number | null,
+  bp_systolic: null as number | null,
+  bp_diastolic: null as number | null,
+  pulse: null as number | null,
+  temperature: null as number | null,
+  spo2: null as number | null,
+  notes: '',
+})
+
+const rechecksList = ref<VitalRecheckRow[]>([...props.vitalRechecks])
+
+watch(
+  () => props.vitalRechecks,
+  (value) => {
+    rechecksList.value = [...value]
+  },
+  { deep: true }
+)
+
+const recheckBmiDisplay = ref('')
+
+function calculateRecheckBmi() {
+  const weight = Number(recheck.weight)
+  const height = Number(recheck.height)
+
+  if (!weight || !height || height <= 0) {
+    recheckBmiDisplay.value = ''
+    return
+  }
+
+  const heightM = height / 100
+  const bmi = weight / (heightM * heightM)
+  recheckBmiDisplay.value = bmi.toFixed(1)
+}
+
+function onRecheckDecimalInput(field: 'weight' | 'height', event: Event) {
+  onDecimalFieldInput(event, (value) => {
+    recheck[field] = value
+    calculateRecheckBmi()
+  })
+}
+
+watch([() => recheck.weight, () => recheck.height], calculateRecheckBmi)
+
+const recheckBmiBadge = computed(() => computeBmiBadge(recheckBmiDisplay.value))
+
+const recheckVitalBadges = computed(() => {
+  const dob = props.encounter.patient?.date_of_birth ?? null
+  return {
+    bp_systolic: systolicBpBadge(recheck.bp_systolic, dob),
+    bp_diastolic: diastolicBpBadge(recheck.bp_diastolic, dob),
+    pulse: pulseBadge(recheck.pulse, dob),
+    temperature: temperatureBadge(recheck.temperature, dob),
+    spo2: oxygenSaturationBadge(recheck.spo2),
+  }
+})
+
+function recheckHasValue() {
+  return [
+    recheck.weight,
+    recheck.height,
+    recheck.bp_systolic,
+    recheck.bp_diastolic,
+    recheck.pulse,
+    recheck.temperature,
+    recheck.spo2,
+  ].some((value) => value !== null && value !== '') || recheck.notes.trim().length > 0
+}
+
+// Mirrors screening's hasScreeningAssessment gate: the review record is created
+// as soon as the clinical review autosave first fires, so its presence (or a
+// dirty final_diagnosis field before the first autosave lands) is the signal.
+const hasReviewAssessment = computed(() => !!props.review || !!form.final_diagnosis.trim())
+
+const canSaveVitalRecheck = computed(() => canEdit.value && hasReviewAssessment.value)
+
+const { loading: savingRecheck, run: runSaveRecheck } = useAsyncAction()
+
+function saveVitalRecheck() {
+  if (!recheckHasValue()) {
+    window.alert('Enter at least one vital sign or note before saving.')
+    return
+  }
+  runSaveRecheck(({ done }) => {
+    recheck.post(`/screening-review/${props.encounter.id}/vital-recheck`, {
+      preserveScroll: true,
+      onSuccess: () => {
+        newRecheck()
+        router.reload({ only: ['vitalRechecks'] })
+      },
+      onFinish: done,
+    })
+  })
+}
+
+function newRecheck() {
+  recheck.reset()
+  recheckBmiDisplay.value = ''
+}
 
 let triggerAutosave: () => void = () => {}
 
@@ -512,6 +639,22 @@ function applyAllClinicalSuggestions(updates: Record<string, string>) {
               <button
                 type="button"
                 class="tab-btn"
+                :class="activeTab === 'vital-recheck' ? 'active' : ''"
+                @click="activeTab = 'vital-recheck'"
+              >
+                <svg class="tab-btn__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+                  />
+                </svg>
+                Vital Recheck
+              </button>
+              <button
+                type="button"
+                class="tab-btn"
                 :class="activeTab === 'prescription' ? 'active' : ''"
                 @click="activeTab = 'prescription'"
               >
@@ -606,6 +749,141 @@ function applyAllClinicalSuggestions(updates: Record<string, string>) {
             <p v-if="!canEdit" class="text-sm text-neutral-500">
               Receive this patient to complete the review.
             </p>
+          </div>
+
+          <div class="tab-panel space-y-4 p-6" :class="activeTab === 'vital-recheck' ? 'active' : ''">
+            <div v-if="triage" class="section-card bg-neutral-50">
+              <div class="section-card-title">Triage baseline (read-only)</div>
+              <div class="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+                <div><span class="text-xs text-neutral-500">Weight</span><p class="font-semibold">{{ triage.weight ? `${triage.weight} kg` : '—' }}</p></div>
+                <div><span class="text-xs text-neutral-500">BP</span><p class="font-semibold">{{ triage.systolic_bp && triage.diastolic_bp ? `${triage.systolic_bp}/${triage.diastolic_bp}` : '—' }}</p></div>
+                <div><span class="text-xs text-neutral-500">Pulse</span><p class="font-semibold">{{ triage.pulse ?? '—' }}</p></div>
+                <div><span class="text-xs text-neutral-500">Temp</span><p class="font-semibold">{{ triage.temperature ? `${triage.temperature}°C` : '—' }}</p></div>
+              </div>
+            </div>
+            <div v-if="canEdit && !hasReviewAssessment" class="rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+              Save the clinical review (Final diagnosis) before recording a vital recheck.
+            </div>
+            <div v-if="canSaveVitalRecheck" class="section-card">
+              <div class="section-card-title">Record vital recheck</div>
+              <div class="mt-4 grid grid-cols-2 gap-4 md:grid-cols-3">
+                <div>
+                  <label class="field-label">Weight <span class="unit">kg</span></label>
+                  <input
+                    :value="recheck.weight"
+                    type="text"
+                    inputmode="decimal"
+                    class="field-input"
+                    placeholder="e.g. 65.5"
+                    @input="onRecheckDecimalInput('weight', $event)"
+                  />
+                  <p class="mt-0.5 text-[10px] text-neutral-400">Decimals allowed</p>
+                </div>
+                <div>
+                  <label class="field-label">Height <span class="unit">cm</span></label>
+                  <input
+                    :value="recheck.height"
+                    type="text"
+                    inputmode="decimal"
+                    class="field-input"
+                    placeholder="e.g. 165"
+                    @input="onRecheckDecimalInput('height', $event)"
+                  />
+                  <p class="mt-0.5 text-[10px] text-neutral-400">Decimals allowed</p>
+                </div>
+                <div>
+                  <label class="field-label">BMI <span class="unit">kg/m²</span></label>
+                  <VitalInputWithBadge
+                    v-model="recheckBmiDisplay"
+                    :badge="recheckBmiBadge"
+                    input-type="text"
+                    readonly
+                    placeholder="Auto-calculated"
+                    input-class="cursor-default bg-neutral-50 font-bold dark:bg-neutral-900"
+                  />
+                </div>
+                <div>
+                  <label class="field-label">Systolic BP <span class="unit">mmHg</span></label>
+                  <VitalInputWithBadge
+                    v-model="recheck.bp_systolic"
+                    :badge="recheckVitalBadges.bp_systolic"
+                    :allow-decimals="false"
+                    :min="40"
+                    :max="300"
+                    placeholder="e.g. 120"
+                  />
+                </div>
+                <div>
+                  <label class="field-label">Diastolic BP <span class="unit">mmHg</span></label>
+                  <VitalInputWithBadge
+                    v-model="recheck.bp_diastolic"
+                    :badge="recheckVitalBadges.bp_diastolic"
+                    :allow-decimals="false"
+                    :min="20"
+                    :max="200"
+                    placeholder="e.g. 80"
+                  />
+                </div>
+                <div>
+                  <label class="field-label">Pulse <span class="unit">bpm</span></label>
+                  <VitalInputWithBadge
+                    v-model="recheck.pulse"
+                    :badge="recheckVitalBadges.pulse"
+                    :allow-decimals="false"
+                    :min="20"
+                    :max="250"
+                    placeholder="e.g. 72"
+                  />
+                </div>
+                <div>
+                  <label class="field-label">Temperature <span class="unit">°C</span></label>
+                  <VitalInputWithBadge
+                    v-model="recheck.temperature"
+                    :badge="recheckVitalBadges.temperature"
+                    step="0.1"
+                    :min="30"
+                    :max="45"
+                    placeholder="e.g. 36.8"
+                  />
+                </div>
+                <div>
+                  <label class="field-label">SpO₂ <span class="unit">%</span></label>
+                  <VitalInputWithBadge
+                    v-model="recheck.spo2"
+                    :badge="recheckVitalBadges.spo2"
+                    step="0.1"
+                    :min="0"
+                    :max="100"
+                    placeholder="e.g. 98"
+                  />
+                </div>
+              </div>
+              <div class="mt-4"><label class="field-label">Notes</label><textarea v-model="recheck.notes" rows="2" class="field-input" placeholder="Optional notes…" /></div>
+              <div class="mt-3 flex flex-wrap items-center gap-3">
+                <ActionButton
+                  type="button"
+                  variant="primary"
+                  class="!text-xs"
+                  :loading="savingRecheck"
+                  loading-text="Saving…"
+                  :disabled="!recheckHasValue()"
+                  @click="saveVitalRecheck"
+                >
+                  Save recheck
+                </ActionButton>
+                <ActionButton type="button" variant="outline" class="!text-xs" @click="newRecheck">
+                  + New recheck
+                </ActionButton>
+              </div>
+            </div>
+            <div v-if="rechecksList.length" class="section-card">
+              <div class="section-card-title">Previous rechecks</div>
+              <div v-for="rc in rechecksList" :key="rc.id" class="border-b border-neutral-100 py-2 text-sm last:border-0">
+                <span class="font-semibold">{{ rc.recorded_at }}</span> · {{ rc.recorded_by ?? 'Clinician' }}
+                — W: {{ rc.weight ?? '—' }} kg, BP: {{ rc.bp_systolic ?? '—' }}/{{ rc.bp_diastolic ?? '—' }}, Pulse: {{ rc.pulse ?? '—' }}, Temp: {{ rc.temperature ?? '—' }}°C, SpO₂: {{ rc.spo2 ?? '—' }}%
+                <span v-if="rc.notes" class="mt-0.5 block text-xs text-neutral-500">{{ rc.notes }}</span>
+              </div>
+            </div>
           </div>
 
           <div class="tab-panel space-y-4 p-6" :class="activeTab === 'prescription' ? 'active' : ''">
