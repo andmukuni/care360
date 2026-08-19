@@ -665,13 +665,16 @@ const canSaveVitalRecheck = computed(
 
 const recheckBmiBadge = computed(() => computeBmiBadge(recheckBmiDisplay.value))
 
-const recheckVitalBadges = computed(() => ({
-  bp_systolic: systolicBpBadge(recheck.bp_systolic),
-  bp_diastolic: diastolicBpBadge(recheck.bp_diastolic),
-  pulse: pulseBadge(recheck.pulse),
-  temperature: temperatureBadge(recheck.temperature),
-  spo2: oxygenSaturationBadge(recheck.spo2),
-}))
+const recheckVitalBadges = computed(() => {
+  const dob = props.encounter.patient?.date_of_birth ?? null
+  return {
+    bp_systolic: systolicBpBadge(recheck.bp_systolic, dob),
+    bp_diastolic: diastolicBpBadge(recheck.bp_diastolic, dob),
+    pulse: pulseBadge(recheck.pulse, dob),
+    temperature: temperatureBadge(recheck.temperature, dob),
+    spo2: oxygenSaturationBadge(recheck.spo2),
+  }
+})
 
 function recheckHasValue() {
   return [

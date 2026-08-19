@@ -93,7 +93,9 @@ const mergedTriage = computed(() => {
     }
   }
 
-  return Object.keys(base).length ? base : null
+  if (!Object.keys(base).length) return null
+  base.date_of_birth = patient.value?.date_of_birth ?? null
+  return base
 })
 
 const vitalSeverity = computed(() =>
@@ -170,10 +172,13 @@ const vitals = computed(() => {
 
   const rows: VitalRow[] = []
 
+  const dob = t.date_of_birth
+
   if (t.systolic_bp && t.diastolic_bp) {
-    const ranked = [severityFromBadge(systolicBpBadge(t.systolic_bp)), severityFromBadge(diastolicBpBadge(t.diastolic_bp))].filter(
-      Boolean
-    ) as VitalSeverity[]
+    const ranked = [
+      severityFromBadge(systolicBpBadge(t.systolic_bp, dob)),
+      severityFromBadge(diastolicBpBadge(t.diastolic_bp, dob)),
+    ].filter(Boolean) as VitalSeverity[]
     const order = { normal: 0, low: 1, elevated: 2, abnormal: 3, critical: 4 }
     const worst = ranked.reduce<VitalSeverity | null>(
       (acc, item) => (!acc || order[item] > order[acc] ? item : acc),
@@ -182,12 +187,12 @@ const vitals = computed(() => {
     pushVital(rows, 'BP', `${t.systolic_bp}/${t.diastolic_bp}`, worst)
   }
 
-  pushVital(rows, 'Pulse', t.pulse ? `${t.pulse}` : null, severityFromBadge(pulseBadge(t.pulse)))
+  pushVital(rows, 'Pulse', t.pulse ? `${t.pulse}` : null, severityFromBadge(pulseBadge(t.pulse, dob)))
   pushVital(
     rows,
     'Temp',
     t.temperature ? `${t.temperature}°C` : null,
-    severityFromBadge(temperatureBadge(t.temperature))
+    severityFromBadge(temperatureBadge(t.temperature, dob))
   )
   pushVital(
     rows,
@@ -212,7 +217,7 @@ const vitals = computed(() => {
     rows,
     'RR',
     t.respiratory_rate ? `${t.respiratory_rate}` : null,
-    severityFromBadge(respiratoryRateBadge(t.respiratory_rate))
+    severityFromBadge(respiratoryRateBadge(t.respiratory_rate, dob))
   )
 
   return rows

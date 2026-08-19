@@ -156,6 +156,8 @@ watch(screeningSubTabs, (tabs) => {
 
 const reopenForm = useForm({ reason: '', notes: '' })
 
+const patientDob = computed<string | null>(() => props.encounter?.overview?.patient?.date_of_birth ?? null)
+
 function worstSeverity(...severities: Array<VitalSeverity | null | undefined>): VitalSeverity | null {
   const order: Record<VitalSeverity, number> = {
     normal: 0,
@@ -224,10 +226,12 @@ const triageVitalCards = computed((): TriageVitalCard[] => {
 
   const cards: TriageVitalCard[] = []
 
+  const dob = patientDob.value
+
   if (vitals.systolic_bp && vitals.diastolic_bp) {
     const bpBadge = worstBadge(
-      systolicBpBadge(vitals.systolic_bp),
-      diastolicBpBadge(vitals.diastolic_bp)
+      systolicBpBadge(vitals.systolic_bp, dob),
+      diastolicBpBadge(vitals.diastolic_bp, dob)
     )
 
     pushTriageVitalCard(cards, {
@@ -237,8 +241,8 @@ const triageVitalCards = computed((): TriageVitalCard[] => {
       label: 'Blood Pressure',
       badge: bpBadge,
       severity: worstSeverity(
-        severityFromBadge(systolicBpBadge(vitals.systolic_bp)),
-        severityFromBadge(diastolicBpBadge(vitals.diastolic_bp))
+        severityFromBadge(systolicBpBadge(vitals.systolic_bp, dob)),
+        severityFromBadge(diastolicBpBadge(vitals.diastolic_bp, dob))
       ),
     })
   }
@@ -248,7 +252,7 @@ const triageVitalCards = computed((): TriageVitalCard[] => {
     value: vitals.pulse,
     unit: 'bpm',
     label: 'Pulse',
-    badge: pulseBadge(vitals.pulse),
+    badge: pulseBadge(vitals.pulse, dob),
   })
 
   pushTriageVitalCard(cards, {
@@ -256,7 +260,7 @@ const triageVitalCards = computed((): TriageVitalCard[] => {
     value: vitals.temperature,
     unit: '°C',
     label: 'Temperature',
-    badge: temperatureBadge(vitals.temperature),
+    badge: temperatureBadge(vitals.temperature, dob),
   })
 
   pushTriageVitalCard(cards, {
@@ -272,7 +276,7 @@ const triageVitalCards = computed((): TriageVitalCard[] => {
     value: vitals.respiratory_rate,
     unit: 'breaths/min',
     label: 'Resp. Rate',
-    badge: respiratoryRateBadge(vitals.respiratory_rate),
+    badge: respiratoryRateBadge(vitals.respiratory_rate, dob),
   })
 
   pushTriageVitalCard(cards, {
@@ -396,8 +400,8 @@ function vitalRecheckBpCell(vr: {
   bp_diastolic?: number | string | null
 }): VitalCellDisplay {
   if (!vr.bp_systolic || !vr.bp_diastolic) return vitalCellDisplay('—', null)
-  const sysBadge = systolicBpBadge(vr.bp_systolic)
-  const diaBadge = diastolicBpBadge(vr.bp_diastolic)
+  const sysBadge = systolicBpBadge(vr.bp_systolic, patientDob.value)
+  const diaBadge = diastolicBpBadge(vr.bp_diastolic, patientDob.value)
   return vitalCellDisplay(
     `${vr.bp_systolic}/${vr.bp_diastolic}`,
     worstBadge(sysBadge, diaBadge),
@@ -409,12 +413,12 @@ function vitalRecheckPulseCell(vr: { pulse?: number | string | null }): VitalCel
   if (vr.pulse === null || vr.pulse === undefined || vr.pulse === '') {
     return vitalCellDisplay('—', null)
   }
-  return vitalCellDisplay(String(vr.pulse), pulseBadge(vr.pulse))
+  return vitalCellDisplay(String(vr.pulse), pulseBadge(vr.pulse, patientDob.value))
 }
 
 function vitalRecheckTempCell(vr: { temperature?: number | string | null }): VitalCellDisplay {
   if (!vr.temperature) return vitalCellDisplay('—', null)
-  return vitalCellDisplay(`${vr.temperature}°C`, temperatureBadge(vr.temperature))
+  return vitalCellDisplay(`${vr.temperature}°C`, temperatureBadge(vr.temperature, patientDob.value))
 }
 
 function vitalRecheckSpo2Cell(vr: { spo2?: number | string | null }): VitalCellDisplay {

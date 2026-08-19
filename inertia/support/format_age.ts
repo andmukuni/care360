@@ -30,6 +30,13 @@ function plural(value: number, unit: string): string {
   return `${value} ${unit}${value === 1 ? '' : 's'}`
 }
 
+/** Total whole months of age — used to bucket patients into clinical age bands (e.g. vital sign ranges). */
+export function ageInMonths(dateOfBirth: string | null | undefined, now: Date = new Date()): number | null {
+  const parts = calculateAgeParts(dateOfBirth, now)
+  if (!parts) return null
+  return parts.years * 12 + parts.months
+}
+
 /** Compact form for chips/badges, e.g. "3 yrs", "5 mos", "2 wks", "4 days", "Newborn". */
 export function formatAge(dateOfBirth: string | null | undefined, now: Date = new Date()): string | null {
   const parts = calculateAgeParts(dateOfBirth, now)

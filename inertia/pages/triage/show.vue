@@ -299,13 +299,15 @@ const showEditableForm = computed(() => props.isAtTriage && props.encounter.can_
 
 const bmiBadge = computed(() => computeBmiBadge(bmiDisplay.value))
 
+const patientDob = computed(() => props.encounter.patient?.date_of_birth ?? null)
+
 const vitalBadges = computed(() => ({
-  temperature: temperatureBadge(vitals.temperature),
-  pulse: pulseBadge(vitals.pulse),
-  respiratory_rate: respiratoryRateBadge(vitals.respiratory_rate),
+  temperature: temperatureBadge(vitals.temperature, patientDob.value),
+  pulse: pulseBadge(vitals.pulse, patientDob.value),
+  respiratory_rate: respiratoryRateBadge(vitals.respiratory_rate, patientDob.value),
   oxygen_saturation: oxygenSaturationBadge(vitals.oxygen_saturation),
-  systolic_bp: systolicBpBadge(vitals.systolic_bp),
-  diastolic_bp: diastolicBpBadge(vitals.diastolic_bp),
+  systolic_bp: systolicBpBadge(vitals.systolic_bp, patientDob.value),
+  diastolic_bp: diastolicBpBadge(vitals.diastolic_bp, patientDob.value),
   blood_sugar: bloodSugarBadge(vitals.blood_sugar),
   muac: muacBadge(vitals.muac),
   muac_score: muacScoreBadge(vitals.muac_score),
