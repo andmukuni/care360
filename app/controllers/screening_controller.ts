@@ -100,6 +100,7 @@ function parseTbSymptoms(raw: string | null | undefined): string[] {
 }
 
 import { serializePrescriptionItem } from '#support/encounter/prescription_item_payload'
+import { serializeLabItemsWithResults } from '#support/encounter/lab_item_payload'
 import { loadClinicalSuggestions } from '#support/clinical/load_clinical_suggestions'
 
 function serializeScreeningRecord(sr: ScreeningRecord | null) {
@@ -352,6 +353,17 @@ export default class ScreeningController {
           .preload('triageRecords')
           .preload('screeningRecords', (q) => q.where('screening_type', 'initial'))
           .preload('startupMedications', (q) => q.preload('recordedByUser'))
+          .preload('labRequests', (q) =>
+            q
+              .preload('labRequestItems')
+              .preload('labResults', (rq) => rq.preload('verifiedByUser').preload('releasedByUser'))
+          )
+          .preload('pharmacyPrescriptions', (q) =>
+            q.preload('pharmacyPrescriptionItems').preload('prescribedByUser')
+          )
+          .preload('pharmacyDispenses', (q) =>
+            q.preload('pharmacyDispenseItems').preload('dispensedByUser')
+          )
           .orderBy('started_at', 'desc')
           .limit(10)
       : []
@@ -424,6 +436,10 @@ export default class ScreeningController {
       pastEncounters: pastEncounters.map((past) => {
         const pastTriage = past.triageRecords?.[0] ?? null
         const pastScreening = past.screeningRecords?.[0] ?? null
+        const formatDate = (value: DateTime | null | undefined, format = 'dd LLL yyyy HH:mm') =>
+          value?.toFormat(format) ?? null
+        const userBadge = (u: { name: string } | null | undefined) =>
+          u ? { name: u.name, role: null } : null
         return {
           id: past.id,
           encounter_number: past.encounterNumber,
@@ -469,6 +485,35 @@ export default class ScreeningController {
             administered_at: m.administeredAt?.toFormat('dd LLL yyyy HH:mm') ?? null,
             recorded_by: m.recordedByUser?.name ?? null,
             status: m.status,
+          })),
+          lab_requests: (past.labRequests ?? []).map((lr) => ({
+            id: lr.id,
+            request_number: lr.requestNumber,
+            status: lr.status,
+            priority_level: lr.priorityLevel,
+            requested_at: formatDate(lr.requestedAt),
+            items: serializeLabItemsWithResults(lr, { formatDate, userBadge }),
+          })),
+          pharmacy_prescriptions: (past.pharmacyPrescriptions ?? []).map((rx) => ({
+            id: rx.id,
+            prescription_number: rx.prescriptionNumber,
+            status: rx.status,
+            prescribed_by: rx.prescribedByUser?.name ?? null,
+            prescribed_at: formatDate(rx.prescribedAt),
+            items: (rx.pharmacyPrescriptionItems ?? []).map(serializePrescriptionItem),
+          })),
+          pharmacy_dispenses: (past.pharmacyDispenses ?? []).map((d) => ({
+            id: d.id,
+            dispensed_by: d.dispensedByUser?.name ?? null,
+            dispensed_at: formatDate(d.dispensedAt),
+            dispensing_notes: d.dispensingNotes,
+            items: (d.pharmacyDispenseItems ?? []).map((item) => ({
+              id: item.id,
+              drug_name: item.drugName,
+              quantity_dispensed: item.quantityDispensed,
+              batch_no: item.batchNo,
+              instructions: item.instructions,
+            })),
           })),
         }
       }),

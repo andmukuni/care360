@@ -77,6 +77,56 @@ type Ward = {
   wing: string | null
 }
 
+type PastLabResult = {
+  id: number
+  result_value: string | null
+  result_text: string | null
+  reference_range: string | null
+  interpretation: string | null
+  remarks: string | null
+  result_status: string
+}
+
+type PastLabItem = {
+  id: number
+  test_name: string
+  specimen_type: string | null
+  status: string
+  result: PastLabResult | null
+}
+
+type PastLabRequest = {
+  id: number
+  request_number: string
+  status: string
+  priority_level: string | null
+  requested_at: string | null
+  items: PastLabItem[]
+}
+
+type PastPharmacyPrescription = {
+  id: number
+  prescription_number: string
+  status: string
+  prescribed_by: string | null
+  prescribed_at: string | null
+  items: PrescriptionItem[]
+}
+
+type PastPharmacyDispense = {
+  id: number
+  dispensed_by: string | null
+  dispensed_at: string | null
+  dispensing_notes: string | null
+  items: {
+    id: number
+    drug_name: string
+    quantity_dispensed: number
+    batch_no: string | null
+    instructions: string | null
+  }[]
+}
+
 type PastEncounter = {
   id: number
   encounter_number: string
@@ -86,6 +136,9 @@ type PastEncounter = {
   triage: Record<string, any> | null
   screening: Record<string, any> | null
   startup_medications: StartupMed[]
+  lab_requests: PastLabRequest[]
+  pharmacy_prescriptions: PastPharmacyPrescription[]
+  pharmacy_dispenses: PastPharmacyDispense[]
 }
 
 type MedSearchResult = {
@@ -1354,6 +1407,70 @@ onUnmounted(() => {
                           <p class="mb-0.5 text-[10px] font-semibold uppercase text-neutral-500">Provisional Dx</p>
                           <p class="text-sm text-neutral-600 dark:text-neutral-400">{{ formatDiagnosisLabel(past.screening.provisional_diagnosis) }}</p>
                         </div>
+                      </div>
+                    </div>
+                    <div v-if="past.lab_requests.length" class="space-y-2">
+                      <h4 class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Lab Results</h4>
+                      <div v-for="lr in past.lab_requests" :key="lr.id" class="overflow-x-auto rounded border border-neutral-100 dark:border-white/[0.06]">
+                        <div class="flex items-center justify-between bg-neutral-50 px-2 py-1 dark:bg-neutral-800">
+                          <span class="font-mono text-[11px] text-neutral-500">{{ lr.request_number }}</span>
+                          <span class="text-[10px] text-neutral-400">{{ lr.requested_at }}</span>
+                        </div>
+                        <table class="w-full text-xs">
+                          <thead><tr class="text-left"><th class="px-2 py-1.5 font-semibold uppercase text-neutral-500">Test</th><th class="px-2 py-1.5 font-semibold uppercase text-neutral-500">Result</th><th class="px-2 py-1.5 font-semibold uppercase text-neutral-500">Reference Range</th><th class="px-2 py-1.5 font-semibold uppercase text-neutral-500">Status</th></tr></thead>
+                          <tbody class="divide-y divide-neutral-100 dark:divide-white/[0.04]">
+                            <tr v-for="item in lr.items" :key="item.id">
+                              <td class="px-2 py-1.5 font-medium text-neutral-900 dark:text-white">{{ item.test_name }}</td>
+                              <td class="px-2 py-1.5 text-neutral-600 dark:text-neutral-400">{{ item.result?.result_value ?? item.result?.result_text ?? '—' }}</td>
+                              <td class="px-2 py-1.5 text-neutral-500">{{ item.result?.reference_range ?? '—' }}</td>
+                              <td class="px-2 py-1.5">
+                                <span class="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">
+                                  {{ item.result?.result_status ?? item.status }}
+                                </span>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                    <div v-if="past.pharmacy_prescriptions.length" class="space-y-2">
+                      <h4 class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Prescriptions</h4>
+                      <div v-for="rx in past.pharmacy_prescriptions" :key="rx.id" class="overflow-x-auto rounded border border-neutral-100 dark:border-white/[0.06]">
+                        <div class="flex items-center justify-between bg-neutral-50 px-2 py-1 dark:bg-neutral-800">
+                          <span class="font-mono text-[11px] text-neutral-500">{{ rx.prescription_number }} · {{ rx.status }}</span>
+                          <span class="text-[10px] text-neutral-400">{{ rx.prescribed_by }} · {{ rx.prescribed_at }}</span>
+                        </div>
+                        <table class="w-full text-xs">
+                          <thead><tr class="text-left"><th class="px-2 py-1.5 font-semibold uppercase text-neutral-500">Drug</th><th class="px-2 py-1.5 font-semibold uppercase text-neutral-500">Dose</th><th class="px-2 py-1.5 font-semibold uppercase text-neutral-500">Frequency</th><th class="px-2 py-1.5 font-semibold uppercase text-neutral-500">Duration</th></tr></thead>
+                          <tbody class="divide-y divide-neutral-100 dark:divide-white/[0.04]">
+                            <tr v-for="item in rx.items" :key="item.id">
+                              <td class="px-2 py-1.5 font-medium text-neutral-900 dark:text-white">{{ item.drug_name }}</td>
+                              <td class="px-2 py-1.5 text-neutral-600">{{ item.dose ?? '—' }}</td>
+                              <td class="px-2 py-1.5 text-neutral-600">{{ item.frequency ?? '—' }}</td>
+                              <td class="px-2 py-1.5 text-neutral-600">{{ item.duration ? `${item.duration} ${item.duration_unit ?? ''}` : '—' }}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                    <div v-if="past.pharmacy_dispenses.length" class="space-y-2">
+                      <h4 class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Dispensed Medication</h4>
+                      <div v-for="d in past.pharmacy_dispenses" :key="d.id" class="overflow-x-auto rounded border border-neutral-100 dark:border-white/[0.06]">
+                        <div class="flex items-center justify-between bg-neutral-50 px-2 py-1 dark:bg-neutral-800">
+                          <span class="text-[11px] text-neutral-500">{{ d.dispensed_by }}</span>
+                          <span class="text-[10px] text-neutral-400">{{ d.dispensed_at }}</span>
+                        </div>
+                        <table class="w-full text-xs">
+                          <thead><tr class="text-left"><th class="px-2 py-1.5 font-semibold uppercase text-neutral-500">Drug</th><th class="px-2 py-1.5 font-semibold uppercase text-neutral-500">Qty</th><th class="px-2 py-1.5 font-semibold uppercase text-neutral-500">Batch</th></tr></thead>
+                          <tbody class="divide-y divide-neutral-100 dark:divide-white/[0.04]">
+                            <tr v-for="item in d.items" :key="item.id">
+                              <td class="px-2 py-1.5 font-medium text-neutral-900 dark:text-white">{{ item.drug_name }}</td>
+                              <td class="px-2 py-1.5 text-neutral-600">{{ item.quantity_dispensed }}</td>
+                              <td class="px-2 py-1.5 text-neutral-600">{{ item.batch_no ?? '—' }}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                        <p v-if="d.dispensing_notes" class="px-2 py-1.5 text-[11px] text-neutral-500">{{ d.dispensing_notes }}</p>
                       </div>
                     </div>
                     <div v-if="past.startup_medications.length">
