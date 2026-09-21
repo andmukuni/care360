@@ -12,10 +12,6 @@ export default class PublicApiCorsMiddleware {
     response.header('Access-Control-Allow-Headers', 'Accept, Content-Type')
     response.header('Access-Control-Max-Age', '86400')
 
-    if (request.method() === 'OPTIONS') {
-      return response.status(204).send('')
-    }
-
     return next()
   }
 }

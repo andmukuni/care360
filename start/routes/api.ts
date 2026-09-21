@@ -58,7 +58,6 @@ router
     router
       .group(() => {
         router.get('/stats', [PublicStatsController, 'index'])
-        router.options('/stats', async ({ response }) => response.status(204).send(''))
       })
       .prefix('v1/public')
       .use(middleware.publicApiCors())
