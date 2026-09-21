@@ -12,6 +12,7 @@ import { EncounterQueueService } from '#services/encounter/encounter_queue_servi
 import { EncounterWorkflowService } from '#services/encounter/encounter_workflow_service'
 import { getLatestDispense } from '#services/encounter/encounter_records'
 import type { EncounterBillingServiceContract } from '#services/encounter/external_contracts'
+import { hasPrescriptionWithItems } from '#support/encounter/stage_prerequisites'
 
 /**
  * Closes an encounter permanently (from Pharmacy).
@@ -39,15 +40,15 @@ export default class CloseEncounterAction {
       this.workflowService.assertStageIs(encounter, EncounterStage.Pharmacy)
       this.workflowService.assertStatusIs(encounter, EncounterStatus.InProgress)
 
-      // Guard: a dispense with items must exist.
+      const hasPrescription = await hasPrescriptionWithItems(encounter.id, trx)
       const dispense = await getLatestDispense(encounter.id, trx)
-      const hasItems = dispense
+      const hasDispenseItems = dispense
         ? (await PharmacyDispenseItem.query({ client: trx })
             .where('pharmacy_dispense_id', dispense.id)
             .first()) !== null
         : false
 
-      if (!dispense || !hasItems) {
+      if (hasPrescription && (!dispense || !hasDispenseItems)) {
         throw new Error('Medication must be dispensed before the encounter can be closed.')
       }
 

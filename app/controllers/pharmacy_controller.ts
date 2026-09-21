@@ -14,9 +14,14 @@ import CreatePrescriptionAction from '#actions/encounter/create_prescription_act
 import DispenseMedicationAction from '#actions/encounter/dispense_medication_action'
 import AppendPharmacyPrescriptionItemsAction from '#actions/encounter/append_pharmacy_prescription_items_action'
 import CloseEncounterAction from '#actions/encounter/close_encounter_action'
+import ClosePharmacyEncounterWithoutPrescriptionAction from '#actions/encounter/close_pharmacy_encounter_without_prescription_action'
 import QueueEncounterFromPharmacyToScreeningAction from '#actions/encounter/queue_encounter_from_pharmacy_to_screening_action'
 import ReturnEncounterToInitialScreeningAction from '#actions/encounter/return_encounter_to_initial_screening_action'
-import { hasPrescriptionWithItems } from '#support/encounter/stage_prerequisites'
+import ClosePharmacyEncountersWithoutPrescriptionService from '#services/encounter/close_pharmacy_encounters_without_prescription_service'
+import {
+  PHARMACY_NO_PRESCRIPTION_CLOSURE_NOTE,
+  hasPrescriptionWithItems,
+} from '#support/encounter/stage_prerequisites'
 import { serializePrescriptionItem } from '#support/encounter/prescription_item_payload'
 import { serializeLabItemsWithResults } from '#support/encounter/lab_item_payload'
 import {
@@ -59,6 +64,8 @@ export default class PharmacyController {
 
   // GET /pharmacy/queue
   async queue({ inertia, request, auth }: HttpContext) {
+    await new ClosePharmacyEncountersWithoutPrescriptionService().handle()
+
     const { queuedPage, progressPage, partiallyDispensedPage, closedPage } = parseQueuePages(
       request,
       {
@@ -152,6 +159,20 @@ export default class PharmacyController {
       .authorize('receiveForStage', encounter, EncounterStage.Pharmacy)
 
     try {
+      const hasPrescription = await hasPrescriptionWithItems(encounter.id)
+      if (!hasPrescription) {
+        await new ClosePharmacyEncounterWithoutPrescriptionAction().handle(
+          encounter,
+          user.id,
+          PHARMACY_NO_PRESCRIPTION_CLOSURE_NOTE
+        )
+        session.flash(
+          'success',
+          `Encounter ${encounter.encounterNumber} closed automatically — no prescription medication.`
+        )
+        return response.redirect().toPath('/pharmacy/queue')
+      }
+
       await new ReceivePharmacyQueueAction().handle(encounter, user.id)
     } catch (error) {
       session.flash('error', error.message)

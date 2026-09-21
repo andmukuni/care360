@@ -29,6 +29,7 @@ import CloseEncounterFromScreeningAction from '#actions/encounter/close_encounte
 import { closeEncounterValidator } from '#validators/staff/pharmacy'
 import GeneratePresumptiveTbCaseNumberAction from '#actions/encounter/generate_presumptive_tb_case_number_action'
 import { getInitialScreeningRecord } from '#services/encounter/encounter_records'
+import { hasPrescriptionWithItems } from '#support/encounter/stage_prerequisites'
 import {
   screeningAssessmentValidator,
   clinicianLabRequestValidator,
@@ -800,6 +801,14 @@ export default class ScreeningController {
     }
 
     await encounter.refresh()
+
+    if (destination === 'pharmacy' && !(await hasPrescriptionWithItems(encounter.id))) {
+      session.flash(
+        'error',
+        'Add at least one medication to the prescription before queuing to Pharmacy.'
+      )
+      return response.redirect().back()
+    }
 
     try {
       if (destination === 'lab') {
