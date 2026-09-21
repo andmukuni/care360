@@ -17,9 +17,6 @@ fi
 echo "[entrypoint] Running database migrations..."
 node ace migration:run --force
 
-echo "[entrypoint] Closing Pharmacy encounters without prescription medication..."
-node ace pharmacy:close-empty-queue || echo "[entrypoint] pharmacy:close-empty-queue skipped"
-
 if [ "${RUN_DICTIONARY_SYNC:-false}" = "true" ]; then
   echo "[entrypoint] RUN_DICTIONARY_SYNC=true — syncing medical dictionary (this may take several minutes)..."
   node ace dictionary:sync
