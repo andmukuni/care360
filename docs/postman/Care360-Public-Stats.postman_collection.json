@@ -1,0 +1,111 @@
+{
+  "info": {
+    "_postman_id": "a3c9e2b1-4d70-4f18-9c6a-care360-public-stats",
+    "name": "Care360 Public Stats",
+    "description": "Live clinic statistics for the public website. These endpoints return aggregates only — no patient names or identifiers.\n\nProduction host: https://care260.smatdata.co.zm",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://care260.smatdata.co.zm"
+    }
+  ],
+  "item": [
+    {
+      "name": "Public live stats",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/public/stats",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "public", "stats"]
+        },
+        "description": "Current system stats for website widgets.\n\n- encounters.total — all encounters\n- encounters.today — encounters started today (clinic timezone)\n- encounters.active — currently open visits\n- patients.male / patients.female — registered patient counts\n- live — patients currently in each department queue"
+      },
+      "response": [
+        {
+          "name": "Example",
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            }
+          ],
+          "body": "{\n  \"ok\": true,\n  \"generated_at\": \"2026-09-21T12:47:00.000Z\",\n  \"timezone\": \"Africa/Lusaka\",\n  \"facility_name\": \"AntuOmweh Care\",\n  \"encounters\": {\n    \"total\": 1842,\n    \"today\": 37,\n    \"active\": 12,\n    \"completed\": 1810,\n    \"cancelled\": 20\n  },\n  \"patients\": {\n    \"total\": 960,\n    \"male\": 410,\n    \"female\": 538,\n    \"unspecified\": 12,\n    \"attended_today\": 34\n  },\n  \"live\": {\n    \"registration\": 1,\n    \"triage\": 3,\n    \"screening\": 4,\n    \"lab\": 2,\n    \"screening_review\": 1,\n    \"pharmacy\": 1,\n    \"treatment_room\": 0\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "CORS preflight",
+      "request": {
+        "method": "OPTIONS",
+        "header": [
+          {
+            "key": "Origin",
+            "value": "https://example.com"
+          },
+          {
+            "key": "Access-Control-Request-Method",
+            "value": "GET"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/public/stats",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "public", "stats"]
+        },
+        "description": "Browser preflight for embedding the stats API on an external website."
+      }
+    },
+    {
+      "name": "App health",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/up",
+          "host": ["{{baseUrl}}"],
+          "path": ["up"]
+        },
+        "description": "Liveness check. Does not require authentication."
+      }
+    },
+    {
+      "name": "Database health",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/health/db",
+          "host": ["{{baseUrl}}"],
+          "path": ["health", "db"]
+        },
+        "description": "Readiness check that also pings Postgres."
+      }
+    }
+  ]
+}

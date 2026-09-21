@@ -48,9 +48,21 @@ const MessageController = () => import('#controllers/api/portal/message_controll
 const FeedbackController = () => import('#controllers/api/portal/feedback_controller')
 const EmergencyController = () => import('#controllers/api/portal/emergency_controller')
 const PaymentController = () => import('#controllers/api/portal/payment_controller')
+const PublicStatsController = () => import('#controllers/api/public/stats_controller')
 
 router
   .group(() => {
+    /**
+     * Public website stats (no auth). CORS-enabled aggregates only.
+     */
+    router
+      .group(() => {
+        router.get('/stats', [PublicStatsController, 'index'])
+        router.options('/stats', async ({ response }) => response.status(204).send(''))
+      })
+      .prefix('v1/public')
+      .use(middleware.publicApiCors())
+
     /**
      * Patient portal mobile API (v1/portal). portalLocale resolves the request
      * language for localized output.

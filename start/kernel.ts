@@ -69,4 +69,5 @@ export const middleware = router.named({
   portalLocale: () => import('#middleware/set_portal_locale_middleware'),
   staffApi: () => import('#middleware/ensure_staff_api_access_middleware'),
   ensurePasswordDecision: () => import('#middleware/ensure_password_decision_middleware'),
+  publicApiCors: () => import('#middleware/public_api_cors_middleware'),
 })
